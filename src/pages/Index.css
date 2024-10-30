@@ -1,0 +1,190 @@
+@import url("https://fonts.googleapis.com/css2?family=DynaPuff:wght@400..700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Playwrite+GB+S:ital,wght@0,100..400;1,100..400&display=swap");
+@import url('https://fonts.googleapis.com/css2?family=Afacad+Flux:wght@100..1000&display=swap');
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* //SplashScreen Section-- */
+
+.splash-header {
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #000000;
+}
+
+.splash-header h1 {
+  font-size: 30px;
+  font-family: "DynaPuff", system-ui;
+  color: #208d7f;
+}
+
+/* //OnboardingScreen Section-- */
+
+.onboarding-container {
+  background: linear-gradient(110deg, #2a1542, #000000);
+  height: 100vh;
+  padding: 3rem 6rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.onboarding-container h2 {
+  font-family: "Playwrite GB S", cursive;
+  font-weight: 500;
+  color: #e6dfdf;
+  margin-bottom: 5rem;
+}
+
+.onboarding-container h1 {
+  font-family: "Poppins", sans-serif;
+  font-size: 40px;
+  color: #e6dfdf;
+}
+
+.onboarding-container h4 {
+  font-family: "Poppins", sans-serif;
+  font-size: 18px;
+  font-weight: 400;
+  margin-bottom: 3rem;
+  color: #a19f9f;
+}
+
+.onboarding-container p {
+  font-family: "Poppins", sans-serif;
+  font-size: 20px;
+  font-weight: 400;
+  color: #a19f9f;
+  margin-bottom: 1rem;
+}
+
+.onboarding-buttons-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.9rem;
+}
+
+.onboarding-buttons button {
+  cursor: pointer;
+  padding: 10px 18px;
+  width: 8rem;
+  border: none;
+  border-radius: 10px;
+}
+
+/* Login and Sign up Section--- */
+
+.auth-main-container {
+    /* font-family: "Poppins", sans-serif; */
+    font-family: "Afacad Flux", sans-serif;
+    padding: 3rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+    background-color: #f7f3f3;
+}
+
+.login-redirection-arrow {
+    width: fit-content;
+}
+.auth-container {
+    display: flex;
+    flex-direction: column;
+    text-align: center;
+}
+
+.auth-container h2 {
+    font-weight: 500;
+    font-size: 35px;
+    margin-bottom: 1.5rem;
+}
+
+.auth-container p {
+    font-weight: 400;
+    font-size: 25px;
+    margin-bottom: 1.5rem;
+    color: #383434;
+}
+
+.auth-container form{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    
+}
+
+.auth-container form span {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+
+.auth-form-button {
+    cursor: pointer;
+    padding: 10px 8px;
+    background-color: #dfdada;
+    color: #3d3c3c;
+    border: none;
+    border-radius: 10px;
+    margin: 1rem 0 5rem 0;
+    width: 40ch;
+}
+
+.no-deco-signupLink {
+    text-decoration: none;
+    color: #208d7f;
+}
+
+
+
+/* Media Queries--- */
+
+@media screen and (max-width: 700px) {
+  .onboarding-container {
+    padding: 3rem 4rem;
+  }
+}
+
+@media screen and (max-width: 550px) {
+  .onboarding-container {
+    padding: 3rem 1rem;
+  }
+
+  .onboarding-container h1 {
+    font-size: 50px;
+    text-align: left;
+    margin-bottom: 1rem;
+  }
+
+  .onboarding-container h4 {
+    text-align: left;
+    line-height: 2rem;
+  }
+
+  .onboarding-container p {
+    font-size: 18px;
+    font-weight: 400;
+    color: #a19f9f;
+    margin-bottom: 1rem;
+  }
+}
+
+@media screen and (max-width: 450px) {
+  .onboarding-container {
+    height: 100%;
+  }
+  .auth-container p {
+    font-size: 20px;
+    
+}
+}

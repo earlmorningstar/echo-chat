@@ -1,26 +1,40 @@
-import React from 'react';
-import logo from './logo.svg';
-import './App.css';
+import { RouterProvider, createBrowserRouter } from "react-router-dom";
+import SplashScreen from "./pages/SplashScreen";
+import OnboardingScreen from "./pages/OnboardingScreen";
+import LoginPage from "./pages/LoginPage";
+import SignupPage from "./pages/SignupPage";
+// import RootLayout from "./pages/RootLayout";
+// import ErrorPage from "./pages/ErrorPage";
 
-function App() {
-  return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.tsx</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
-  );
-}
+const router = createBrowserRouter([
+  {
+    path: "/",
+    element: <SplashScreen />,
+  },
+  {
+    path: "/onboarding",
+    element: <OnboardingScreen />,
+  },
+  {
+    path: "/login",
+    element: <LoginPage />,
+  },
+  {
+    path: "/signup",
+    element: <SignupPage />,
+  },
+  //   {
+  //     path: '/home',
+  //     element: <RootLayout />, // Main layout component of the app
+  //     errorElement: <ErrorPage />,
+  //     children: [
+  //         // Define child routes here if needed
+  //     ],
+  // },
+]);
+
+const App: React.FC = () => {
+  return <RouterProvider router={router} />;
+};
 
 export default App;
