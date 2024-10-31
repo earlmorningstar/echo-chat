@@ -125,7 +125,7 @@
 .auth-container form span {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
 }
 
 
@@ -143,6 +143,21 @@
 .no-deco-signupLink {
     text-decoration: none;
     color: #208d7f;
+}
+
+.auth-label-flex {
+  display: flex;
+  gap: 3px;
+}
+
+.error-message {
+  color: red;
+  font-size: 13px; 
+  margin-top: 0rem; 
+}
+
+#auth-pass-id {
+  width: 40ch;
 }
 
 

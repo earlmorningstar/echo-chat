@@ -24,10 +24,27 @@ const LoginPage: React.FC = () => {
     event.preventDefault();
   };
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Logging in with:", { email, password });
-    navigate("/home");
+    
+   
+    const response = await fetch('/api/login', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email, password }),
+    });
+
+    if (response.ok) {
+      
+      const userData = await response.json();
+      console.log("Login successful:", userData);
+      navigate("/home");
+    } else {
+      const errorData = await response.json();
+      alert(errorData.message || "Login failed. Please check your credentials.");
+    }
   };
 
   return (
@@ -47,12 +64,14 @@ const LoginPage: React.FC = () => {
               variant="standard"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              sx={{ m: 1, width: "35ch" }}
+              sx={{ m: 1, width: "35ch", ".MuiInputLabel-asterisk": { color: "#f7f3f3" } }}
+              
+              required
             />
           </span>
           
           <span>
-            <FormControl sx={{ m: 1, width: "35ch" }} variant="standard">
+            <FormControl sx={{ m: 1, width: "35ch", ".MuiInputLabel-asterisk": { color: "#f7f3f3" } }} variant="standard">
               <InputLabel htmlFor="standard-adornment-password">Password</InputLabel>
               <Input
                 id="standard-adornment-password"

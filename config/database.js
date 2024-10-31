@@ -1,19 +1,20 @@
-// config/db.js
-const { MongoClient } = require('mongodb');
-require('dotenv').config(); // Load environment variables
+const { MongoClient } = require("mongodb");
+require("dotenv").config(); 
 
-const uri = process.env.MONGODB_URI; // Retrieve URI from environment variables
+const uri = process.env.MONGODB_URI; 
 const client = new MongoClient(uri);
 
 async function connectToDatabase() {
-    try {
-        await client.connect();
-        console.log("Connected successfully to MongoDB");
-        return client.db("javascriptforpractice"); // replace "chatApp" with your actual database name
-    } catch (error) {
-        console.error("Failed to connect to MongoDB", error);
-        process.exit(1); // exit on connection failure
-    }
+  const uri = process.env.MONGODB_URI;
+  const client = new MongoClient(uri);
+  try {
+    await client.connect();
+    console.log("Connected successfully to MongoDB");
+    return client.db("javascriptforpractice"); 
+  } catch (error) {
+    console.error("Failed to connect to MongoDB", error);
+    process.exit(1); 
+  }
 }
 
 module.exports = { connectToDatabase, client };
