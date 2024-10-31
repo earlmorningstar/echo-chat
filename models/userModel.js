@@ -1,16 +1,23 @@
+const bcrypt = require("bcrypt");
+
 const userModel = {
-  // Create a new user in the 'users' collection
   createUser: async (db, userData) => {
+    const hashedPassword = await bcrypt.hash(userData.password, 10); 
+    userData.password = hashedPassword; 
     try {
       const result = await db.collection("users").insertOne(userData);
-      return { id: result.insertedId, email: userData.email }; // Only return the id and email, not password
+      return {
+        id: result.insertedId,
+        firstName: userData.firstName,
+        lastName: userData.lastName,
+        email: userData.email,
+      }; 
     } catch (error) {
       console.error("Error creating user:", error);
       throw new Error("Failed to create user");
     }
   },
 
-  // Finding a user by email
   findUserByEmail: async (db, email) => {
     try {
       const user = await db.collection("users").findOne({ email });

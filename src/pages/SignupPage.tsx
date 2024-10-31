@@ -9,6 +9,10 @@ import FormControl from "@mui/material/FormControl";
 import Visibility from "@mui/icons-material/Visibility";
 import VisibilityOff from "@mui/icons-material/VisibilityOff";
 import IconButton from "@mui/material/IconButton";
+import Box from "@mui/material/Box";
+import Alert from "@mui/material/Alert";
+import Collapse from "@mui/material/Collapse";
+import Stack from "@mui/material/Stack";
 import "./Index.css";
 
 const SignupPage: React.FC = () => {
@@ -18,6 +22,9 @@ const SignupPage: React.FC = () => {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [open, setOpen] = React.useState(true);
   const [errorMessages, setErrorMessages] = useState({
     firstName: "",
     lastName: "",
@@ -65,7 +72,10 @@ const SignupPage: React.FC = () => {
       showError("password", "Field cannot be blank");
       hasError = true;
     } else if (password.length < 6 || !/[A-Z]/.test(password)) {
-      showError("password", "Password must be at least 6 characters and contain at least one uppercase letter");
+      showError(
+        "password",
+        "Password must be at least 6 characters and contain at least one uppercase letter"
+      );
       hasError = true;
     } else if (password === "Password") {
       showError("password", "Password cannot be 'Password'");
@@ -78,24 +88,30 @@ const SignupPage: React.FC = () => {
 
     if (hasError) return;
 
-    
-    const response = await fetch("/api/signup", {
+    const response = await fetch("http://localhost:3000/api/signup", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ firstName, lastName, email, password }),
+      body: JSON.stringify({
+        firstName,
+        lastName,
+        email,
+        password,
+        confirmPassword,
+      }),
     });
 
     if (response.ok) {
-     
       const userData = await response.json();
       console.log("Signup successful:", userData);
-      
-      navigate("/login");
+      setSuccess(true);
+      setTimeout(() => {
+        navigate("/login");
+      }, 4000);
     } else {
       const errorData = await response.json();
-      alert(errorData.message || "Signup failed. Please try again.");
+      setError(errorData.message || "Error Signing Up. Please try again");
     }
   };
 
@@ -109,55 +125,119 @@ const SignupPage: React.FC = () => {
         <p>Join us by creating your account below</p>
 
         <form onSubmit={handleSignup}>
+          {success && (
+            <Box sx={{ width: "35ch" }}>
+              <Collapse in={open}>
+                <Alert
+                  action={
+                    <IconButton
+                      aria-label="close"
+                      color="inherit"
+                      size="small"
+                      onClick={() => {
+                        setOpen(false);
+                      }}
+                    ></IconButton>
+                  }
+                  sx={{ mb: 2 }}
+                >
+                  User created successfully!!
+                </Alert>
+              </Collapse>
+            </Box>
+          )}
+          {error && (
+            <Stack sx={{ width: "35ch" }} spacing={2}>
+              <Alert severity="error">
+                Error signing up. Please try again.
+              </Alert>
+            </Stack>
+          )}
           <span>
             <TextField
               type="text"
-              label={<div className="auth-label-flex">First Name <span style={{ color: "red" }}>*</span></div>}
+              label={
+                <div className="auth-label-flex">
+                  First Name <span style={{ color: "red" }}>*</span>
+                </div>
+              }
               variant="standard"
               value={firstName}
               onChange={(e) => setFirstName(e.target.value)}
-              sx={{ m: 1, width: "35ch", ".MuiInputLabel-asterisk": { color: "#f7f3f3" } }}
-              
+              sx={{
+                m: 1,
+                width: "35ch",
+                ".MuiInputLabel-asterisk": { color: "#f7f3f3" },
+              }}
             />
-            {errorMessages.firstName && <div className="error-message">{errorMessages.firstName}</div>}
+            {errorMessages.firstName && (
+              <div className="error-message">{errorMessages.firstName}</div>
+            )}
           </span>
           <span>
             <TextField
               type="text"
-              label={<div className="auth-label-flex">Last Name <span style={{ color: "red" }}>*</span></div>}
+              label={
+                <div className="auth-label-flex">
+                  Last Name <span style={{ color: "red" }}>*</span>
+                </div>
+              }
               variant="standard"
               value={lastName}
               onChange={(e) => setLastName(e.target.value)}
-              sx={{ m: 1, width: "35ch", ".MuiInputLabel-asterisk": { color: "#f7f3f3" } }}
-              
+              sx={{
+                m: 1,
+                width: "35ch",
+                ".MuiInputLabel-asterisk": { color: "#f7f3f3" },
+              }}
             />
-            {errorMessages.lastName && <div className="error-message">{errorMessages.lastName}</div>}
+            {errorMessages.lastName && (
+              <div className="error-message">{errorMessages.lastName}</div>
+            )}
           </span>
 
           <span>
             <TextField
               type="email"
-              label={<div className="auth-label-flex">Your Email <span style={{ color: "red" }}>*</span></div>}
+              label={
+                <div className="auth-label-flex">
+                  Your Email <span style={{ color: "red" }}>*</span>
+                </div>
+              }
               variant="standard"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              sx={{ m: 1, width: "35ch", ".MuiInputLabel-asterisk": { color: "#f7f3f3" } }}
-              
+              sx={{
+                m: 1,
+                width: "35ch",
+                ".MuiInputLabel-asterisk": { color: "#f7f3f3" },
+              }}
             />
-            {errorMessages.email && <div className="error-message">{errorMessages.email}</div>}
+            {errorMessages.email && (
+              <div className="error-message">{errorMessages.email}</div>
+            )}
           </span>
 
           <span>
-            <FormControl sx={{ m: 1, width: "35ch", ".MuiInputLabel-asterisk": { color: "#f7f3f3" } }} variant="standard">
-              <InputLabel htmlFor="standard-adornment-password">
-                Password
+            <FormControl
+              sx={{
+                m: 1,
+                width: "35ch",
+                ".MuiInputLabel-asterisk": { color: "#f7f3f3" },
+              }}
+              variant="standard"
+            >
+              <InputLabel
+                id="pass-label-flex"
+                htmlFor="standard-adornment-password"
+              >
+                Password <span style={{ color: "red" }}>*</span>
               </InputLabel>
               <Input
                 id="standard-adornment-password"
                 type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                
                 endAdornment={
                   <InputAdornment position="end">
                     <IconButton
@@ -175,20 +255,31 @@ const SignupPage: React.FC = () => {
                 }
               />
             </FormControl>
-            {errorMessages.password && <div className="error-message" id="auth-pass-id">{errorMessages.password}</div>}
+            {errorMessages.password && (
+              <div className="error-message">{errorMessages.password}</div>
+            )}
           </span>
 
           <span>
-            <FormControl sx={{ m: 1, width: "35ch", ".MuiInputLabel-asterisk": { color: "#f7f3f3" } }} variant="standard">
-              <InputLabel htmlFor="standard-adornment-confirm-password">
-                Confirm Password
+            <FormControl
+              sx={{
+                m: 1,
+                width: "35ch",
+                ".MuiInputLabel-asterisk": { color: "#f7f3f3" },
+              }}
+              variant="standard"
+            >
+              <InputLabel
+                id="pass-label-flex"
+                htmlFor="standard-adornment-confirm-password"
+              >
+                Confirm Password <span style={{ color: "red" }}>*</span>
               </InputLabel>
               <Input
                 id="standard-adornment-confirm-password"
                 type={showPassword ? "text" : "password"}
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                
                 endAdornment={
                   <InputAdornment position="end">
                     <IconButton
@@ -206,7 +297,11 @@ const SignupPage: React.FC = () => {
                 }
               />
             </FormControl>
-            {errorMessages.confirmPassword && <div className="error-message">{errorMessages.confirmPassword}</div>}
+            {errorMessages.confirmPassword && (
+              <div className="error-message">
+                {errorMessages.confirmPassword}
+              </div>
+            )}
           </span>
 
           <button type="submit" className="auth-form-button">

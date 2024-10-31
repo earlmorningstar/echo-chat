@@ -85,11 +85,12 @@
 .auth-main-container {
     /* font-family: "Poppins", sans-serif; */
     font-family: "Afacad Flux", sans-serif;
-    padding: 3rem 1rem;
+    padding: 3rem 1rem 5rem 1rem;
     display: flex;
     flex-direction: column;
     gap: 2rem;
     background-color: #f7f3f3;
+    height: 100%;
 }
 
 .login-redirection-arrow {
@@ -151,13 +152,19 @@
 }
 
 .error-message {
+  text-align: center;
   color: red;
   font-size: 13px; 
   margin-top: 0rem; 
 }
 
-#auth-pass-id {
-  width: 40ch;
+#pass-label-flex {
+  display: flex;
+  gap: 3px;
+}
+
+.alert-mui p {
+  font-size: 18px;
 }
 
 
