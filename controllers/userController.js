@@ -1,5 +1,16 @@
+const nodemailer = require("nodemailer");
 const userModel = require("../models/userModel");
 const bcrypt = require("bcrypt");
+const crypto = require("crypto");
+
+const transporter = nodemailer.createTransport({
+  host: process.env.MAILTRAP_HOST,
+  port: process.env.MAILTRAP_PORT,
+  auth: {
+    user: process.env.MAILTRAP_USER,
+    pass: process.env.MAILTRAP_PASS,
+  },
+});
 
 const createUser = async (req, res) => {
   const { firstName, lastName, email, password, confirmPassword } = req.body;
@@ -25,29 +36,110 @@ const createUser = async (req, res) => {
   }
 };
 
-
 const loginUser = async (req, res) => {
-    const { email, password } = req.body;
-  
-    if (!email || !password) {
-      return res.status(400).json({ message: "Email and password are required" });
-    }
-  
-    try {
-      const user = await userModel.findUserByEmail(req.db, email);
-      if (!user) {
-        return res.status(404).json({ message: "User not found" });
-      }
-  
-      const isPasswordValid = await bcrypt.compare(password, user.password);
-      if (!isPasswordValid) {
-        return res.status(401).json({ message: "Invalid password" });
-      }
-  
-      res.status(200).json({ message: "Login successful", user });
-    } catch (error) {
-      res.status(500).json({ message: "Error logging in", error });
-    }
-  };
+  const { email, password } = req.body;
 
-module.exports = { createUser, loginUser };
+  if (!email || !password) {
+    return res.status(400).json({ message: "Email and password are required" });
+  }
+
+  try {
+    const user = await userModel.findUserByEmail(req.db, email);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      return res.status(401).json({ message: "Invalid password" });
+    }
+
+    res.status(200).json({ message: "Login successful", user });
+  } catch (error) {
+    res.status(500).json({ message: "Error logging in", error });
+  }
+};
+
+const forgotPassword = async (req, res) => {
+  const { email } = req.body;
+
+  if (!email) {
+    return res.status(400).json({ message: "Email is required" });
+  }
+
+  try {
+    const user = await userModel.findUserByEmail(req.db, email);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const resetToken = crypto.randomBytes(32).toString("hex");
+    const resetTokenExpiry = Date.now() + 3600000;
+
+    await userModel.setPasswordResetToken(
+      req.db,
+      email,
+      resetToken,
+      resetTokenExpiry
+    );
+
+    res
+      .status(200)
+      .json({ message: "Password reset token generated", resetToken });
+  } catch (error) {
+    res.status(500).json({ message: "Error processing password reset", error });
+  }
+};
+
+const sendPasswordResetEmail = async (req, res) => {
+  const { email } = req.body;
+  try {
+    const resetToken = crypto.randomBytes(32).toString("hex");
+    const resetUrl = `http://localhost:3001/reset-password/${resetToken}`;
+
+    await userModel.saveResetToken(req.db, email, resetToken);
+
+    await transporter.sendMail({
+      from: '"EchoChat Support Group" <support@echochat.com>',
+      to: email,
+      subject: "Password Reset Request",
+      text: `You requested a password reset. Click here to reset your EchoChat password. Do not click the link if you did not initiate this process.: ${resetUrl}`,
+      html: `<p>You requested a password reset. Click <a href="${resetUrl}">here</a> to reset your EchoChat password. Do not click the link if you did not initiate this process.</p>`,
+    });
+
+    res
+      .status(200)
+      .json({ message: "Password reset link has been sent to your email." });
+  } catch (error) {
+    res
+      .status(500)
+      .json({ message: "Error sending password reset email", error });
+  }
+};
+
+const resetPassword = async (req, res) => {
+  const { token } = req.params;
+  const { newPassword } = req.body;
+
+  try {
+    const user = await userModel.findUserByResetToken(req.db, token);
+    if (!user) {
+      return res.status(400).json({ message: "Invalid or expired token." });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await userModel.updateUserPassword(req.db, user.email, hashedPassword);
+
+    res.status(200).json({ message: "Password has been reset successfully." });
+  } catch (error) {
+    res.status(500).json({ message: "Error resetting password", error });
+  }
+};
+
+module.exports = {
+  createUser,
+  loginUser,
+  forgotPassword,
+  sendPasswordResetEmail,
+  resetPassword,
+};

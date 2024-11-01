@@ -110,7 +110,7 @@ const LoginPage: React.FC = () => {
               sx={{
                 m: 1,
                 width: "35ch",
-                ".MuiInputLabel-asterisk": { color: "#f7f3f3" },
+                ".MuiInputLabel-asterisk": { color: "#c2bfbf" },
               }}
               required
             />
@@ -121,7 +121,7 @@ const LoginPage: React.FC = () => {
               sx={{
                 m: 1,
                 width: "35ch",
-                ".MuiInputLabel-asterisk": { color: "#f7f3f3" },
+                ".MuiInputLabel-asterisk": { color: "#c2bfbf" },
               }}
               variant="standard"
             >
@@ -154,9 +154,18 @@ const LoginPage: React.FC = () => {
           </span>
 
           <button type="submit" className="auth-form-button">
-            Log In
+            Sign In
           </button>
         </form>
+        <p>
+          <NavLink
+            to="/forgot-password"
+            id="no-deco-id"
+            className="no-deco-signupLink"
+          >
+            Recover Password
+          </NavLink>
+        </p>
         <p>
           Don’t have an account?{" "}
           <NavLink to="/signup" className="no-deco-signupLink">

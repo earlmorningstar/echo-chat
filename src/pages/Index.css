@@ -83,13 +83,13 @@
 /* Login and Sign up Section--- */
 
 .auth-main-container {
-    /* font-family: "Poppins", sans-serif; */
     font-family: "Afacad Flux", sans-serif;
     padding: 3rem 1rem 5rem 1rem;
     display: flex;
     flex-direction: column;
     gap: 2rem;
-    background-color: #f7f3f3;
+    background-color: #c2bfbf;
+    /* background-color: #f7f3f3; */
     height: 100%;
 }
 
@@ -131,14 +131,15 @@
 
 
 .auth-form-button {
+  font-family: "Poppins", sans-serif;
     cursor: pointer;
     padding: 10px 8px;
-    background-color: #dfdada;
+    background-color: #e4e1e1;
     color: #3d3c3c;
     border: none;
     border-radius: 10px;
-    margin: 1rem 0 5rem 0;
-    width: 40ch;
+    margin: 1rem 0 1.5rem 0;
+    width: 35ch;
 }
 
 .no-deco-signupLink {
@@ -158,6 +159,10 @@
   margin-top: 0rem; 
 }
 
+#no-deco-id {
+  font-size: 18px;
+}
+
 #pass-label-flex {
   display: flex;
   gap: 3px;
@@ -165,6 +170,65 @@
 
 .alert-mui p {
   font-size: 18px;
+}
+
+/* .ErrorPage Section -- */
+.error-page-container {
+   font-family: "Afacad Flux", sans-serif;
+  padding: 3rem 2rem;
+  background-color: #c2bfbf;
+  height: 100vh;
+}
+
+.error-page-container span {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  margin-top: 3rem;
+  gap: 1rem;
+}
+
+.error-page-container span p {
+  font-size: 20px;
+  font-weight: 400;
+}
+
+/* Forgot PAssword Section--- */
+
+.forgot-password-container {
+  font-family: "Afacad Flux", sans-serif;
+  padding: 3rem;
+  background-color: #c2bfbf;
+  height: 100vh;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+}
+
+.forgot-password-container h2 {
+  font-weight: 500;
+  font-size: 35px;
+  margin-bottom: 1.5rem;
+}
+
+.forgot-password-container form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.forgot-password-container p {
+  display: flex;
+  gap: 5px;
+
+}
+
+#forgotPassBtnId {
+  margin-bottom: 2rem;
 }
 
 

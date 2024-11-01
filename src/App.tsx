@@ -3,34 +3,41 @@ import SplashScreen from "./pages/SplashScreen";
 import OnboardingScreen from "./pages/OnboardingScreen";
 import LoginPage from "./pages/LoginPage";
 import SignupPage from "./pages/SignupPage";
-// import RootLayout from "./pages/RootLayout";
-// import ErrorPage from "./pages/ErrorPage";
+import ErrorPage from "./pages/ErrorPage";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 
 const router = createBrowserRouter([
   {
     path: "/",
     element: <SplashScreen />,
+    errorElement: <ErrorPage />,
   },
   {
     path: "/onboarding",
     element: <OnboardingScreen />,
+    errorElement: <ErrorPage />,
   },
   {
     path: "/login",
     element: <LoginPage />,
+    errorElement: <ErrorPage />,
   },
   {
     path: "/signup",
     element: <SignupPage />,
+    errorElement: <ErrorPage />,
   },
-  //   {
-  //     path: '/home',
-  //     element: <RootLayout />, // Main layout component of the app
-  //     errorElement: <ErrorPage />,
-  //     children: [
-  //         // Define child routes here if needed
-  //     ],
-  // },
+  {
+    path: "/forgot-password",
+    element: <ForgotPassword />,
+    errorElement: <ErrorPage />,
+  },
+  {
+    path: "/reset-password",
+    element: <ResetPassword />,
+    errorElement: <ErrorPage />,
+  },
 ]);
 
 const App: React.FC = () => {

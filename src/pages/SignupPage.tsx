@@ -167,7 +167,7 @@ const SignupPage: React.FC = () => {
               sx={{
                 m: 1,
                 width: "35ch",
-                ".MuiInputLabel-asterisk": { color: "#f7f3f3" },
+                ".MuiInputLabel-asterisk": { color: "#c2bfbf" },
               }}
             />
             {errorMessages.firstName && (
@@ -188,7 +188,7 @@ const SignupPage: React.FC = () => {
               sx={{
                 m: 1,
                 width: "35ch",
-                ".MuiInputLabel-asterisk": { color: "#f7f3f3" },
+                ".MuiInputLabel-asterisk": { color: "#c2bfbf" },
               }}
             />
             {errorMessages.lastName && (
@@ -210,7 +210,7 @@ const SignupPage: React.FC = () => {
               sx={{
                 m: 1,
                 width: "35ch",
-                ".MuiInputLabel-asterisk": { color: "#f7f3f3" },
+                ".MuiInputLabel-asterisk": { color: "#c2bfbf" },
               }}
             />
             {errorMessages.email && (
@@ -223,7 +223,7 @@ const SignupPage: React.FC = () => {
               sx={{
                 m: 1,
                 width: "35ch",
-                ".MuiInputLabel-asterisk": { color: "#f7f3f3" },
+                ".MuiInputLabel-asterisk": { color: "#c2bfbf" },
               }}
               variant="standard"
             >
@@ -265,7 +265,7 @@ const SignupPage: React.FC = () => {
               sx={{
                 m: 1,
                 width: "35ch",
-                ".MuiInputLabel-asterisk": { color: "#f7f3f3" },
+                ".MuiInputLabel-asterisk": { color: "#c2bfbf" },
               }}
               variant="standard"
             >
@@ -311,7 +311,7 @@ const SignupPage: React.FC = () => {
         <p>
           Already have an account?{" "}
           <NavLink to="/login" className="no-deco-signupLink">
-            Log In
+            Sign In
           </NavLink>
         </p>
       </div>
