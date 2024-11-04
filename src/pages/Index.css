@@ -1,7 +1,7 @@
 @import url("https://fonts.googleapis.com/css2?family=DynaPuff:wght@400..700&display=swap");
 @import url("https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap");
 @import url("https://fonts.googleapis.com/css2?family=Playwrite+GB+S:ital,wght@0,100..400;1,100..400&display=swap");
-@import url('https://fonts.googleapis.com/css2?family=Afacad+Flux:wght@100..1000&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Afacad+Flux:wght@100..1000&display=swap");
 * {
   margin: 0;
   padding: 0;
@@ -83,68 +83,66 @@
 /* Login and Sign up Section--- */
 
 .auth-main-container {
-    font-family: "Afacad Flux", sans-serif;
-    padding: 3rem 1rem 5rem 1rem;
-    display: flex;
-    flex-direction: column;
-    gap: 2rem;
-    background-color: #c2bfbf;
-    /* background-color: #f7f3f3; */
-    height: 100%;
+  font-family: "Afacad Flux", sans-serif;
+  padding: 3rem 1rem 5rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  background-color: #c2bfbf;
+  /* background-color: #f7f3f3; */
+  height: fit-content;
 }
 
 .login-redirection-arrow {
-    width: fit-content;
+  width: fit-content;
 }
 .auth-container {
-    display: flex;
-    flex-direction: column;
-    text-align: center;
+  display: flex;
+  flex-direction: column;
+  text-align: center;
 }
 
 .auth-container h2 {
-    font-weight: 500;
-    font-size: 35px;
-    margin-bottom: 1.5rem;
+  font-weight: 500;
+  font-size: 35px;
+  margin-bottom: 1.5rem;
 }
 
 .auth-container p {
-    font-weight: 400;
-    font-size: 25px;
-    margin-bottom: 1.5rem;
-    color: #383434;
+  font-weight: 400;
+  font-size: 25px;
+  margin-bottom: 1.5rem;
+  color: #383434;
 }
 
-.auth-container form{
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 12px;
-    
+.auth-container form {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
 }
 
 .auth-container form span {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
-
 
 .auth-form-button {
   font-family: "Poppins", sans-serif;
-    cursor: pointer;
-    padding: 10px 8px;
-    background-color: #e4e1e1;
-    color: #3d3c3c;
-    border: none;
-    border-radius: 10px;
-    margin: 1rem 0 1.5rem 0;
-    width: 35ch;
+  cursor: pointer;
+  padding: 10px 8px;
+  background-color: #e4e1e1;
+  color: #3d3c3c;
+  border: none;
+  border-radius: 10px;
+  margin: 1rem 0 1.5rem 0;
+  width: 35ch;
 }
 
 .no-deco-signupLink {
-    text-decoration: none;
-    color: #208d7f;
+  text-decoration: none;
+  color: #208d7f;
 }
 
 .auth-label-flex {
@@ -155,8 +153,8 @@
 .error-message {
   text-align: center;
   color: red;
-  font-size: 13px; 
-  margin-top: 0rem; 
+  font-size: 13px;
+  margin-top: 0rem;
 }
 
 #no-deco-id {
@@ -174,7 +172,7 @@
 
 /* .ErrorPage Section -- */
 .error-page-container {
-   font-family: "Afacad Flux", sans-serif;
+  font-family: "Afacad Flux", sans-serif;
   padding: 3rem 2rem;
   background-color: #c2bfbf;
   height: 100vh;
@@ -224,14 +222,11 @@
 .forgot-password-container p {
   display: flex;
   gap: 5px;
-
 }
 
 #forgotPassBtnId {
   margin-bottom: 2rem;
 }
-
-
 
 /* Media Queries--- */
 
@@ -244,6 +239,7 @@
 @media screen and (max-width: 550px) {
   .onboarding-container {
     padding: 3rem 1rem;
+    height: fit-content;
   }
 
   .onboarding-container h1 {
@@ -266,11 +262,10 @@
 }
 
 @media screen and (max-width: 450px) {
-  .onboarding-container {
-    height: 100%;
-  }
+  /* .onboarding-container {
+    
+  } */
   .auth-container p {
     font-size: 20px;
-    
-}
+  }
 }

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate, NavLink } from "react-router-dom";
 import { IoIosArrowRoundBack } from "react-icons/io";
 import TextField from "@mui/material/TextField";
@@ -13,6 +13,8 @@ import Box from "@mui/material/Box";
 import Alert from "@mui/material/Alert";
 import Collapse from "@mui/material/Collapse";
 import Stack from "@mui/material/Stack";
+import Backdrop from "@mui/material/Backdrop";
+import CircularProgress from "@mui/material/CircularProgress";
 import "./Index.css";
 
 const SignupPage: React.FC = () => {
@@ -25,6 +27,7 @@ const SignupPage: React.FC = () => {
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [open, setOpen] = React.useState(true);
+  const [loading, setLoading] = useState(false);
   const [errorMessages, setErrorMessages] = useState({
     firstName: "",
     lastName: "",
@@ -33,6 +36,16 @@ const SignupPage: React.FC = () => {
     confirmPassword: "",
   });
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (error) {
+      const timer = setTimeout(() => {
+        setError(null);
+      }, 4000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [error]);
 
   const handleClickShowPassword = () => setShowPassword((show) => !show);
 
@@ -88,6 +101,7 @@ const SignupPage: React.FC = () => {
 
     if (hasError) return;
 
+    setLoading(true);
     const response = await fetch("http://localhost:3000/api/signup", {
       method: "POST",
       headers: {
@@ -102,6 +116,7 @@ const SignupPage: React.FC = () => {
       }),
     });
 
+    setLoading(false);
     if (response.ok) {
       const userData = await response.json();
       console.log("Signup successful:", userData);
@@ -148,9 +163,7 @@ const SignupPage: React.FC = () => {
           )}
           {error && (
             <Stack sx={{ width: "35ch" }} spacing={2}>
-              <Alert severity="error">
-                Error signing up. Please try again.
-              </Alert>
+              <Alert severity="error">{error}</Alert>
             </Stack>
           )}
           <span>
@@ -315,6 +328,12 @@ const SignupPage: React.FC = () => {
           </NavLink>
         </p>
       </div>
+      <Backdrop
+        sx={{ color: "#208d7f", zIndex: (theme) => theme.zIndex.drawer + 1 }}
+        open={loading}
+      >
+        <CircularProgress color="inherit" />
+      </Backdrop>
     </div>
   );
 };

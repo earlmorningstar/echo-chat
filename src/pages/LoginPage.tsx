@@ -13,6 +13,8 @@ import Alert from "@mui/material/Alert";
 import Stack from "@mui/material/Stack";
 import Box from "@mui/material/Box";
 import Collapse from "@mui/material/Collapse";
+import Backdrop from "@mui/material/Backdrop";
+import CircularProgress from "@mui/material/CircularProgress";
 
 import "./Index.css";
 
@@ -22,6 +24,7 @@ const LoginPage: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
   const [open, setOpen] = React.useState(true);
   const navigate = useNavigate();
 
@@ -37,26 +40,44 @@ const LoginPage: React.FC = () => {
     e.preventDefault();
 
     setError(null);
-    const response = await fetch("http://localhost:3000/api/login", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ email, password }),
-    });
+    setLoading(true);
+    console.log("Logging in with:", { email, password });
+    try {
+      const response = await fetch("http://localhost:3000/api/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, password }),
+      });
 
-    if (response.ok) {
-      const userData = await response.json();
-      console.log("Login successful:", userData);
-      setSuccess(true);
-      setTimeout(() => {
-        navigate("/home");
-      }, 2000);
-    } else {
-      const errorData = await response.json();
-      setError(
-        errorData.message || "Login failed. Please check your credentials."
-      );
+      console.log("Response status:", response.status);
+
+      if (response.ok) {
+        const userData = await response.json();
+        console.log("Login successful:", userData);
+        setSuccess(true);
+        setTimeout(() => {
+          setLoading(false);
+          navigate("/home");
+        }, 2000);
+      } else {
+        const errorData = await response.json();
+        console.error("Login error data:", errorData);
+        setError(
+          errorData.message || "Login failed. Please check your credentials."
+        );
+        setTimeout(() => {
+          setError(null);
+        }, 4000);
+        setLoading(false);
+      }
+    } catch (err) {
+      console.error("Error during fetch:", err);
+      setError("An error occurred. Please try again.");
+      console.error(err);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -95,9 +116,7 @@ const LoginPage: React.FC = () => {
           )}
           {error && (
             <Stack sx={{ width: "35ch" }} spacing={2}>
-              <Alert severity="error">
-                Error logging in. Please try again.
-              </Alert>
+              <Alert severity="error">{error}</Alert>
             </Stack>
           )}
           <span>
@@ -154,7 +173,7 @@ const LoginPage: React.FC = () => {
           </span>
 
           <button type="submit" className="auth-form-button">
-            Sign In
+            Sign In{" "}
           </button>
         </form>
         <p>
@@ -173,6 +192,12 @@ const LoginPage: React.FC = () => {
           </NavLink>
         </p>
       </div>
+      <Backdrop
+        sx={{ color: "#208d7f", zIndex: (theme) => theme.zIndex.drawer + 1 }}
+        open={loading}
+      >
+        <CircularProgress color="inherit" />
+      </Backdrop>
     </div>
   );
 };

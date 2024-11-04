@@ -1,11 +1,14 @@
-import React, { useState } from "react";
-import { TextField } from "@mui/material";
+import React, { useState, useEffect } from "react";
 import { NavLink } from "react-router-dom";
+import { TextField } from "@mui/material";
+import Backdrop from "@mui/material/Backdrop";
+import CircularProgress from "@mui/material/CircularProgress";
 
 const ForgotPassword: React.FC = () => {
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -13,6 +16,7 @@ const ForgotPassword: React.FC = () => {
     setError("");
 
     try {
+      setLoading(true);
       const response = await fetch(
         "http://localhost:3000/api/forgot-password",
         {
@@ -23,6 +27,7 @@ const ForgotPassword: React.FC = () => {
           body: JSON.stringify({ email }),
         }
       );
+      setLoading(false);
 
       if (response.ok) {
         setMessage("A password reset link has been sent to your email.");
@@ -35,6 +40,15 @@ const ForgotPassword: React.FC = () => {
       setError("Failed to send password reset request. Please try again.");
     }
   };
+
+  useEffect(() => {
+    if (error) {
+      const timer = setTimeout(() => {
+        setError("");
+      }, 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [error]);
 
   return (
     <div className="forgot-password-container">
@@ -74,6 +88,12 @@ const ForgotPassword: React.FC = () => {
         </NavLink>
         Page
       </p>
+      <Backdrop
+        sx={{ color: "#208d7f", zIndex: (theme) => theme.zIndex.drawer + 1 }}
+        open={loading}
+      >
+        <CircularProgress color="inherit" />
+      </Backdrop>
     </div>
   );
 };

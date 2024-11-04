@@ -1,9 +1,7 @@
-const bcrypt = require("bcrypt");
+// const bcrypt = require("bcrypt");
 
 const userModel = {
   createUser: async (db, userData) => {
-    const hashedPassword = await bcrypt.hash(userData.password, 10); 
-    userData.password = hashedPassword; 
     try {
       const result = await db.collection("users").insertOne(userData);
       return {
@@ -11,7 +9,7 @@ const userModel = {
         firstName: userData.firstName,
         lastName: userData.lastName,
         email: userData.email,
-      }; 
+      };
     } catch (error) {
       console.error("Error creating user:", error);
       throw new Error("Failed to create user");
@@ -30,10 +28,12 @@ const userModel = {
 
   setPasswordResetToken: async (db, email, resetToken) => {
     try {
-      await db.collection("users").updateOne(
-        { email },
-        { $set: { resetToken, resetTokenExpiry: Date.now() + 3600000 } }
-      );
+      await db
+        .collection("users")
+        .updateOne(
+          { email },
+          { $set: { resetToken, resetTokenExpiry: Date.now() + 3600000 } }
+        );
     } catch (error) {
       console.error("Error setting password reset token:", error);
       throw new Error("Failed to set password reset token");
@@ -57,13 +57,16 @@ const userModel = {
     try {
       await db.collection("users").updateOne(
         { email },
-        { $set: { password: hashedPassword }, $unset: { resetToken: "", resetTokenExpiry: "" } }
+        {
+          $set: { password: hashedPassword },
+          $unset: { resetToken: "", resetTokenExpiry: "" },
+        }
       );
     } catch (error) {
       console.error("Error updating user password:", error);
       throw new Error("Failed to update password");
     }
-  }
+  },
 };
 
 module.exports = userModel;
