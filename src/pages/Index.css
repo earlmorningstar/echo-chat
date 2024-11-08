@@ -2,6 +2,7 @@
 @import url("https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap");
 @import url("https://fonts.googleapis.com/css2?family=Playwrite+GB+S:ital,wght@0,100..400;1,100..400&display=swap");
 @import url("https://fonts.googleapis.com/css2?family=Afacad+Flux:wght@100..1000&display=swap");
+
 * {
   margin: 0;
   padding: 0;
@@ -15,7 +16,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: #000000;
+  background-color: #3c3f46;
 }
 
 .splash-header h1 {
@@ -27,7 +28,7 @@
 /* //OnboardingScreen Section-- */
 
 .onboarding-container {
-  background: linear-gradient(110deg, #2a1542, #000000);
+  background: linear-gradient(260deg, #284440, #3c3f46);
   height: 100vh;
   padding: 3rem 6rem;
   display: flex;

@@ -1,0 +1,111 @@
+@import url("https://fonts.googleapis.com/css2?family=DynaPuff:wght@400..700&display=swap");
+@import url('https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&display=swap');
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+.main-container {
+padding: 3.5rem 0 2.8rem 0;
+}
+
+/* Header Style--- */
+
+.header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  background-color: #3c3f46;
+  justify-content: space-between;
+  padding: 10px;
+  border-bottom: 1px solid #5c5b5b;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+.profile-picture {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.header div {
+  display: flex;
+  align-items: center;
+  gap: 25px;
+}
+
+.header div h2 {
+  font-family: "DynaPuff", system-ui;
+  color: #208d7f;
+}
+
+/* ChatList Section---  */
+
+.chat-list {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: 10px 1.5rem;
+}
+
+.chat-item {
+  display: flex;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid #5c5b5b;
+}
+
+.profile-image {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  margin-right: 10px;
+}
+
+.chat-info {
+    font-family: "Roboto", sans-serif;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.chat-name {
+    color: #dfdfe1;
+  font-weight: 500;
+  font-size: 16px;
+}
+
+.chat-last-message {
+  color: #9b9ca1;
+  font-size: 14px;
+  margin-top: 4px;
+}
+
+.chat-meta {
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.chat-time {
+  font-size: 12px;
+  color: #888;
+}
+
+.chat-unread-count {
+  background-color: #208d7f;
+  color: white;
+  font-size: 12px;
+  padding: 4px 6px;
+  border-radius: 12px;
+  margin-top: 5px;
+  min-width: 20px;
+  text-align: center;
+}

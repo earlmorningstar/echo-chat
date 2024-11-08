@@ -59,7 +59,7 @@ const LoginPage: React.FC = () => {
         setSuccess(true);
         setTimeout(() => {
           setLoading(false);
-          navigate("/home");
+          navigate("/main-navigation");
         }, 2000);
       } else {
         const errorData = await response.json();

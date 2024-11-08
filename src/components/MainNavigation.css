@@ -1,0 +1,35 @@
+*{
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+
+.navbar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    display: flex;
+    justify-content: space-around;
+    background-color: #3c3f46; 
+    padding: 10px 0;
+    border-top: 1px solid #5c5b5b;
+    box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.2); 
+  }
+  
+  .navbar a {
+    color: #ffffff; 
+    text-decoration: none;
+  }
+  
+  .navbar a.active {
+    color: #208d7f; 
+  }
+  
+
+  .holder {
+    background-color: #3c3f46;
+    color: #ffffff;
+    min-height: 100vh;
+  }
