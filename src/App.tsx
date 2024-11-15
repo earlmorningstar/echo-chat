@@ -1,4 +1,5 @@
 import { RouterProvider, createBrowserRouter } from "react-router-dom";
+import { UserProvider } from "./store/userContext";
 import SplashScreen from "./pages/SplashScreen";
 import OnboardingScreen from "./pages/OnboardingScreen";
 import LoginPage from "./pages/LoginPage";
@@ -14,6 +15,7 @@ import Settings from "./chatAppPages/Settings";
 import UserProfile from "./chatAppPages/UserProfile";
 import AddUser from "./chatAppPages/AddUser";
 import ChatWindow from "./chatAppPages/ChatWindow";
+import Request from "./chatAppPages/Request";
 
 const router = createBrowserRouter([
   {
@@ -58,12 +60,17 @@ const router = createBrowserRouter([
       { path: "user-profile", element: <UserProfile /> },
       { path: "add-user", element: <AddUser /> },
       { path: "chat/:chatId", element: <ChatWindow /> },
+      { path: "requests", element: <Request /> },
     ],
   },
 ]);
 
 const App: React.FC = () => {
-  return <RouterProvider router={router} />;
+  return (
+    <UserProvider>
+      <RouterProvider router={router} />
+    </UserProvider>
+  );
 };
 
 export default App;

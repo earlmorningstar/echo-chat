@@ -1,5 +1,3 @@
-// const bcrypt = require("bcrypt");
-
 const userModel = {
   createUser: async (db, userData) => {
     try {
@@ -65,6 +63,57 @@ const userModel = {
     } catch (error) {
       console.error("Error updating user password:", error);
       throw new Error("Failed to update password");
+    }
+  },
+
+  createFriendRequest: async (db, senderId, receiverId) => {
+    try {
+      await db.collection("friendRequests").insertOne({
+        senderId,
+        receiverId,
+        status: "pending", 
+        createdAt: new Date(),
+      });
+    } catch (error) {
+      console.error("Error creating friend request:", error);
+      throw new Error("Failed to create friend request");
+    }
+  },
+
+  getPendingFriendRequests: async (db, userId) => {
+    try {
+      return await db
+        .collection("friendRequests")
+        .find({
+          receiverId: userId,
+          status: "pending",
+        })
+        .toArray();
+    } catch (error) {
+      console.error("Error getting friend requests:", error);
+      throw new Error("Failed to get friend requests");
+    }
+  },
+
+  acceptFriendRequest: async (db, requestId) => {
+    try {
+      await db
+        .collection("friendRequests")
+        .updateOne({ _id: requestId }, { $set: { status: "accepted" } });
+    } catch (error) {
+      console.error("Error accepting friend request:", error);
+      throw new Error("Failed to accept friend request");
+    }
+  },
+
+  declineFriendRequest: async (db, requestId) => {
+    try {
+      await db
+        .collection("friendRequests")
+        .updateOne({ _id: requestId }, { $set: { status: "declined" } });
+    } catch (error) {
+      console.error("Error declining friend request:", error);
+      throw new Error("Failed to decline friend request");
     }
   },
 };

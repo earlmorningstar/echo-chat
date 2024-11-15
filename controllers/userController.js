@@ -2,6 +2,8 @@ const nodemailer = require("nodemailer");
 const userModel = require("../models/userModel");
 const bcrypt = require("bcrypt");
 const crypto = require("crypto");
+const jwt = require("jsonwebtoken");
+
 
 const transporter = nodemailer.createTransport({
   host: process.env.MAILTRAP_HOST,
@@ -66,7 +68,18 @@ const loginUser = async (req, res) => {
       return res.status(401).json({ message: "Invalid email or password" });
     }
 
-    res.status(200).json({ message: "Login successful", user });
+    const token = jwt.sign(
+      {
+        userId: user._id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: "9h" }
+    );
+
+    res.status(200).json({ message: "Login successful", token });
   } catch (error) {
     console.error("Error during login:", error);
     res.status(500).json({ message: "Error logging in", error });
@@ -137,9 +150,59 @@ const resetPassword = async (req, res) => {
   }
 };
 
+const sendFriendRequest = async (req, res) => {
+  const { receiverEmail } = req.body;
+  const senderId = req.userId;
+
+  try {
+    const receiver = await userModel.findUserByEmail(req.db, receiverEmail);
+    if (!receiver) {
+      return res.status(404).json({ success: false, message: "This user is not registered with EchoChat" });
+    }
+
+    await userModel.createFriendRequest(req.db, senderId, receiver._id);
+    res.status(200).json({ success: true, message: "Friend request sent successfully." });
+  } catch (error) {
+    console.error("Error sending friend request:", error);
+    res.status(500).json({ success: false, message: "Error sending friend request", error });
+  }
+};
+
+const getFriendRequests = async (req, res) => {
+  const userId = req.userId;
+
+  try {
+    const requests = await userModel.getPendingFriendRequests(req.db, userId);
+    res.status(200).json({ success: true, requests });
+  } catch (error) {
+    console.error("Error retrieving friend requests:", error);
+    res.status(500).json({ success: false, message: "Error retrieving friend requests", error });
+  }
+};
+
+const handleFriendRequest = async (req, res) => {
+  const { requestId, accept } = req.body;
+
+  try {
+    if (accept) {
+      await userModel.acceptFriendRequest(req.db, requestId);
+      res.status(200).json({ success: true, message: "Friend request accepted" });
+    } else {
+      await userModel.declineFriendRequest(req.db, requestId);
+      res.status(200).json({ success: true, message: "Friend request declined" });
+    }
+  } catch (error) {
+    console.error("Error handling friend request:", error);
+    res.status(500).json({ success: false, message: "Error handling friend request", error });
+  }
+};
+
 module.exports = {
   createUser,
   loginUser,
   forgotPassword,
   resetPassword,
+  sendFriendRequest,
+  getFriendRequests,
+  handleFriendRequest,
 };

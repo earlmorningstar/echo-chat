@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React from "react";
+import { useState, useContext } from "react";
 import { useNavigate, NavLink } from "react-router-dom";
 import { IoIosArrowRoundBack } from "react-icons/io";
 import TextField from "@mui/material/TextField";
@@ -15,6 +16,7 @@ import Box from "@mui/material/Box";
 import Collapse from "@mui/material/Collapse";
 import Backdrop from "@mui/material/Backdrop";
 import CircularProgress from "@mui/material/CircularProgress";
+import { UserContext } from "../store/userContext";
 
 import "./Index.css";
 
@@ -27,6 +29,16 @@ const LoginPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = React.useState(true);
   const navigate = useNavigate();
+
+  const userContext = useContext(UserContext);
+
+  if (!userContext) {
+    throw new Error(
+      "UserContext is not available. Make sure to wrap the component tree with UserContext.Provider."
+    );
+  }
+
+  const { setUser } = userContext;
 
   const handleClickShowPassword = () => setShowPassword((show) => !show);
 
@@ -55,8 +67,22 @@ const LoginPage: React.FC = () => {
 
       if (response.ok) {
         const userData = await response.json();
-        console.log("Login successful:", userData);
+        console.log("Login successful, user data received:", userData);
+
+        // Store JWT token in localStorage
+        localStorage.setItem("token", userData.token);
+        localStorage.setItem("user", JSON.stringify(userData.user));
+
+        setUser(userData.user);
+
         setSuccess(true);
+        // if (setUser) {
+        //   console.log("Setting user in context:", userData.user);
+        //   setUser(userData.user);
+        // } else {
+        //   console.warn("setUser function not found in UserContext.");
+        // }
+
         setTimeout(() => {
           setLoading(false);
           navigate("/main-navigation");

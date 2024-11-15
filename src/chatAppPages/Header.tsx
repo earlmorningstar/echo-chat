@@ -13,11 +13,13 @@ function Header() {
         return "Calls";
       case "/main-navigation/updates":
         return "Updates";
+        case "/main-navigation/requests":
+          return "Requests";
       case "/main-navigation/settings":
         return "Settings";
       case "/main-navigation/user-profile":
         return "Profile";
-      case "/main-navigation/add-user":
+        case "/main-navigation/add-user":
         return "Add a user";
       default:
         return "Chats";
