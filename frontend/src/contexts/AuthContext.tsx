@@ -10,21 +10,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [user, setUser] = useState<AuthUser | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
 
   useEffect(() => {
     const fetchUser = async (authToken: string) => {
       try {
-        const response = await api.get("/api/user", {
+        const response = await api.get("/api/user/profile", {
           headers: { Authorization: `Bearer ${authToken}` },
         });
-        if (response.data) {
-          setUser(response.data);
+        if (response.data && response.data.user) {
+          setUser(response.data.user);
           setIsAuthenticated(true);
-          localStorage.setItem("user", JSON.stringify(response.data));
+          localStorage.setItem("user", JSON.stringify(response.data.user));
+        } else {
+          throw new Error("Invalid user data received")
         }
       } catch (error) {
         console.error("Error fetching user:", error);
-        logout();
+        await logout();
+      } finally {
+        setIsLoading(false);
       }
     };
 
@@ -36,10 +42,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       //   setUser(JSON.parse(storedUser));
       // setIsAuthenticated(true);
       fetchUser(storedToken);
+    } else {
+      setIsLoading(false);
     }
   }, []);
 
   const login = (userData: AuthUser, authToken: string) => {
+    if(!userData || !authToken) {
+      console.error("Invalid login data received:", {userData, authToken})
+      return;
+    }
+
+
     setUser(userData);
     setToken(authToken);
     setIsAuthenticated(true);
@@ -88,13 +102,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     user,
     token,
     isAuthenticated,
+    isLoading,
     login,
     logout,
     updateUser,
     updateStatus,
   };
+
+  if (isLoading) {
+    return <div>Loading...</div>;
+  }
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
+
+
 
 export const useAuth = () => {
   const context = useContext(AuthContext);

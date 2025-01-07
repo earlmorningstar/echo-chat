@@ -1,42 +1,56 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import api from "../utils/api";
 
 const AddUser: React.FC = () => {
-  const { user, token, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, isLoading } = useAuth();
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
   const [isRequestSent, setIsRequestSent] = useState(false);
-
-  useEffect(() => {
-    console.log("Auth State:", { user, token, isAuthenticated });
-  }, [user, token, isAuthenticated]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleAddUser = async () => {
-    if (!isAuthenticated) {
+    if (!isAuthenticated || !user?.id) {
       setMessage("You must be logged in to send a friend request.");
       return;
     }
 
+    if (!email.trim) {
+      setMessage("Please enter an email address");
+      return;
+    }
+
+    setIsSubmitting(true);
+    setMessage("");
+
     try {
       const response = await api.post("/api/user/send-friend-request", {
-        senderId: user?.id,
-        receiverEmail: email,
+        receiverEmail: email.trim(),
       });
 
       if (response.data.success) {
-        setMessage("Friend request Sent.");
+        setMessage("Friend request sent successfully.");
         setIsRequestSent(true);
+        setEmail("");
       } else {
         setMessage(
           response.data.message || "This user is not registered with EchoChat."
         );
       }
-    } catch (error) {
-      setMessage("Error sending request.");
+    } catch (error: any) {
+      const errorMessage =
+        error.response?.data?.message ||
+        "Error sending friend request. Please try again";
+      setMessage(errorMessage);
       console.error("Add user error:", error);
+    } finally {
+      setIsSubmitting(false);
     }
   };
+
+  if (isLoading) {
+    return <div>Loading...</div>;
+  }
 
   return (
     <div className="main-container">
@@ -47,9 +61,19 @@ const AddUser: React.FC = () => {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder="Enter user's email"
+          disabled={isSubmitting}
         />
-        <button onClick={handleAddUser}>Add User</button>
-        {message && <p>{message}</p>}
+        <button
+          onClick={handleAddUser}
+          disabled={isSubmitting || !email.trim()}
+        >
+          {isSubmitting ? "Sending..." : "Add User"}
+        </button>
+        {message && (
+          <p className={isRequestSent ? "success-message" : "error-message"}>
+            {message}
+          </p>
+        )}
         {isRequestSent && <button onClick={() => setMessage("")}>OK</button>}
       </div>
     </div>

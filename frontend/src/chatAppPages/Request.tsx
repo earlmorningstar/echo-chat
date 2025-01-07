@@ -34,9 +34,15 @@ const Request: React.FC = () => {
   const fetchRequests = async () => {
     try {
       const response = await api.get("/api/user/friend-requests");
-      setSentRequests(response.data.data.sent);
-      setReceivedRequests(response.data.data.received);
+      
+      if (response.data && response.data.data) {
+        setSentRequests(response.data.data.sent || []);
+        setReceivedRequests(response.data.data.received || []);
+      } else {
+        throw new Error("Invalid response format");
+      }
     } catch (error) {
+      console.error("Error fetching requests:", error);
       setSnackbar({ open: true, message: "Error fetching requests" });
     }
   };
@@ -46,7 +52,7 @@ const Request: React.FC = () => {
     action: "accept" | "decline"
   ) => {
     try {
-      await api.post("/api/user/handle-request", { requestId, action });
+      await api.post("/api/user/handle-friend-request", { requestId, action });
       setSnackbar({
         open: true,
         message: `Request ${
@@ -55,20 +61,31 @@ const Request: React.FC = () => {
       });
       fetchRequests();
     } catch (error) {
+      console.error("Error handling request:", error);
       setSnackbar({ open: true, message: "Error handling request" });
     }
   };
 
+  const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
+    setTabValue(newValue);
+  };
+
   return (
-    <Box sx={{ width: "100%" }}>
-      <Tabs value={tabValue} onChange={(_, newValue) => setTabValue(newValue)}>
-        <Tab label="Received Requests" />
-        <Tab label="Sent Requests" />
-      </Tabs>
+    <Box sx={{ width: "100%", typography: "body1" }}>
+      <Box sx={{ borderBottom: 1, borderColor: "divider" }}>
+        <Tabs
+          value={tabValue}
+          onChange={handleTabChange}
+          aria-label="friend requests tabs"
+        >
+          <Tab label="Received Requests" />
+          <Tab label="Sent Requests" />
+        </Tabs>
+      </Box>
 
       <TabPanel value={tabValue} index={0}>
         <List>
-          {receivedRequests.map((request) => (
+          {receivedRequests.map((request: FriendRequest) => (
             <ListItem key={request._id}>
               <ListItemText
                 primary={request.senderName}
@@ -77,12 +94,15 @@ const Request: React.FC = () => {
               <Button
                 onClick={() => handleRequestAction(request._id, "accept")}
                 color="primary"
+                variant="contained"
+                sx={{ mr: 1 }}
               >
                 Accept
               </Button>
               <Button
                 onClick={() => handleRequestAction(request._id, "decline")}
                 color="secondary"
+                variant="contained"
               >
                 Decline
               </Button>
@@ -93,11 +113,13 @@ const Request: React.FC = () => {
 
       <TabPanel value={tabValue} index={1}>
         <List>
-          {sentRequests.map((request) => (
+          {sentRequests.map((request: FriendRequest) => (
             <ListItem key={request._id}>
               <ListItemText
                 primary={request.receiverName}
-                secondary={`Status: ${request.status}`}
+                secondary={`Sent: ${new Date(
+                  request.createdAt
+                ).toLocaleDateString()}`}
               />
             </ListItem>
           ))}
@@ -122,7 +144,12 @@ interface TabPanelProps {
 function TabPanel(props: TabPanelProps) {
   const { children, value, index, ...other } = props;
   return (
-    <div role="tabpanel" hidden={value !== index} {...other}>
+    <div
+      role="tabpanel"
+      hidden={value !== index}
+      id={`friend-request-tab-${index}`}
+      {...other}
+    >
       {value === index && <Box sx={{ p: 3 }}>{children}</Box>}
     </div>
   );
