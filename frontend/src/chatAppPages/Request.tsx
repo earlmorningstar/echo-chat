@@ -1,77 +1,129 @@
-import { useEffect, useState } from "react";
+import React, { useState, useEffect } from "react";
+import {
+  Tabs,
+  Tab,
+  Box,
+  List,
+  ListItem,
+  ListItemText,
+  Button,
+  Snackbar,
+} from "@mui/material";
+import { useAuth } from "../contexts/AuthContext";
+import api from "../utils/api";
 
 interface FriendRequest {
-  id: string;
-  senderEmail: string;
+  _id: string;
+  senderName: string;
+  receiverName: string;
+  status: string;
+  createdAt: Date;
 }
 
-function Request() {
-  const [requests, setRequests] = useState<FriendRequest[]>([]);
+const Request: React.FC = () => {
+  const [tabValue, setTabValue] = useState(0);
+  const [sentRequests, setSentRequests] = useState<FriendRequest[]>([]);
+  const [receivedRequests, setReceivedRequests] = useState<FriendRequest[]>([]);
+  const [snackbar, setSnackbar] = useState({ open: false, message: "" });
+  const { token } = useAuth();
 
   useEffect(() => {
-    const fetchRequests = async () => {
-      try {
-        const response = await fetch(
-          "http://localhost:3000/api/users/friend-requests",
-          {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-            },
-          }
-        );
-        const data = await response.json();
-        setRequests(data.requests);
-      } catch (error) {
-        console.error("Error fetching friend requests", error);
-      }
-    };
-
     fetchRequests();
-  }, []);
+  }, [token]);
 
-  const handleAccept = async (requestId: string) => {
+  const fetchRequests = async () => {
     try {
-      const response = await fetch(`/api/users/accept-request/${requestId}`, {
-        method: "POST",
-      });
-      if (response.ok) {
-        setRequests(requests.filter((req) => req.id !== requestId));
-      }
+      const response = await api.get("/api/user/friend-requests");
+      setSentRequests(response.data.data.sent);
+      setReceivedRequests(response.data.data.received);
     } catch (error) {
-      console.error("Error accepting request", error);
+      setSnackbar({ open: true, message: "Error fetching requests" });
     }
   };
 
-  const handleDecline = async (requestId: string) => {
+  const handleRequestAction = async (
+    requestId: string,
+    action: "accept" | "decline"
+  ) => {
     try {
-      const response = await fetch(`/api/users/decline-request/${requestId}`, {
-        method: "POST",
+      await api.post("/api/user/handle-request", { requestId, action });
+      setSnackbar({
+        open: true,
+        message: `Request ${
+          action === "accept" ? "accepted" : "declined"
+        } successfully`,
       });
-      if (response.ok) {
-        setRequests(requests.filter((req) => req.id !== requestId));
-      }
+      fetchRequests();
     } catch (error) {
-      console.error("Error declining request", error);
+      setSnackbar({ open: true, message: "Error handling request" });
     }
   };
 
   return (
-    <div className="main-container">
-      <div className="request-page">
-        <h2>Friend Requests</h2>
-        {requests.length === 0 ? (
-          <p>No pending requests.</p>
-        ) : (
-          requests.map((request) => (
-            <div key={request.id} className="request-item">
-              <p>{request.senderEmail} has sent you a friend request.</p>
-              <button onClick={() => handleAccept(request.id)}>Accept</button>
-              <button onClick={() => handleDecline(request.id)}>Decline</button>
-            </div>
-          ))
-        )}
-      </div>
+    <Box sx={{ width: "100%" }}>
+      <Tabs value={tabValue} onChange={(_, newValue) => setTabValue(newValue)}>
+        <Tab label="Received Requests" />
+        <Tab label="Sent Requests" />
+      </Tabs>
+
+      <TabPanel value={tabValue} index={0}>
+        <List>
+          {receivedRequests.map((request) => (
+            <ListItem key={request._id}>
+              <ListItemText
+                primary={request.senderName}
+                secondary={new Date(request.createdAt).toLocaleDateString()}
+              />
+              <Button
+                onClick={() => handleRequestAction(request._id, "accept")}
+                color="primary"
+              >
+                Accept
+              </Button>
+              <Button
+                onClick={() => handleRequestAction(request._id, "decline")}
+                color="secondary"
+              >
+                Decline
+              </Button>
+            </ListItem>
+          ))}
+        </List>
+      </TabPanel>
+
+      <TabPanel value={tabValue} index={1}>
+        <List>
+          {sentRequests.map((request) => (
+            <ListItem key={request._id}>
+              <ListItemText
+                primary={request.receiverName}
+                secondary={`Status: ${request.status}`}
+              />
+            </ListItem>
+          ))}
+        </List>
+      </TabPanel>
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        message={snackbar.message}
+      />
+    </Box>
+  );
+};
+
+interface TabPanelProps {
+  children?: React.ReactNode;
+  index: number;
+  value: number;
+}
+
+function TabPanel(props: TabPanelProps) {
+  const { children, value, index, ...other } = props;
+  return (
+    <div role="tabpanel" hidden={value !== index} {...other}>
+      {value === index && <Box sx={{ p: 3 }}>{children}</Box>}
     </div>
   );
 }

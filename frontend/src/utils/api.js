@@ -14,10 +14,14 @@ api.interceptors.request.use(
     const token = localStorage.getItem("token");
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+      console.log("Request with token:", token);
+    } else {
+      console.log("No token found in localStorage");
     }
     return config;
   },
   (error) => {
+    console.error("Request interceptor error:", error);
     return Promise.reject(error);
   }
 );

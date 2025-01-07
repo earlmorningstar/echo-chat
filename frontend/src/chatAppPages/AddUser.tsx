@@ -1,33 +1,40 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import api from "../utils/api";
 
 const AddUser: React.FC = () => {
+  const { user, token, isAuthenticated } = useAuth();
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
   const [isRequestSent, setIsRequestSent] = useState(false);
-  const { user, token } = useAuth();
+
+  useEffect(() => {
+    console.log("Auth State:", { user, token, isAuthenticated });
+  }, [user, token, isAuthenticated]);
 
   const handleAddUser = async () => {
-    if (!user || !token) {
+    if (!isAuthenticated) {
       setMessage("You must be logged in to send a friend request.");
       return;
     }
 
     try {
-      const response = await api.post("/api/user/add-friend", {
-        senderId: user.id,
+      const response = await api.post("/api/user/send-friend-request", {
+        senderId: user?.id,
         receiverEmail: email,
       });
 
       if (response.data.success) {
-        setMessage("Request Sent.");
+        setMessage("Friend request Sent.");
         setIsRequestSent(true);
       } else {
-        setMessage(response.data.message || "This user is not registered with EchoChat.");
+        setMessage(
+          response.data.message || "This user is not registered with EchoChat."
+        );
       }
     } catch (error) {
       setMessage("Error sending request.");
+      console.error("Add user error:", error);
     }
   };
 

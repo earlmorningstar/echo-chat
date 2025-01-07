@@ -12,20 +12,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
-  const fetchUser = async (authToken: string) => {
-    try {
-      const response = await api.get("/user", {
-        headers: { Authorization: `Bearer ${authToken}` },
-      });
-      if (response.data) {
-        setUser(response.data);
-        localStorage.setItem("user", JSON.stringify(response.data));
+    const fetchUser = async (authToken: string) => {
+      try {
+        const response = await api.get("/api/user", {
+          headers: { Authorization: `Bearer ${authToken}` },
+        });
+        if (response.data) {
+          setUser(response.data);
+          setIsAuthenticated(true);
+          localStorage.setItem("user", JSON.stringify(response.data));
+        }
+      } catch (error) {
+        console.error("Error fetching user:", error);
+        logout();
       }
-    } catch (error) {
-      console.error("Error fetching user:", error);
-      logout();
-    }
-  };
+    };
 
     const storedToken = localStorage.getItem("token");
     // const storedUser = localStorage.getItem("user");
@@ -33,7 +34,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     if (storedToken) {
       setToken(storedToken);
       //   setUser(JSON.parse(storedUser));
-      setIsAuthenticated(true);
+      // setIsAuthenticated(true);
       fetchUser(storedToken);
     }
   }, []);
@@ -44,6 +45,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     setIsAuthenticated(true);
     localStorage.setItem("token", authToken);
     localStorage.setItem("user", JSON.stringify(userData));
+
+    console.log("Login successful:", { userData, authToken });
   };
 
   const logout = async () => {

@@ -169,7 +169,7 @@ const SignupPage: React.FC = () => {
       const { user, token } = response.data;
       login(user, token);
       localStorage.setItem("verificationEmail", email);
-      setSuccessMessage("Account created successfully!");
+      setSuccessMessage("Verify your email address to continue.");
       setShowSuccess(true);
       setTimeout(() => {
         navigate("/verify-code");

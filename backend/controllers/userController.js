@@ -142,7 +142,6 @@ const forgotPassword = async (req, res) => {
     }
 
     const resetCode = generateRandomCode();
-    // const resetTokenExpiry = Date.now() + 3600000;
     await req.db.collection("users").updateOne(
       { email },
       {
@@ -154,23 +153,6 @@ const forgotPassword = async (req, res) => {
     );
 
     await sendPasswordResetCode(email, resetCode);
-
-    // await userModel.setPasswordResetToken(
-    //   req.db,
-    //   email,
-    //   resetToken,
-    //   resetTokenExpiry
-    // );
-
-    // const resetUrl = `http://localhost:3000/reset-password/${resetToken}`;
-
-    // await transporter.sendMail({
-    //   from: '"EchoChat Support Group" <support@echochat.com>',
-    //   to: email,
-    //   subject: "Password Reset Request",
-    //   text: `You requested a password reset. Click here to reset your EchoChat password. Do not click the link if you did not initiate this process.: ${resetUrl}`,
-    //   html: `<p>You requested a password reset. Click <a href="${resetUrl}">here</a> to reset your EchoChat password. Do not click the link if you did not initiate this process.</p>`,
-    // });
 
     sendSuccess(res, 200, "Password reset code has been sent to your email");
   } catch (error) {
@@ -216,23 +198,47 @@ const sendFriendRequest = async (req, res) => {
   const senderId = req.userId;
 
   try {
-    const receiver = await userModel.findUserByEmail(req.db, receiverEmail);
+    const sender = await req.db.collection("users").findOne({ _id: senderId });
+    const receiver = await req.db
+      .collection("users")
+      .findOne({ email: receiverEmail });
+
     if (!receiver) {
-      return res.status(404).json({
-        success: false,
-        message: "This user is not registered with EchoChat",
-      });
+      return sendError(
+        res,
+        400,
+        "User not found. Please check the email address."
+      );
     }
 
-    await userModel.createFriendRequest(req.db, senderId, receiver._id);
-    res
-      .status(200)
-      .json({ success: true, message: "Friend request sent successfully." });
+    const existingRequest = await req.db.collection("friendRequests").findOne({
+      senderId,
+      receiverId: receiver._id,
+      status: { $in: ["pending", "accepted"] },
+    });
+
+    if (existingRequest) {
+      const status =
+        existingRequest.status === "pending"
+          ? "already send"
+          : "already friends";
+      return sendError(res, 400, `Friend request ${status}`);
+    }
+
+    await req.db.collection("friendRequests").insertOne({
+      senderId,
+      receiverId: receiver._id,
+      senderName: `${sender.firstName} ${sender.lastName}`,
+      receiverName: `${receiver.firstName} ${receiver.lastName}`,
+      status: "pending",
+      createdAt: new Date(),
+    });
+    sendSuccess(res, 200, "Friend request sent successfully.");
   } catch (error) {
     console.error("Error sending friend request:", error);
-    res
-      .status(500)
-      .json({ success: false, message: "Error sending friend request", error });
+    sendError(res, 500, "Error sending friend request", {
+      error: error.message,
+    });
   }
 };
 
@@ -240,40 +246,105 @@ const getFriendRequests = async (req, res) => {
   const userId = req.userId;
 
   try {
-    const requests = await userModel.getPendingFriendRequests(req.db, userId);
-    res.status(200).json({ success: true, requests });
+    const [sentRequests, recievedRequests] = await Promise.all([
+      req.db.collection("friendRequests").find({ senderId: userId }).toArray(),
+      req.db
+        .collection("friendRequests")
+        .find({ receiverId: userId })
+        .toArray(),
+    ]);
+    sendSuccess(res, 200, "Request retrieved successfully", {
+      sent: sentRequests,
+      received: recievedRequests,
+    });
   } catch (error) {
     console.error("Error retrieving friend requests:", error);
-    res.status(500).json({
-      success: false,
-      message: "Error retrieving friend requests",
-      error,
+    sendError(res, 500, "Error retrieving friend request", {
+      error: error.message,
     });
   }
 };
 
 const handleFriendRequest = async (req, res) => {
-  const { requestId, accept } = req.body;
+  const { requestId, action } = req.body;
+  const userId = req.userId;
 
   try {
-    if (accept) {
-      await userModel.acceptFriendRequest(req.db, requestId);
-      res
-        .status(200)
-        .json({ success: true, message: "Friend request accepted" });
-    } else {
-      await userModel.declineFriendRequest(req.db, requestId);
-      res
-        .status(200)
-        .json({ success: true, message: "Friend request declined" });
+    const request = await req.db.collection("friendRequests").findOne({
+      _id: requestId,
+      receiverId: userId,
+    });
+
+    if (!request) {
+      return sendError(res, 404, "Friend request not found");
+    }
+
+    if (action === "accept") {
+      await req.db
+        .collection("friendRequests")
+        .updateOne(
+          { _id: requestId },
+          { $set: { status: "accepted", updatedAt: new Date() } }
+        );
+
+      //adding to friends list on both ends
+      await Promise.all([
+        req.db
+          .collection("users")
+          .updateOne(
+            { _id: request.senderId },
+            { $addToSet: { friends: request.receiverId } }
+          ),
+        req.db
+          .collection("users")
+          .updateOne(
+            { _id: request.receiverId },
+            { $addToSet: { friends: request.senderId } }
+          ),
+      ]);
+      sendSuccess(res, 200, "Friend request accepted");
+    } else if (action === "decline") {
+      await req.db
+        .collection("friendRequests")
+        .updateOne(
+          { _id: requestId },
+          { $set: { status: "declined", updatedAt: new Date() } }
+        );
+      sendSuccess(res, 200, "Friend request declined");
     }
   } catch (error) {
-    console.error("Error handling friend request:", error);
-    res.status(500).json({
-      success: false,
-      message: "Error handling friend request",
-      error,
+    console.error("Error handling ffriend request:", error);
+    sendError(res, 500, "Error handling friend request", {
+      error: error.message,
     });
+  }
+};
+
+const getFriends = async (req, res) => {
+  const userId = req.userId;
+  try {
+    const user = await req.db.collection("users").findOne({ _id: userId });
+    const friends = await req.db
+      .collection("users")
+      .find({ _id: { $in: user.friends || [] } })
+      .toArray();
+
+    sendSuccess(res, 200, "Friends retrieved successfully", { friends });
+  } catch (error) {
+    sendError(res, 500, "Error retrieving friends", { error: error.message });
+  }
+};
+
+const getUserById = async (req, res) => {
+  const {userId} = req.params;
+  try {
+    const user = await req.db.collection('users').findOne({_id: userId});
+    if(!user) {
+      return sendError(res, 404, "User not found");
+    }
+    sendSuccess(res, 200, "User retrieved successfully", {user});
+  }catch(error) {
+    sendError(res, 500, "Error retrieving user", {error: error.message})
   }
 };
 
@@ -286,4 +357,6 @@ module.exports = {
   sendFriendRequest,
   getFriendRequests,
   handleFriendRequest,
+  getFriends,
+  getUserById,
 };

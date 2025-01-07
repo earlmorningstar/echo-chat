@@ -1,9 +1,12 @@
 const express = require("express");
 const cors = require("cors");
 const { connectToDatabase } = require("./config/database");
-const userRoutes = require("../backend/routes/userRoutes");
+const userRoutes = require("./routes/userRoutes");
+const messageRoutes = require ('./routes/messageRoutes')
 const WebSocket = require("ws");
 require("dotenv").config();
+
+
 const app = express();
 
 app.use(
@@ -52,6 +55,7 @@ connectToDatabase()
     });
 
     app.use("/api", userRoutes);
+    app.use('/api/messages', messageRoutes);
 
     const PORT = process.env.PORT || 5000;
     server.listen(PORT, () => {
