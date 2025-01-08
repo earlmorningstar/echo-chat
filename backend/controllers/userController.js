@@ -346,10 +346,21 @@ const handleFriendRequest = async (req, res) => {
   const userId = req.userId;
 
   try {
-    const request = await req.db.collection("friendRequests").findOne({
-      _id: requestId,
-      receiverId: userId,
+    const requestObjectId = new ObjectId(requestId);
+    const userObjectId = new ObjectId(userId);
+
+    console.log("Looking for request with:", {
+      requestObjectId,
+      userObjectId,
+      action,
     });
+
+    const request = await req.db.collection("friendRequests").findOne({
+      _id: requestObjectId,
+      receiverId: userObjectId,
+    });
+
+    console.log("Found request:", request);
 
     if (!request) {
       return sendError(res, 404, "Friend request not found");
@@ -359,37 +370,51 @@ const handleFriendRequest = async (req, res) => {
       await req.db
         .collection("friendRequests")
         .updateOne(
-          { _id: requestId },
+          { _id: requestObjectId },
           { $set: { status: "accepted", updatedAt: new Date() } }
         );
+
+      const senderObjectId =
+        typeof request.senderId === "string"
+          ? new ObjectId(request.senderId)
+          : request.senderId;
 
       //adding to friends list on both ends
       await Promise.all([
         req.db
           .collection("users")
           .updateOne(
-            { _id: request.senderId },
-            { $addToSet: { friends: request.receiverId } }
+            { _id: senderObjectId },
+            { $addToSet: { friends: userObjectId } }
           ),
         req.db
           .collection("users")
           .updateOne(
-            { _id: request.receiverId },
-            { $addToSet: { friends: request.senderId } }
+            { _id: userObjectId },
+            { $addToSet: { friends: senderObjectId } }
           ),
       ]);
-      sendSuccess(res, 200, "Friend request accepted");
+      return sendSuccess(res, 200, "Friend request accepted");
     } else if (action === "decline") {
       await req.db
         .collection("friendRequests")
         .updateOne(
-          { _id: requestId },
+          { _id: requestObjectId },
           { $set: { status: "declined", updatedAt: new Date() } }
         );
-      sendSuccess(res, 200, "Friend request declined");
+      return sendSuccess(res, 200, "Friend request declined");
     }
   } catch (error) {
-    console.error("Error handling friend request:", error);
+    console.error("Error handling friend request:", {
+      error: error.message,
+      stack: error.stack,
+      requestId,
+      userId,
+      action,
+    });
+    if (error.message.includes("ObjectId")) {
+      return sendError(res, 400, "Invalid Request ID format");
+    }
     sendError(res, 500, "Error handling friend request", {
       error: error.message,
     });

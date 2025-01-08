@@ -34,7 +34,7 @@ const Request: React.FC = () => {
   const fetchRequests = async () => {
     try {
       const response = await api.get("/api/user/friend-requests");
-      
+
       if (response.data && response.data.data) {
         setSentRequests(response.data.data.sent || []);
         setReceivedRequests(response.data.data.received || []);
@@ -51,6 +51,7 @@ const Request: React.FC = () => {
     requestId: string,
     action: "accept" | "decline"
   ) => {
+    console.log("Sending request with:", { requestId, action });
     try {
       await api.post("/api/user/handle-friend-request", { requestId, action });
       setSnackbar({
