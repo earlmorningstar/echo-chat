@@ -45,7 +45,59 @@ const sendPasswordResetCode = async (email, resetCode) => {
   }
 };
 
+const sendFriendRequestNotificationEmail = async (receiverEmail, receiverFirstName, senderFullName) => {
+  const mailOptions = {
+    from: process.env.EMAIL_USER,
+    to: receiverEmail,
+    subject: "You've Got a Friend Request!",
+    html: `
+    <h1>You've Got a Friend Request!</h1>
+      <p>Hi ${receiverFirstName},</p>
+      <p>Exciting news! ${senderFullName} has sent you a friend request.</p>
+      <p>Take the next step and connect with them to start sharing and chatting!</p>
+      <p>Login to EchoChat to accept their request and start building your connection.</p>
+      <p>We can't wait to see the connection you'll build.</p>
+      <p>Best regards,<br>EchoChat Team</p>
+    `
+  };
+  try {
+    await transporter.sendMail(mailOptions);
+    } catch(error){
+      console.error("Error sending friend request notification email:", error);
+      throw new Error("Failed to send friend request notification");
+    }
+}
+
+const sendFriendRequestAcceptedEmail = async (
+  senderEmail,
+  senderFirstName,
+  accepterName
+) => {
+  const mailOptions = {
+    from: process.env.EMAIL_USER,
+    to: senderEmail,
+    subject: "Your Friend Request has been Accepted",
+    html: `
+      <h1>Friend Request Accepted!</h1>
+      <p>Hi ${senderFirstName},</p>
+      <p>Great news! ${accepterName} has accepted your friend request. You're now connected and can start your first conversation!</p>
+      <p>Don't wait – send your first message now and break the ice.</p>
+      <p>We're excited to see your connection grow!</p>
+      <p>Best regards,<br>EchoChat Team</p>
+    `
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+  } catch (error) {
+    console.error("Error sending friend request accepted email:", error);
+    throw new Error("Failed to send friend request accepted notification");
+  }
+};
+
 module.exports = {
   sendVerificationEmail,
   sendPasswordResetCode,
+  sendFriendRequestNotificationEmail,
+  sendFriendRequestAcceptedEmail,
 };

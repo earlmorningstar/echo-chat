@@ -5,6 +5,8 @@ const crypto = require("crypto");
 const {
   sendVerificationEmail,
   sendPasswordResetCode,
+  sendFriendRequestNotificationEmail,
+  sendFriendRequestAcceptedEmail,
 } = require("../utils/emailService");
 const { sendError, sendSuccess } = require("../utils/response");
 
@@ -47,12 +49,9 @@ const createUser = async (req, res) => {
 
     await sendVerificationEmail(email, verificationCode);
 
-    sendSuccess(
-      res,
-      201,
-      "Account created successfully. Please check your email for verification code.",
-      { userid: user.insertedId }
-    );
+    sendSuccess(res, 201, "Please check your email for verification code.", {
+      userid: user.insertedId,
+    });
   } catch (error) {
     console.error("Error creating user:", error);
     sendError(res, 500, "Error creating user", { error: error.message });
@@ -274,6 +273,19 @@ const sendFriendRequest = async (req, res) => {
 
     await req.db.collection("friendRequests").insertOne(friendRequest);
 
+    try {
+      await sendFriendRequestNotificationEmail(
+        receiver.email,
+        receiver.firstName,
+        `${sender.firstName} ${sender.lastName}`
+      );
+    } catch (emailError) {
+      console.error(
+        "Failed to send friend request notification email:",
+        emailError
+      );
+    }
+
     sendSuccess(res, 200, "Friend request sent successfully.");
   } catch (error) {
     console.error("Detailed error in sendFriendRequest:", {
@@ -378,6 +390,25 @@ const handleFriendRequest = async (req, res) => {
         typeof request.senderId === "string"
           ? new ObjectId(request.senderId)
           : request.senderId;
+
+      const sender = await req.db
+        .collection("users")
+        .findOne({ _id: senderObjectId });
+      const accepter = await req.db
+        .collection("users")
+        .findOne({ _id: userObjectId });
+
+      if (sender && accepter) {
+        try {
+          await sendFriendRequestAcceptedEmail(
+            sender.email,
+            sender.firstName,
+            `${accepter.firstName} ${accepter.lastName}`
+          );
+        } catch (emailError) {
+          console.error("Failed to send acceptance email:", emailError);
+        }
+      }
 
       //adding to friends list on both ends
       await Promise.all([
