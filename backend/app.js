@@ -2,10 +2,9 @@ const express = require("express");
 const cors = require("cors");
 const { connectToDatabase } = require("./config/database");
 const userRoutes = require("./routes/userRoutes");
-const messageRoutes = require ('./routes/messageRoutes')
+const messageRoutes = require("./routes/messageRoutes");
 const WebSocket = require("ws");
 require("dotenv").config();
-
 
 const app = express();
 
@@ -21,9 +20,13 @@ app.use(express.json());
 
 const server = require("http").createServer(app);
 
+app.get("/api/health", (req, res) => {
+  res.status(200).json({ message: "API is running successfully!" });
+});
+
 const wss = new WebSocket.Server({ server });
 
-wss.on("connectiion", (ws) => {
+wss.on("connection", (ws) => {
   console.log("Connected a new ws client");
 
   ws.on("message", (message) => {
@@ -55,7 +58,7 @@ connectToDatabase()
     });
 
     app.use("/api", userRoutes);
-    app.use('/api/messages', messageRoutes);
+    app.use("/api/messages", messageRoutes);
 
     const PORT = process.env.PORT || 5000;
     server.listen(PORT, () => {
