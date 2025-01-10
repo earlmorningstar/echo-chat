@@ -6,6 +6,11 @@ const getChatHistory = async (req, res) => {
   const userId = req.userId;
 
   try {
+
+    if(!ObjectId.isValid(friendId) || !ObjectId.isValid(userId)) {
+      return sendError(res, 400, "Invalid user or friend ID format");
+    }
+
     const userObjectId = new ObjectId(userId);
     const friendObjectId = new ObjectId(friendId);
 

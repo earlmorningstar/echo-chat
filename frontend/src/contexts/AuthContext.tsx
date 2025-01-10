@@ -12,7 +12,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-
   useEffect(() => {
     const fetchUser = async (authToken: string) => {
       try {
@@ -20,9 +19,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           headers: { Authorization: `Bearer ${authToken}` },
         });
 
-        console.log("Fetched user data:", response.data);
-
-        if (response.data?.user?._id) {
+         if (response.data?.user?._id) {
           const userData: AuthUser = {
             _id: response.data.user._id,
             firstName: response.data.user.firstName,
@@ -37,7 +34,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           setIsAuthenticated(true);
           localStorage.setItem("user", JSON.stringify(userData));
         } else {
-          console.error("Invalid user data received:", response.data)
           throw new Error("User data missing _id field");
         }
       } catch (error) {
@@ -48,41 +44,56 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       }
     };
 
-    const storedToken = localStorage.getItem("token");
-    const storedUser = localStorage.getItem("user");
+    const initializeAuth = async () => {
+      const storedToken = localStorage.getItem("token");
+      const storedUser = localStorage.getItem("user");
 
-   if(storedToken) {
-    setToken(storedToken);
-    if(storedUser) {
-      try {
-        const parsedUser =JSON.parse(storedUser);
-        if(parsedUser._id){
-          setUser(parsedUser);
-          setIsAuthenticated(true);
-        } else {
-          console.error("Stored user missing _id:", parsedUser);
-          fetchUser(storedToken);
+      if (!storedToken) {
+        setIsLoading(false);
+        return;
+      }
+
+      setToken(storedToken);
+
+      if (storedUser) {
+        try {
+          const parsedUser = JSON.parse(storedUser);
+          if (parsedUser._id) {
+            setUser(parsedUser);
+            setIsAuthenticated(true);
+            setIsLoading(false);
+          } else {
+             await fetchUser(storedToken);
+          }
+        } catch (error) {
+          console.error("Error parsing stored user:", error);
+          await fetchUser(storedToken);
         }
-      } catch (error) {
-        console.error("Error parsing stored user:", error);
-        fetchUser(storedToken);
-      }
       } else {
-        fetchUser(storedToken);
+        await fetchUser(storedToken);
       }
-   } else {
-    setIsLoading(false);
-   }
+    };
+    initializeAuth();
   }, []);
 
+  useEffect(() => {
+    const loadingTimeout = setTimeout(() => {
+      if (isLoading) {
+        console.error("loading timeout reached");
+        setIsLoading(false);
+        logout();
+      }
+    }, 10000);
+    return () => clearTimeout(loadingTimeout);
+  }, [isLoading]);
+
   const login = (userData: AuthUser, authToken: string) => {
-    if(!userData?._id || !authToken) {
-      console.error("Invalid login data received:", {userData, authToken})
+    if (!userData?._id || !authToken) {
+      console.error("Invalid login data received:", { userData, authToken });
       return;
     }
 
     console.log("Setting user data:", userData);
-
 
     setUser(userData);
     setToken(authToken);
@@ -140,12 +151,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   if (isLoading) {
-    return <div>Loading...</div>;
+    return <div>Loading...</div>
+    //work on this loader soonest.
   }
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
-
-
 
 export const useAuth = () => {
   const context = useContext(AuthContext);

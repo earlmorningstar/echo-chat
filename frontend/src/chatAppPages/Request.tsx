@@ -51,8 +51,7 @@ const Request: React.FC = () => {
     requestId: string,
     action: "accept" | "decline"
   ) => {
-    console.log("Sending request with:", { requestId, action });
-    try {
+      try {
       await api.post("/api/user/handle-friend-request", { requestId, action });
       setSnackbar({
         open: true,

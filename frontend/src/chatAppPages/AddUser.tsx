@@ -10,13 +10,6 @@ const AddUser: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleAddUser = async () => {
-    console.log("Auth state:", { isAuthenticated, userId: user?._id });
-    console.log("Full auth state:", {
-      isAuthenticated,
-      user,
-      token: localStorage.getItem("token"),
-    });
-
     if (!isAuthenticated || !user?._id) {
       console.error("Authentication issue:", {
         isAuthenticated,
@@ -45,8 +38,6 @@ const AddUser: React.FC = () => {
       const response = await api.post("/api/user/send-friend-request", {
         receiverEmail: email.trim(),
       });
-
-      console.log("Friend request response:", response.data);
 
       if (response.data.success) {
         setMessage("Friend request sent successfully.");

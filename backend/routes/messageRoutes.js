@@ -7,7 +7,7 @@ const {
   getLastMessage,
 } = require("../controllers/messageController");
 
-router.get("/chat/:friendId", authenticateUser, getChatHistory);
+router.get("/:friendId", authenticateUser, getChatHistory);
 router.post("/send", authenticateUser, sendMessage);
 router.get("/last/:userId", authenticateUser, getLastMessage);
 

@@ -28,12 +28,9 @@ const ChatList: React.FC = () => {
     try {
       const response = await api.get("/api/user/friends");
 
-      console.log("Friends response:", response.data);
-
-      const friendsWithMessages = await Promise.all(
+         const friendsWithMessages = await Promise.all(
         response.data.friends.map(async (friend: AuthUser) => {
-          console.log("Processing friend:", friend);
-          //last message for each friend
+           //last message for each friend
           const messageResponse = await api.get(
             `/api/messages/last/${friend._id}`
           );
@@ -52,7 +49,6 @@ const ChatList: React.FC = () => {
   };
 
   const handleChatClick = (friendId: string) => {
-    console.log("Navigating to chat with friendId:", friendId);
     navigate(`/main-navigation/chat/${friendId}`);
   };
 

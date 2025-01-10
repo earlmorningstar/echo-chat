@@ -8,6 +8,7 @@ import { Send, AttachFile, MoreVert } from "@mui/icons-material";
 
 interface ChatMessage extends Message {
   sender: AuthUser;
+  // senderId: string;
 }
 
 interface ChatParams extends Record<string, string> {
@@ -30,7 +31,7 @@ const ChatWindow: React.FC = () => {
   }, []);
 
   const addNewMessage = useCallback(
-    async (message: ChatMessage) => {
+    (message: ChatMessage) => {
       setMessages((prev) => [...prev, message]);
       scrollToBottom();
     },
@@ -57,11 +58,23 @@ const ChatWindow: React.FC = () => {
     ws.current.onmessage = (event) => {
       try {
         const message = JSON.parse(event.data);
-        if (
-          message.type === "message" &&
-          (message.senderId === friendId || message.receiverId === friendId)
-        ) {
-          addNewMessage(message);
+        console.log("WebSocket message received:", message);
+
+        if (message.type === "message") {
+          setMessages((prev) => {
+            const messageExists = prev.some(
+              (m) =>
+                m.content === message.content &&
+                m.senderId === message.senderId &&
+                new Date(m.timestamp).getTime() ===
+                  new Date(message.timestamp).getTime()
+            );
+            if (!messageExists) {
+              return [...prev, message];
+            }
+            return prev;
+          });
+          scrollToBottom();
         } else if (message.type === "typing" && message.senderId === friendId) {
           setTyping(message.isTyping);
         }
@@ -69,7 +82,7 @@ const ChatWindow: React.FC = () => {
         console.error("Error processing WebSocket message:", error);
       }
     };
-  }, [friendId, addNewMessage]);
+  }, [friendId, scrollToBottom]);
 
   const fetchFriendDetails = useCallback(async () => {
     try {
@@ -82,18 +95,24 @@ const ChatWindow: React.FC = () => {
 
   const fetchChatHistory = useCallback(async () => {
     try {
+     
       const response = await api.get(`/api/messages/${friendId}`);
+      
       setMessages(response.data.messages);
       setLoading(false);
       scrollToBottom();
-    } catch (error) {
-      console.error("Error fetching chat history:", error);
+    } catch (error: any) {
+      console.error("Error fetching chat history:", {
+        status: error.response?.status,
+        data: error.response?.data,
+        friendId,
+      });
       setLoading(false);
     }
   }, [friendId, scrollToBottom]);
 
   useEffect(() => {
-    const initialize = async () => {
+       const initialize = async () => {
       initializeWebSocket();
       await fetchFriendDetails();
       await fetchChatHistory();
@@ -111,25 +130,41 @@ const ChatWindow: React.FC = () => {
   }, [friendId, fetchChatHistory, fetchFriendDetails, initializeWebSocket]);
 
   const handleSendMessage = async () => {
-    if (!newMessage.trim() || !ws.current) return;
+    if (!newMessage.trim() || !ws.current || !user?._id) return;
 
     try {
-      const message = {
-        type: "message",
+      const messageToSend = {
+        type: "text" as const,
         content: newMessage,
-        senderId: user?._id,
+        senderId: user._id,
         receiverId: friendId,
         timestamp: new Date(),
       };
 
-      ws.current.send(JSON.stringify(message));
+      const localMessage: ChatMessage = {
+        _id: Date.now().toString(),
+        type: "text",
+        content: newMessage,
+        senderId: user._id,
+        receiverId: friendId,
+        timestamp: messageToSend.timestamp,
+        sender: user,
+      };
+
+      addNewMessage(localMessage);
+
+      ws.current.send(JSON.stringify(messageToSend));
       setNewMessage("");
 
       //save to db
-      await api.post("/api/messages/send", message);
+      await api.post("/api/messages/send", messageToSend);
     } catch (error) {
       console.error("Error sending message:", error);
     }
+
+    setMessages((prev) =>
+      prev.filter((msg) => msg._id !== Date.now().toString())
+    );
   };
 
   const handleKeyPress = (event: React.KeyboardEvent) => {
