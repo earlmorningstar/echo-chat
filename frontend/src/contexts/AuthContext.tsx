@@ -19,12 +19,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         const response = await api.get("/api/user/profile", {
           headers: { Authorization: `Bearer ${authToken}` },
         });
-        if (response.data && response.data.user) {
-          setUser(response.data.user);
+
+        console.log("Fetched user data:", response.data);
+
+        if (response.data?.user?._id) {
+          const userData: AuthUser = {
+            _id: response.data.user._id,
+            firstName: response.data.user.firstName,
+            lastName: response.data.user.lastName,
+            email: response.data.user.email,
+            username: response.data.user.username,
+            avatarUrl: response.data.user.avatarUrl,
+            status: response.data.user.status,
+            lastSeen: response.data.user.lastSeen,
+          };
+          setUser(userData);
           setIsAuthenticated(true);
-          localStorage.setItem("user", JSON.stringify(response.data.user));
+          localStorage.setItem("user", JSON.stringify(userData));
         } else {
-          throw new Error("Invalid user data received")
+          console.error("Invalid user data received:", response.data)
+          throw new Error("User data missing _id field");
         }
       } catch (error) {
         console.error("Error fetching user:", error);
@@ -35,23 +49,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     };
 
     const storedToken = localStorage.getItem("token");
-    // const storedUser = localStorage.getItem("user");
+    const storedUser = localStorage.getItem("user");
 
-    if (storedToken) {
-      setToken(storedToken);
-      //   setUser(JSON.parse(storedUser));
-      // setIsAuthenticated(true);
-      fetchUser(storedToken);
-    } else {
-      setIsLoading(false);
-    }
+   if(storedToken) {
+    setToken(storedToken);
+    if(storedUser) {
+      try {
+        const parsedUser =JSON.parse(storedUser);
+        if(parsedUser._id){
+          setUser(parsedUser);
+          setIsAuthenticated(true);
+        } else {
+          console.error("Stored user missing _id:", parsedUser);
+          fetchUser(storedToken);
+        }
+      } catch (error) {
+        console.error("Error parsing stored user:", error);
+        fetchUser(storedToken);
+      }
+      } else {
+        fetchUser(storedToken);
+      }
+   } else {
+    setIsLoading(false);
+   }
   }, []);
 
   const login = (userData: AuthUser, authToken: string) => {
-    if(!userData || !authToken) {
+    if(!userData?._id || !authToken) {
       console.error("Invalid login data received:", {userData, authToken})
       return;
     }
+
+    console.log("Setting user data:", userData);
 
 
     setUser(userData);

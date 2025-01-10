@@ -6,6 +6,7 @@ import { AuthUser } from "../types";
 import "./ChatAppStyles.css";
 
 interface Friend extends AuthUser {
+  _id: string;
   lastMessage?: {
     content: string;
     timestamp: Date;
@@ -26,11 +27,15 @@ const ChatList: React.FC = () => {
   const fetchFriends = async () => {
     try {
       const response = await api.get("/api/user/friends");
+
+      console.log("Friends response:", response.data);
+
       const friendsWithMessages = await Promise.all(
         response.data.friends.map(async (friend: AuthUser) => {
+          console.log("Processing friend:", friend);
           //last message for each friend
           const messageResponse = await api.get(
-            `/api/messages/last/${friend.id}`
+            `/api/messages/last/${friend._id}`
           );
           return {
             ...friend,
@@ -47,6 +52,7 @@ const ChatList: React.FC = () => {
   };
 
   const handleChatClick = (friendId: string) => {
+    console.log("Navigating to chat with friendId:", friendId);
     navigate(`/main-navigation/chat/${friendId}`);
   };
 
@@ -94,9 +100,9 @@ const ChatList: React.FC = () => {
         ) : (
           friends.map((friend) => (
             <div
-              key={friend.id}
+              key={friend._id}
               className="chat-item"
-              onClick={() => handleChatClick(friend.id)}
+              onClick={() => handleChatClick(friend._id)}
             >
               <div className="chat-item-avatar">
                 {friend.avatarUrl ? (

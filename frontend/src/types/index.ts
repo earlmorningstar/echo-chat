@@ -1,5 +1,5 @@
 export interface AuthUser {
-  id: string;
+  _id: string;
   firstName: string;
   lastName: string;
   email: string;
@@ -23,7 +23,7 @@ export interface AuthContextType {
 }
 
 export interface Message {
-    id: string;
+    _id: string;
     content: string;
     senderId: string;
     receiverId?: string;
@@ -39,7 +39,7 @@ export interface Message {
 }
 
 export interface ChatRoom {
-    id: string;
+    _id: string;
     name?: string,
     type: 'direct' | 'group';
     participants: AuthUser[];

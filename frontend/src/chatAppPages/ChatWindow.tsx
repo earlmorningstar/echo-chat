@@ -117,7 +117,7 @@ const ChatWindow: React.FC = () => {
       const message = {
         type: "message",
         content: newMessage,
-        senderId: user?.id,
+        senderId: user?._id,
         receiverId: friendId,
         timestamp: new Date(),
       };
@@ -181,7 +181,7 @@ const ChatWindow: React.FC = () => {
               <div
                 key={index}
                 className={`message ${
-                  message.senderId === user?.id ? "sent" : "received"
+                  message.senderId === user?._id ? "sent" : "received"
                 }`}
               >
                 <div className="message-content">

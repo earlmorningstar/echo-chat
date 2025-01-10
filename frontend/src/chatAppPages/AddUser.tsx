@@ -10,13 +10,31 @@ const AddUser: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleAddUser = async () => {
-    if (!isAuthenticated || !user?.id) {
+    console.log("Auth state:", { isAuthenticated, userId: user?._id });
+    console.log("Full auth state:", {
+      isAuthenticated,
+      user,
+      token: localStorage.getItem("token"),
+    });
+
+    if (!isAuthenticated || !user?._id) {
+      console.error("Authentication issue:", {
+        isAuthenticated,
+        userId: user?._id,
+        fullUser: user,
+      });
       setMessage("You must be logged in to send a friend request.");
       return;
     }
 
-    if (!email.trim) {
+    if (!email.trim()) {
       setMessage("Please enter an email address");
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email.trim())) {
+      setMessage("Please enter a valid emmail address");
       return;
     }
 
@@ -28,6 +46,8 @@ const AddUser: React.FC = () => {
         receiverEmail: email.trim(),
       });
 
+      console.log("Friend request response:", response.data);
+
       if (response.data.success) {
         setMessage("Friend request sent successfully.");
         setIsRequestSent(true);
@@ -38,11 +58,12 @@ const AddUser: React.FC = () => {
         );
       }
     } catch (error: any) {
+      console.error("Add user error:", error.responsee || error);
       const errorMessage =
         error.response?.data?.message ||
         "Error sending friend request. Please try again";
       setMessage(errorMessage);
-      console.error("Add user error:", error);
+      // console.error("Add user error:", error);
     } finally {
       setIsSubmitting(false);
     }
@@ -56,6 +77,14 @@ const AddUser: React.FC = () => {
     <div className="main-container">
       <div className="add-user-page">
         <h2>Add User</h2>
+        {process.env.NODE_ENV === "development" && (
+          <div style={{ fontSize: "12px", color: "gray" }}>
+            Auth status:{" "}
+            {isAuthenticated ? "Authenticated" : "Not authenticated"}
+            <br />
+            User ID: {user?._id || "No user ID"}
+          </div>
+        )}
         <input
           type="email"
           value={email}

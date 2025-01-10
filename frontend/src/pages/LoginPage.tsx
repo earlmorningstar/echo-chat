@@ -54,7 +54,7 @@ const LoginPage: React.FC = () => {
       setShowSuccess(true);
 
       setTimeout(() => {
-        navigate("/main-navigation");
+        navigate("/main-navigation/chats");
       }, 2000);
     } catch (error: any) {
       const message =

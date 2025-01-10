@@ -1,7 +1,4 @@
-// const bcrypt = require("bcrypt");
-// const jwt = require("jsonwebtoken");
-// const crypto = require("crypto");
-
+const { ObjectId } = require("mongodb");
 const { sendError, sendSuccess } = require("../utils/response");
 
 const getChatHistory = async (req, res) => {
@@ -9,17 +6,30 @@ const getChatHistory = async (req, res) => {
   const userId = req.userId;
 
   try {
-    const message = await req.db
+    const userObjectId = new ObjectId(userId);
+    const friendObjectId = new ObjectId(friendId);
+
+    const messages = await req.db
       .collection("messages")
       .find({
         $or: [
-          { senderId: userId, receiverId: friendId },
-          { senderId: friendId, receiverId: userId },
+          { senderId: userObjectId, receiverId: friendObjectId },
+          { senderId: friendObjectId, receiverId: userObjectId },
         ],
       })
       .sort({ timestamp: 1 })
       .toArray();
-    sendSuccess(res, 200, "Chat history retrieved successfully", { message });
+
+    const formattedMessages = messages.map((message) => ({
+      ...message,
+      _id: message._id.toString(),
+      senderId: message.senderId.toString(),
+      receiverId: message.receiverId.toString(),
+    }));
+
+    sendSuccess(res, 200, "Chat history retrieved successfully", {
+      messages: formattedMessages,
+    });
   } catch (error) {
     sendError(res, 500, "Error retrieving chat history", {
       error: error.message,
@@ -32,15 +42,16 @@ const sendMessage = async (req, res) => {
   const senderId = req.userId;
 
   try {
-    const message = await req.db.collection("message").insertOne({
+    const message = await req.db.collection("messages").insertOne({
       content,
-      senderId,
-      receiverId,
+      senderId: new ObjectId(senderId),
+      receiverId: new ObjectId(receiverId),
       timestamp: new Date(),
       status: "sent",
     });
+
     sendSuccess(res, 201, "Message sent successfully", {
-      messageId: message.insertedId,
+      messageId: message.insertedId.toString(),
     });
   } catch (error) {
     sendError(res, 500, "Error sending message", { error: error.message });
@@ -52,11 +63,14 @@ const getLastMessage = async (req, res) => {
   const friendId = req.params.userId;
 
   try {
+    const userObjectId = new ObjectId(userId);
+    const friendObjectId = new ObjectId(friendId);
+
     const lastMessage = await req.db.collection("messages").findOne(
       {
         $or: [
-          { senderId: userId, receiverId: friendId },
-          { senderId: friendId, receiverId: userId },
+          { senderId: userObjectId, receiverId: friendObjectId },
+          { senderId: friendObjectId, receiverId: userObjectId },
         ],
       },
       {
@@ -72,7 +86,8 @@ const getLastMessage = async (req, res) => {
     );
 
     const unread = lastMessage
-      ? lastMessage.status === "sent" && lastMessage.receiverId === userId
+      ? lastMessage.status === "sent" &&
+        lastMessage.receiverId.toString() === userId
       : false;
 
     sendSuccess(res, 200, "Last message retrieved successfully", {
