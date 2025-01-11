@@ -28,9 +28,9 @@ const ChatList: React.FC = () => {
     try {
       const response = await api.get("/api/user/friends");
 
-         const friendsWithMessages = await Promise.all(
+      const friendsWithMessages = await Promise.all(
         response.data.friends.map(async (friend: AuthUser) => {
-           //last message for each friend
+          //last message for each friend
           const messageResponse = await api.get(
             `/api/messages/last/${friend._id}`
           );
@@ -65,6 +65,14 @@ const ChatList: React.FC = () => {
       });
     }
     return date.toLocaleDateString();
+  };
+
+  const truncateLastMessage = (message: string, wordLimit: number = 15) => {
+    const words = message.split(" ");
+    if (words.length > wordLimit) {
+      return words.slice(0, wordLimit).join(" ") + "....";
+    }
+    return message;
   };
 
   const getLastActiveStatus = (lastSeen?: Date) => {
@@ -109,7 +117,7 @@ const ChatList: React.FC = () => {
                   />
                 ) : (
                   <div className="default-avatar">
-                    {friend.firstName[0]}${friend.lastName[0]}
+                    {friend.firstName[0]}{friend.lastName[0]}
                   </div>
                 )}
                 <span
@@ -130,19 +138,18 @@ const ChatList: React.FC = () => {
                 </div>
 
                 <div className="chat-preview">
-                  {friend.lastMessage ? (
-                    <span className="last-message">
-                      {friend.lastMessage.content}
-                    </span>
-                  ) : (
-                    <span className="no-messages">No messages yet</span>
-                  )}
+                  <span className="last-message">
+                    {friend.lastMessage
+                      ? truncateLastMessage(friend.lastMessage.content)
+                      : "No messages yet"}
+                  </span>
                   {friend.lastMessage?.unread && (
                     <span className="unread-indicator" />
                   )}
-                </div>
-                <div className="user-status">
-                  {getLastActiveStatus(friend.lastSeen)}
+
+                  <div className="user-status">
+                    {getLastActiveStatus(friend.lastSeen)}
+                  </div>
                 </div>
               </div>
             </div>

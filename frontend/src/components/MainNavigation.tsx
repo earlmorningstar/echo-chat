@@ -1,33 +1,41 @@
 import { NavLink, Outlet } from "react-router-dom";
-import { IoChatboxEllipsesOutline, 
-  IoPersonAdd, 
-  IoSettingsOutline   } from "react-icons/io5";
-import { PiPhoneCallLight, PiFilmReelLight  } from "react-icons/pi";
+import {
+  // IoChatboxEllipsesOutline,
+  IoPersonAdd,
+  // IoSettingsOutline,
+} from "react-icons/io5";
+// import { PiPhoneCallLight, PiFilmReelLight  } from "react-icons/pi";
+
+import { RiMessage2Fill } from "react-icons/ri";
+import { BsFillTelephoneFill } from "react-icons/bs";
+import { PiFilmReelFill } from "react-icons/pi";
+import { RiSettings3Fill } from "react-icons/ri";
+
 import "./MainNavigation.css";
 import Header from "../chatAppPages/Header";
 
 const MainNavigation: React.FC = () => {
   return (
     <div className="holder">
-    <Header />
+      <Header />
       <main>
         <Outlet />
       </main>
       <nav className="navbar">
         <NavLink to="chats">
-          <IoChatboxEllipsesOutline size={24} />
+          <RiMessage2Fill size={22} />
         </NavLink>
         <NavLink to="calls">
-          <PiPhoneCallLight size={24} />
+          <BsFillTelephoneFill size={22} />
         </NavLink>
         <NavLink to="updates">
-          <PiFilmReelLight size={24} />
+          <PiFilmReelFill size={22} />
         </NavLink>
         <NavLink to="requests">
-          <IoPersonAdd size={24} />
+          <IoPersonAdd size={22} />
         </NavLink>
         <NavLink to="settings">
-          <IoSettingsOutline size={24} />
+          <RiSettings3Fill size={22} />
         </NavLink>
       </nav>
     </div>

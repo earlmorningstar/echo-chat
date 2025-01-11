@@ -16,7 +16,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: #3c3f46;
+  background-color: #F9F4EC;
 }
 
 .splash-header h1 {
@@ -28,8 +28,9 @@
 /* //OnboardingScreen Section-- */
 
 .onboarding-container {
-  background: linear-gradient(260deg, #284440, #3c3f46);
-  height: 100vh;
+  font-family: "Poppins", sans-serif;
+  background-color: #F9F4EC;
+  min-height: 100vh;
   padding: 3rem 6rem;
   display: flex;
   flex-direction: column;
@@ -39,30 +40,27 @@
 
 .onboarding-container h2 {
   font-family: "Playwrite GB S", cursive;
-  font-weight: 500;
-  color: #e6dfdf;
+  font-weight: 600;
+  color: #208d7f;
   margin-bottom: 5rem;
 }
 
 .onboarding-container h1 {
-  font-family: "Poppins", sans-serif;
   font-size: 40px;
-  color: #e6dfdf;
+  color: #208d7f;
 }
 
 .onboarding-container h4 {
-  font-family: "Poppins", sans-serif;
   font-size: 18px;
   font-weight: 400;
   margin-bottom: 3rem;
-  color: #a19f9f;
-}
+  color: #208d7f;
+  }
 
 .onboarding-container p {
-  font-family: "Poppins", sans-serif;
   font-size: 20px;
   font-weight: 400;
-  color: #a19f9f;
+  color: #208d7f;
   margin-bottom: 1rem;
 }
 
@@ -74,6 +72,8 @@
 }
 
 .onboarding-buttons button {
+  background-color: #208d7f;
+  color: #F3EADD;
   cursor: pointer;
   padding: 10px 18px;
   width: 8rem;
@@ -89,9 +89,8 @@
   display: flex;
   flex-direction: column;
   gap: 2rem;
-  background-color: #c2bfbf;
-  /* background-color: #f7f3f3; */
-  height: fit-content;
+  background-color: #F9F4EC;
+  min-height: 100vh;
 }
 
 .login-redirection-arrow {
@@ -101,6 +100,7 @@
   display: flex;
   flex-direction: column;
   text-align: center;
+  padding-top: 3rem;
 }
 
 .auth-container h2 {
@@ -134,7 +134,6 @@
   cursor: pointer;
   padding: 10px 8px;
   background-color: #e4e1e1;
-  color: #3d3c3c;
   border: none;
   border-radius: 10px;
   margin: 1rem 0 1.5rem 0;
@@ -198,7 +197,7 @@
 .forgot-password-container {
   font-family: "Afacad Flux", sans-serif;
   padding: 3rem;
-  background-color: #c2bfbf;
+  background-color: #F9F4EC;
   height: 100vh;
   text-align: center;
   display: flex;
@@ -263,10 +262,13 @@
 }
 
 @media screen and (max-width: 450px) {
-  /* .onboarding-container {
-    
-  } */
   .auth-container p {
     font-size: 20px;
+  }
+
+  .forgot-password-container h2 {
+    font-weight: 500;
+    font-size: 30px;
+    margin-bottom: 1.5rem;
   }
 }

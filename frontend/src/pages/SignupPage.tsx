@@ -13,7 +13,7 @@ import {
   CircularProgress,
 } from "@mui/material";
 import { Visibility, VisibilityOff } from "@mui/icons-material";
-import { IoIosArrowRoundBack } from "react-icons/io";
+// import { IoIosArrowRoundBack } from "react-icons/io";
 import { useAuth } from "../contexts/AuthContext";
 import api from "../utils/api";
 
@@ -186,9 +186,9 @@ const SignupPage: React.FC = () => {
 
   return (
     <div className="auth-main-container">
-      <NavLink to="/onboarding" className="login-redirection-arrow">
+      {/* <NavLink to="/onboarding" className="login-redirection-arrow">
         <IoIosArrowRoundBack size={30} color="#000000" />
-      </NavLink>
+      </NavLink> */}
       <div className="auth-container">
         <h2>Sign up for EchoChat</h2>
         <p>Join us by creating your account below</p>

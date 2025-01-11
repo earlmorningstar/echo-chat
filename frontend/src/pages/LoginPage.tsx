@@ -14,7 +14,7 @@ import {
   CircularProgress,
 } from "@mui/material";
 import { Visibility, VisibilityOff } from "@mui/icons-material";
-import { IoIosArrowRoundBack } from "react-icons/io";
+// import { IoIosArrowRoundBack } from "react-icons/io";
 import api from "../utils/api";
 
 const LoginPage: React.FC = () => {
@@ -84,9 +84,9 @@ const LoginPage: React.FC = () => {
 
   return (
     <div className="auth-main-container">
-      <NavLink to="/onboarding" className="login-redirection-arrow">
+      {/* <NavLink to="/onboarding" className="login-redirection-arrow">
         <IoIosArrowRoundBack size={30} color="#000000" />
-      </NavLink>
+      </NavLink> */}
       <div className="auth-container">
         <h2>Log in to EchoChat</h2>
         <p>
@@ -126,7 +126,7 @@ const LoginPage: React.FC = () => {
               sx={{
                 m: 1,
                 width: "35ch",
-                ".MuiInputLabel-asterisk": { color: "#c2bfbf" },
+                ".MuiInputLabel-asterisk": { color: "#F9F4EC" },
               }}
               required
             />
@@ -137,7 +137,7 @@ const LoginPage: React.FC = () => {
               sx={{
                 m: 1,
                 width: "35ch",
-                ".MuiInputLabel-asterisk": { color: "#c2bfbf" },
+                ".MuiInputLabel-asterisk": { color: "#F9F4EC" },
               }}
               variant="standard"
             >

@@ -176,7 +176,7 @@ const ChatWindow: React.FC = () => {
 
   return (
     <div className="chat-container">
-      <div className="chat-header">
+      <div className="chat-window-header">
         {friend && (
           <>
             <div className="friend-info">

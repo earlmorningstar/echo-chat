@@ -108,7 +108,7 @@ const VerifyCode: React.FC = () => {
             sx={{
               m: 1,
               width: "35ch",
-              ".MuiInputLabel-asterisk": { color: "#c2bfbf" },
+              ".MuiInputLabel-asterisk": { color: "#F9F4EC" },
             }}
             required
           />

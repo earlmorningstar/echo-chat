@@ -12,14 +12,14 @@
     width: 100%;
     display: flex;
     justify-content: space-around;
-    background-color: #3c3f46; 
+    background-color: #F3EADD;
     padding: 10px 0;
     border-top: 1px solid #5c5b5b;
     box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.2); 
   }
   
   .navbar a {
-    color: #ffffff; 
+    color: #8e7654; 
     text-decoration: none;
   }
   
@@ -28,7 +28,7 @@
   }
   
   .holder {
-    background-color: #3c3f46;
+   background-color: #F3EADD;
     color: #ffffff;
     min-height: 100vh;
   }
