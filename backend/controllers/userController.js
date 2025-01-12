@@ -204,12 +204,14 @@ const resetPassword = async (req, res) => {
   }
 };
 
-const getUserProfile  = async (req, res) => {
+const getUserProfile = async (req, res) => {
   try {
     const userObjectId = new ObjectId(req.userId);
-    const user = await req.db.collection("users").findOne({_id: userObjectId});
+    const user = await req.db
+      .collection("users")
+      .findOne({ _id: userObjectId });
 
-    if(!user) {
+    if (!user) {
       return sendError(res, 400, "User not found");
     }
 
@@ -220,15 +222,19 @@ const getUserProfile  = async (req, res) => {
       lastName: user.lastName,
       isVerified: user.isVerified,
     };
-    sendSuccess(res, 200, "User profile retrieved successfully", {user: userData});
-  } catch(error) {
+    sendSuccess(res, 200, "User profile retrieved successfully", {
+      user: userData,
+    });
+  } catch (error) {
     console.error("Error retrieving user profile:", error);
-    sendError(res, 500, "Error retrieving user profile", {error: error.message});
+    sendError(res, 500, "Error retrieving user profile", {
+      error: error.message,
+    });
   }
-}
+};
 
 const sendFriendRequest = async (req, res) => {
-   const { receiverEmail } = req.body;
+  const { receiverEmail } = req.body;
 
   if (!receiverEmail) {
     return sendError(res, 400, "Receiver email is required");
@@ -239,7 +245,7 @@ const sendFriendRequest = async (req, res) => {
     const sender = await req.db
       .collection("users")
       .findOne({ _id: senderObjectId });
-    
+
     if (!sender) {
       return sendError(res, 400, "Sender not found");
     }
@@ -255,13 +261,9 @@ const sendFriendRequest = async (req, res) => {
     const receiver = await req.db
       .collection("users")
       .findOne({ email: receiverEmail });
-    
+
     if (!receiver) {
-      return sendError(
-        res,
-        400,
-        "User not found. Please check the email address."
-      );
+      return sendError(res, 400, "This user is not registered with EchoChat");
     }
 
     const existingRequest = await req.db.collection("friendRequests").findOne({
@@ -269,7 +271,7 @@ const sendFriendRequest = async (req, res) => {
       receiverId: receiver._id,
       status: { $in: ["pending", "accepted"] },
     });
-   
+
     if (existingRequest) {
       const status =
         existingRequest.status === "pending"
@@ -286,7 +288,7 @@ const sendFriendRequest = async (req, res) => {
       status: "pending",
       createdAt: new Date(),
     };
-    
+
     await req.db.collection("friendRequests").insertOne(friendRequest);
 
     try {
@@ -302,7 +304,7 @@ const sendFriendRequest = async (req, res) => {
       );
     }
 
-    sendSuccess(res, 200, "Friend request sent successfully.");
+    sendSuccess(res, 200, "Friend request sent successfully");
   } catch (error) {
     console.error("Detailed error in sendFriendRequest:", {
       error: error.message,
@@ -327,7 +329,7 @@ const getFriendRequests = async (req, res) => {
   try {
     const userObjectId = new ObjectId(userId);
 
-    const [sentRequests, recievedRequests] = await Promise.all([
+    const [sentRequests, receivedRequests] = await Promise.all([
       req.db
         .collection("friendRequests")
         .find({
@@ -341,16 +343,16 @@ const getFriendRequests = async (req, res) => {
         .toArray(),
     ]);
 
-        const response = {
+    const response = {
       statusCode: 200,
       message: "Request retrieved successfully",
       data: {
         sent: sentRequests || [],
-        received: recievedRequests || [],
+        received: receivedRequests || [],
       },
     };
 
-     return res.status(200).json(response);
+    return res.status(200).json(response);
   } catch (error) {
     console.error("Error retrieving friend requests:", error);
     sendError(res, 500, "Error retrieving friend request", {
@@ -372,7 +374,7 @@ const handleFriendRequest = async (req, res) => {
       receiverId: userObjectId,
     });
 
-       if (!request) {
+    if (!request) {
       return sendError(res, 404, "Friend request not found");
     }
 
@@ -472,12 +474,14 @@ const getFriends = async (req, res) => {
       .project({ password: 0, resetPasswordToken: 0, resetPasswordExpires: 0 })
       .toArray();
 
-      const formattedFriends = friends.map(friend => ({
-        ...friend,
-        _id: friend._id.toString()
-      }));
+    const formattedFriends = friends.map((friend) => ({
+      ...friend,
+      _id: friend._id.toString(),
+    }));
 
-    sendSuccess(res, 200, "Friends retrieved successfully", { friends: formattedFriends });
+    sendSuccess(res, 200, "Friends retrieved successfully", {
+      friends: formattedFriends,
+    });
   } catch (error) {
     console.error("Error retrieving friends:", error);
 
@@ -492,22 +496,25 @@ const getFriends = async (req, res) => {
 const getUserById = async (req, res) => {
   const { userId } = req.params;
   try {
-
     const userObjectId = new ObjectId(userId);
-  
-    const user = await req.db.collection("users").findOne({ _id: userObjectId });
+
+    const user = await req.db
+      .collection("users")
+      .findOne({ _id: userObjectId });
     if (!user) {
       return sendError(res, 404, "User not found");
     }
 
     const userResponse = {
       ...user,
-      _id: user._id.toString()
+      _id: user._id.toString(),
     };
 
-    sendSuccess(res, 200, "User retrieved successfully", { user: userResponse });
+    sendSuccess(res, 200, "User retrieved successfully", {
+      user: userResponse,
+    });
   } catch (error) {
-    if(error.name === "BSONTypeError" || error.name === "BSONError") {
+    if (error.name === "BSONTypeError" || error.name === "BSONError") {
       return sendError(res, 400, "Invalid user ID format");
     }
     sendError(res, 500, "Error retrieving user", { error: error.message });

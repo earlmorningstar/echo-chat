@@ -49,7 +49,7 @@ const ChatList: React.FC = () => {
   };
 
   const handleChatClick = (friendId: string) => {
-    navigate(`/main-navigation/chat/${friendId}`);
+    navigate(`/chat/${friendId}`);
   };
 
   const formatTimestamp = (timestamp: Date) => {
@@ -96,7 +96,7 @@ const ChatList: React.FC = () => {
       <div className="chat-list">
         {friends.length === 0 ? (
           <div className="no-friends-message">
-            <p>You haven't added any friends yet.</p>
+            <p>You don't have any friends yet</p>
             <button onClick={() => navigate("/main-navigation/add-user")}>
               Add Friends
             </button>
@@ -132,7 +132,9 @@ const ChatList: React.FC = () => {
                   </span>
                   {friend.lastMessage && (
                     <span className="chat-time">
-                      {formatTimestamp(friend.lastMessage.timestamp)}
+                     {friend.lastMessage?.unread && (
+                    <span className="unread-indicator" />
+                  )} {formatTimestamp(friend.lastMessage.timestamp)}
                     </span>
                   )}
                 </div>
@@ -143,10 +145,6 @@ const ChatList: React.FC = () => {
                       ? truncateLastMessage(friend.lastMessage.content)
                       : "No messages yet"}
                   </span>
-                  {friend.lastMessage?.unread && (
-                    <span className="unread-indicator" />
-                  )}
-
                   <div className="user-status">
                     {getLastActiveStatus(friend.lastSeen)}
                   </div>

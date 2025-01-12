@@ -1,10 +1,15 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, NavLink } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import api from "../utils/api";
 import { Message, AuthUser } from "../types";
-import { IconButton, TextField, CircularProgress } from "@mui/material";
+import {
+  IconButton,
+  // TextField,
+  CircularProgress,
+} from "@mui/material";
 import { Send, AttachFile, MoreVert } from "@mui/icons-material";
+import { IoChevronBackOutline } from "react-icons/io5";
 
 interface ChatMessage extends Message {
   sender: AuthUser;
@@ -95,9 +100,8 @@ const ChatWindow: React.FC = () => {
 
   const fetchChatHistory = useCallback(async () => {
     try {
-     
       const response = await api.get(`/api/messages/${friendId}`);
-      
+
       setMessages(response.data.messages);
       setLoading(false);
       scrollToBottom();
@@ -112,7 +116,7 @@ const ChatWindow: React.FC = () => {
   }, [friendId, scrollToBottom]);
 
   useEffect(() => {
-       const initialize = async () => {
+    const initialize = async () => {
       initializeWebSocket();
       await fetchFriendDetails();
       await fetchChatHistory();
@@ -167,10 +171,11 @@ const ChatWindow: React.FC = () => {
     );
   };
 
-  const handleKeyPress = (event: React.KeyboardEvent) => {
-    if (event.key === "Enter" && !event.shiftKey) {
+  const handleKeyPress = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "Enter" && !event.shiftKey && newMessage.trim()) {
       event.preventDefault();
       handleSendMessage();
+      setNewMessage("");
     }
   };
 
@@ -180,6 +185,12 @@ const ChatWindow: React.FC = () => {
         {friend && (
           <>
             <div className="friend-info">
+              <NavLink
+                to="/main-navigation/chats"
+                className="login-redirection-arrow"
+              >
+                <IoChevronBackOutline size={20} color="#333" />
+              </NavLink>
               <div className="friend-avatar">
                 {friend.avatarUrl ? (
                   <img src={friend.avatarUrl} alt={friend.firstName} />
@@ -244,23 +255,33 @@ const ChatWindow: React.FC = () => {
         <IconButton>
           <AttachFile />
         </IconButton>
-        <TextField
+        <input
+          className="message-input"
+          value={newMessage}
+          onChange={(e) => setNewMessage(e.target.value)}
+          onKeyUp={handleKeyPress}
+          placeholder="Type a message..."
+          type="text"
+        />
+        {/* <TextField
+        className="message-input"
           fullWidth
           multiline
           maxRows={4}
           value={newMessage}
           onChange={(e) => setNewMessage(e.target.value)}
-          onKeyPress={handleKeyPress}
+          onKeyDown={handleKeyPress}
           placeholder="Type a message..."
-          variant="outlined"
+          variant="standard"
           size="small"
-        />
-        <IconButton
-          color="primary"
-          onClick={handleSendMessage}
-          disabled={!newMessage.trim()}
-        >
-          <Send />
+        /> */}
+
+        <IconButton onClick={handleSendMessage} disabled={!newMessage.trim()}>
+          <Send
+            sx={{
+              color: !newMessage.trim() ? "rgba(0, 0, 0, 0.26)" : "#208d7f",
+            }}
+          />
         </IconButton>
       </div>
     </div>

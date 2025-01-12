@@ -4,9 +4,9 @@ import {
   Tab,
   Box,
   List,
-  ListItem,
-  ListItemText,
-  Button,
+  // ListItem,
+  // ListItemText,
+  // Button,
   Snackbar,
 } from "@mui/material";
 import { useAuth } from "../contexts/AuthContext";
@@ -34,10 +34,12 @@ const Request: React.FC = () => {
   const fetchRequests = async () => {
     try {
       const response = await api.get("/api/user/friend-requests");
+      console.log("Fetching request response:", response.data);
 
       if (response.data && response.data.data) {
         setSentRequests(response.data.data.sent || []);
         setReceivedRequests(response.data.data.received || []);
+        console.log("Received requests:", response.data.data.received);
       } else {
         throw new Error("Invalid response format");
       }
@@ -51,7 +53,7 @@ const Request: React.FC = () => {
     requestId: string,
     action: "accept" | "decline"
   ) => {
-      try {
+    try {
       await api.post("/api/user/handle-friend-request", { requestId, action });
       setSnackbar({
         open: true,
@@ -71,67 +73,74 @@ const Request: React.FC = () => {
   };
 
   return (
-    <Box sx={{ width: "100%", typography: "body1" }}>
-      <Box sx={{ borderBottom: 1, borderColor: "divider" }}>
-        <Tabs
-          value={tabValue}
-          onChange={handleTabChange}
-          aria-label="friend requests tabs"
-        >
-          <Tab label="Received Requests" />
-          <Tab label="Sent Requests" />
-        </Tabs>
-      </Box>
+    <div className="main-container">
+      <div className="request-container">
+        <Box sx={{ width: "100%", typography: "body1" }}>
+          <Box sx={{ borderBottom: 1, borderColor: "divider" }}>
+            <Tabs
+              value={tabValue}
+              onChange={handleTabChange}
+              aria-label="friend requests tabs"
+            >
+              <Tab label="Received Requests" />
+              <Tab label="Sent Requests" />
+            </Tabs>
+          </Box>
 
-      <TabPanel value={tabValue} index={0}>
-        <List>
-          {receivedRequests.map((request: FriendRequest) => (
-            <ListItem key={request._id}>
-              <ListItemText
-                primary={request.senderName}
-                secondary={new Date(request.createdAt).toLocaleDateString()}
-              />
-              <Button
-                onClick={() => handleRequestAction(request._id, "accept")}
-                color="primary"
-                variant="contained"
-                sx={{ mr: 1 }}
-              >
-                Accept
-              </Button>
-              <Button
-                onClick={() => handleRequestAction(request._id, "decline")}
-                color="secondary"
-                variant="contained"
-              >
-                Decline
-              </Button>
-            </ListItem>
-          ))}
-        </List>
-      </TabPanel>
+          <TabPanel value={tabValue} index={0}>
+            <List>
+              {receivedRequests.map((request: FriendRequest) => (
+                <section className="request-flex" key={request._id}>
+                  <div className="req-name-and-date">
+                    <span>{request.senderName}</span>
+                    <p>
+                      Date received:{" "}
+                      {new Date(request.createdAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <span className="req-action-btn">
+                    <button
+                      onClick={() => handleRequestAction(request._id, "accept")}
+                    >
+                      Accept
+                    </button>
+                    <button
+                      id="req-decline"
+                      onClick={() =>
+                        handleRequestAction(request._id, "decline")
+                      }
+                    >
+                      Decline
+                    </button>
+                  </span>
+                </section>
+              ))}
+            </List>
+          </TabPanel>
 
-      <TabPanel value={tabValue} index={1}>
-        <List>
-          {sentRequests.map((request: FriendRequest) => (
-            <ListItem key={request._id}>
-              <ListItemText
-                primary={request.receiverName}
-                secondary={`Sent: ${new Date(
-                  request.createdAt
-                ).toLocaleDateString()}`}
-              />
-            </ListItem>
-          ))}
-        </List>
-      </TabPanel>
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={6000}
-        onClose={() => setSnackbar({ ...snackbar, open: false })}
-        message={snackbar.message}
-      />
-    </Box>
+          <TabPanel value={tabValue} index={1}>
+            <List>
+              {sentRequests.map((request: FriendRequest) => (
+                <section key={request._id}>
+                  <div className="req-name-and-date">
+                    <span>{request.receiverName}</span>
+                    <p>{`Date sent: ${new Date(
+                      request.createdAt
+                    ).toLocaleDateString()}`}</p>
+                  </div>
+                </section>
+              ))}
+            </List>
+          </TabPanel>
+          <Snackbar
+            open={snackbar.open}
+            autoHideDuration={6000}
+            onClose={() => setSnackbar({ ...snackbar, open: false })}
+            message={snackbar.message}
+          />
+        </Box>
+      </div>
+    </div>
   );
 };
 
