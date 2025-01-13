@@ -1,15 +1,18 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, NavLink } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import api from "../utils/api";
 import { Message, AuthUser } from "../types";
 import {
   IconButton,
+  Backdrop,
   // TextField,
   CircularProgress,
 } from "@mui/material";
 import { Send, AttachFile, MoreVert } from "@mui/icons-material";
 import { IoChevronBackOutline } from "react-icons/io5";
+import { CiUnread, CiRead } from "react-icons/ci";
 
 interface ChatMessage extends Message {
   sender: AuthUser;
@@ -24,13 +27,35 @@ interface ChatParams extends Record<string, string> {
 const ChatWindow: React.FC = () => {
   const { friendId } = useParams<ChatParams>();
   const { user } = useAuth();
-  const [friend, setFriend] = useState<AuthUser | null>(null);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState("");
-  const [loading, setLoading] = useState(true);
   const [typing, setTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const ws = useRef<WebSocket | null>(null);
+  const queryClient = useQueryClient();
+
+  const { data: friend } = useQuery({
+    queryKey: ["friend", friendId],
+    queryFn: async () => {
+      const response = await api.get(`/api/user/${friendId}`);
+      return response.data.user;
+    },
+    enabled: !!friendId,
+    staleTime: 1000 * 60,
+  });
+
+  const { data: messages = [], isLoading } = useQuery({
+    queryKey: ["messages", friendId],
+    queryFn: async () => {
+      const response = await api.get(`/api/messages/${friendId}`);
+      return response.data.messages;
+    },
+    enabled: !!friendId,
+    refetchInterval: 2000,
+    staleTime: 1000,
+    gcTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+  });
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -38,11 +63,43 @@ const ChatWindow: React.FC = () => {
 
   const addNewMessage = useCallback(
     (message: ChatMessage) => {
-      setMessages((prev) => [...prev, message]);
+      queryClient.setQueryData(
+        ["messages", friendId],
+        (oldMessages: ChatMessage[] | undefined) => {
+          return oldMessages
+            ? [...oldMessages, { ...message, status: "read" }]
+            : [{ ...message, status: "read" }];
+        }
+      );
       scrollToBottom();
     },
-    [scrollToBottom]
+    [queryClient, friendId, scrollToBottom]
   );
+
+  const updateMessagesAsRead = useCallback(() => {
+    queryClient.setQueryData(
+      ["messages", friendId],
+      (oldMessages: ChatMessage[] | undefined) => {
+        if (!oldMessages) return [];
+        return oldMessages.map((message) => ({
+          ...message,
+          status: message.senderId === friendId ? "read" : message.status,
+        }));
+      }
+    );
+  }, [friendId, queryClient]);
+
+  const markMessageAsRead = useCallback(async () => {
+    if (!friendId) return;
+
+    try {
+      await api.post(`/api/messages/mark-read/${friendId}`);
+      updateMessagesAsRead();
+      queryClient.invalidateQueries({ queryKey: ["friends"] });
+    } catch (error) {
+      console.error("Error marking messages as read:", error);
+    }
+  }, [friendId, queryClient, updateMessagesAsRead]);
 
   const initializeWebSocket = useCallback(() => {
     ws.current = new WebSocket(
@@ -61,25 +118,38 @@ const ChatWindow: React.FC = () => {
       console.log("WebSocket disconnected");
     };
 
-    ws.current.onmessage = (event) => {
+    ws.current.onmessage = async (event) => {
       try {
         const message = JSON.parse(event.data);
         console.log("WebSocket message received:", message);
 
         if (message.type === "message") {
-          setMessages((prev) => {
-            const messageExists = prev.some(
-              (m) =>
-                m.content === message.content &&
-                m.senderId === message.senderId &&
-                new Date(m.timestamp).getTime() ===
-                  new Date(message.timestamp).getTime()
-            );
-            if (!messageExists) {
-              return [...prev, message];
+          if (message.senderId === friendId) {
+            await markMessageAsRead();
+          }
+          queryClient.setQueryData(
+            ["messages", friendId],
+            (oldMessages: ChatMessage[] | undefined) => {
+              const messageExists = oldMessages?.some(
+                (m) =>
+                  m.content === message.content &&
+                  m.senderId === message.senderId &&
+                  new Date(m.timestamp).getTime() ===
+                    new Date(message.timestamp).getTime()
+              );
+              if (!messageExists) {
+                const newMessage = {
+                  ...message,
+                  status:
+                    message.senderId === friendId ? "read" : message.status,
+                };
+                return oldMessages
+                  ? [...oldMessages, newMessage]
+                  : [newMessage];
+              }
+              return oldMessages;
             }
-            return prev;
-          });
+          );
           scrollToBottom();
         } else if (message.type === "typing" && message.senderId === friendId) {
           setTyping(message.isTyping);
@@ -88,43 +158,17 @@ const ChatWindow: React.FC = () => {
         console.error("Error processing WebSocket message:", error);
       }
     };
-  }, [friendId, scrollToBottom]);
-
-  const fetchFriendDetails = useCallback(async () => {
-    try {
-      const response = await api.get(`/api/user/${friendId}`);
-      setFriend(response.data.user);
-    } catch (error) {
-      console.error("Error fetching friend details:", error);
-    }
-  }, [friendId]);
-
-  const fetchChatHistory = useCallback(async () => {
-    try {
-      const response = await api.get(`/api/messages/${friendId}`);
-
-      setMessages(response.data.messages);
-      setLoading(false);
-      scrollToBottom();
-    } catch (error: any) {
-      console.error("Error fetching chat history:", {
-        status: error.response?.status,
-        data: error.response?.data,
-        friendId,
-      });
-      setLoading(false);
-    }
-  }, [friendId, scrollToBottom]);
+  }, [friendId, queryClient, scrollToBottom, markMessageAsRead]);
 
   useEffect(() => {
-    const initialize = async () => {
-      initializeWebSocket();
-      await fetchFriendDetails();
-      await fetchChatHistory();
-    };
-
     if (friendId) {
-      initialize();
+      markMessageAsRead();
+    }
+  }, [friendId, markMessageAsRead]);
+
+  useEffect(() => {
+    if (friendId) {
+      initializeWebSocket();
     }
 
     return () => {
@@ -132,7 +176,11 @@ const ChatWindow: React.FC = () => {
         ws.current.close();
       }
     };
-  }, [friendId, fetchChatHistory, fetchFriendDetails, initializeWebSocket]);
+  }, [friendId, initializeWebSocket]);
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, scrollToBottom]);
 
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !ws.current || !user?._id) return;
@@ -154,6 +202,7 @@ const ChatWindow: React.FC = () => {
         receiverId: friendId,
         timestamp: messageToSend.timestamp,
         sender: user,
+        status: "sent",
       };
 
       addNewMessage(localMessage);
@@ -163,13 +212,11 @@ const ChatWindow: React.FC = () => {
 
       //save to db
       await api.post("/api/messages/send", messageToSend);
+
+      queryClient.invalidateQueries({ queryKey: ["messages", friendId] });
     } catch (error) {
       console.error("Error sending message:", error);
     }
-
-    setMessages((prev) =>
-      prev.filter((msg) => msg._id !== Date.now().toString())
-    );
   };
 
   const handleKeyPress = (event: React.KeyboardEvent<HTMLInputElement>) => {
@@ -201,6 +248,9 @@ const ChatWindow: React.FC = () => {
                     {friend.lastName[0]}
                   </div>
                 )}
+                <span
+                  className={`status-indicator ${friend.status || "offline"}`}
+                />
               </div>
               <div className="friend-details">
                 <h3>{`${friend.firstName} ${friend.lastName}`}</h3>
@@ -218,13 +268,21 @@ const ChatWindow: React.FC = () => {
       </div>
 
       <div className="messages-container">
-        {loading ? (
+        {isLoading ? (
           <div className="loading-container">
-            <CircularProgress />
+            <Backdrop
+              sx={{
+                color: "#208d7f",
+                zIndex: (theme) => theme.zIndex.drawer + 1,
+              }}
+              open={isLoading}
+            >
+              <CircularProgress color="inherit" />
+            </Backdrop>
           </div>
         ) : (
           <>
-            {messages.map((message, index) => (
+            {messages.map((message: ChatMessage, index: number) => (
               <div
                 key={index}
                 className={`message ${
@@ -233,11 +291,26 @@ const ChatWindow: React.FC = () => {
               >
                 <div className="message-content">
                   {message.content}
-                  <span className="message-time">
+                  <span className="message-time" id="chat-windown-message-time">
                     {new Date(message.timestamp).toLocaleTimeString([], {
                       hour: "2-digit",
                       minute: "2-digit",
                     })}
+                    {message.senderId === user?._id && (
+                      <span className="chat-window-message-status">
+                        {message.status === "read" ? (
+                          <CiRead
+                            size={18}
+                            className="chat-window-message-status-icon read"
+                          />
+                        ) : (
+                          <CiUnread
+                            size={18}
+                            className="chat-window-message-status-icon unread"
+                          />
+                        )}
+                      </span>
+                    )}
                   </span>
                 </div>
               </div>
