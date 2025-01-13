@@ -1,84 +1,27 @@
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
+import { useChat } from "../contexts/ChatContext";
 import api from "../utils/api";
-import { AuthUser, Message } from "../types";
 import { CiUnread, CiRead } from "react-icons/ci";
 import "./ChatAppStyles.css";
-
-interface Friend extends AuthUser {
-  lastMessage?: Message;
-  unreadCount?: number;
-}
 
 const ChatList: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [friends, setFriends] = useState<Friend[]>([]);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchFriends();
-    const interval = setInterval(fetchFriends, 2000);
-    return () => clearInterval(interval);
-  }, [user]);
-
-  const fetchFriends = async () => {
-    try {
-      const response = await api.get("/api/user/friends");
-
-      const friendsWithMessages = await Promise.all(
-        response.data.friends.map(async (friend: AuthUser) => {
-          //last message for each friend
-          const [messageResponse, unreadCountResponse] = await Promise.all([
-            api.get(`/api/messages/last/${friend._id}`),
-            api.get(`/api/messages/unread-count/${friend._id}`),
-          ]);
-
-          return {
-            ...friend,
-            lastMessage: messageResponse.data.message
-              ? {
-                  ...messageResponse.data.message,
-                  status: messageResponse.data.message.status || "sent",
-                }
-              : null,
-            unreadCount: unreadCountResponse.data.count || 0,
-          } as Friend;
-        })
-      );
-
-      const sortedFriends = friendsWithMessages.sort((a, b) => {
-        const timeA = a.lastMessage?.timestamp
-          ? new Date(a.lastMessage.timestamp).getTime()
-          : 0;
-        const timeB = b.lastMessage?.timestamp
-          ? new Date(b.lastMessage.timestamp).getTime()
-          : 0;
-        return timeB - timeA;
-      });
-
-      setFriends(sortedFriends);
-    } catch (error) {
-      console.error("Error fetching friends:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { friends, isLoading, setFriendAsRead } = useChat();
 
   const handleChatClick = async (friendId: string) => {
     try {
       await api.post(`/api/messages/mark-read/${friendId}`);
 
-      setFriends((prev) =>
-        prev.map((friend) =>
-          friend._id === friendId ? { ...friend, unreadCount: 0 } : friend
-        )
-      );
+      setFriendAsRead(friendId);
+
+      navigate(`/chat/${friendId}`);
     } catch (error) {
       console.error("Error marking messages as read:", error);
     }
-    navigate(`/chat/${friendId}`);
   };
 
   const formatTimestamp = (timestamp: Date) => {
@@ -117,7 +60,7 @@ const ChatList: React.FC = () => {
     return message;
   };
 
-  if (loading) {
+  if (isLoading && !friends.length) {
     return <div className="loading-spinner">Loading...</div>;
   }
 

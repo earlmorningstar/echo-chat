@@ -9,6 +9,11 @@ export interface AuthUser {
   lastSeen?: Date;
 }
 
+export interface Friend extends AuthUser {
+    lastMessage?: Message;
+    unreadCount?: number;
+  }
+
 export type UserStatus = "online" | "offline";
 
 export interface AuthContextType {
