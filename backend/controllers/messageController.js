@@ -6,8 +6,7 @@ const getChatHistory = async (req, res) => {
   const userId = req.userId;
 
   try {
-
-    if(!ObjectId.isValid(friendId) || !ObjectId.isValid(userId)) {
+    if (!ObjectId.isValid(friendId) || !ObjectId.isValid(userId)) {
       return sendError(res, 400, "Invalid user or friend ID format");
     }
 
@@ -101,6 +100,8 @@ const getLastMessage = async (req, res) => {
             content: lastMessage.content,
             timestamp: lastMessage.timestamp,
             unread: unread,
+            senderId: lastMessage.senderId.toString(),
+            status: lastMessage.status,
           }
         : null,
     });
@@ -111,8 +112,56 @@ const getLastMessage = async (req, res) => {
   }
 };
 
+const markMessageAsRead = async (req, res) => {
+  const { friendId } = req.params;
+  const userId = req.userId;
+
+  try {
+    const userObjectId = new ObjectId(userId);
+    const friendObjectId = new ObjectId(friendId);
+
+    await req.db.collection("messages").updateMany(
+      {
+        senderId: friendObjectId,
+        receiverId: userObjectId,
+        status: "sent",
+      },
+      {
+        $set: { status: "read", readAt: new Date() },
+      }
+    );
+
+    sendSuccess(res, 200, "Messages marked as read");
+  } catch (error) {
+    sendError(res, 500, "Error marking messages as read", {
+      error: error.message,
+    });
+  }
+};
+
+const getUnreadCount = async (req, res) => {
+  const { friendId } = req.params;
+  const userId = req.userId;
+
+  try {
+    const userObjectId = new ObjectId(userId);
+    const friendObjectId = new ObjectId(friendId);
+
+    const count = await req.db.collection("messages").countDocuments({
+      senderId: friendObjectId,
+      receiverId: userObjectId,
+      status: "sent",
+    });
+    sendSuccess(res, 200, "Unread count retrieved successfully", { count });
+  } catch (error) {
+    sendError(res, 500, "Error getting unread count", { error: error.message });
+  }
+};
+
 module.exports = {
   getChatHistory,
   sendMessage,
   getLastMessage,
+  markMessageAsRead,
+  getUnreadCount,
 };

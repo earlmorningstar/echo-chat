@@ -63,7 +63,8 @@
   display: flex;
   align-items: center;
   padding: 0 12px;
-  border-radius: 6px;
+  border-radius: 4px;
+  height: 3.8rem;
   background-color: #d6c3a8;
   cursor: pointer;
   transition: background-color 0.2s;
@@ -102,11 +103,10 @@
   position: absolute;
   bottom: 2px;
   right: 2px;
-  width: 12px;
-  height: 12px;
+  width: 9px;
+  height: 9px;
   border-radius: 50%;
-  border: 2px solid #ffffff;
-}
+ }
 
 .status-indicator.online {
   background-color: #4caf50;
@@ -116,12 +116,7 @@
   background-color: #9d9a9a;
 }
 
-.status-indicator.away {
-  background-color: #eb8e03;
-}
-
 .chat-info {
-  /* font-family: "Roboto", sans-serif; */
   font-family: "Inter Tight", serif;
   flex: 1;
   display: flex;
@@ -152,13 +147,43 @@
 
 .chat-preview {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  gap: 4px;
+  justify-content: space-between;
   color: #333;
   font-size: 14px;
 }
 
+.message-status {
+  display: flex;
+  align-items: center;
+}
+
+.message-status-icon {
+  min-height: 20px;
+}
+
+.message-status-icon.read {
+  color: #208d7f;
+}
+
+.message-status-icon.unread {
+  color: #333;
+}
+
+.unread-count {
+  background-color: #208d7f;
+  color: #ffffff;
+  border-radius: 50%;
+  padding: 2px 7px;
+  font-size: 10px;
+  margin-left: 8px;
+}
+
 .last-message {
+  flex: 1;
+  overflow: hidden;
+
   font-family: "Finlandica", serif;
   overflow: hidden;
   text-overflow: ellipsis;

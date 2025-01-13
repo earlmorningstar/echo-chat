@@ -9,14 +9,21 @@ const api = axios.create({
   },
 });
 
+let lastTokenLog = 0;
+const TOKEN_LOG_INTERVAL = 5000;
+
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("token");
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
-      console.log("Request with token:", token);
-    } else {
-      console.log("No token found in localStorage");
+      
+      // Only log token occasionally
+      const now = Date.now();
+      if (now - lastTokenLog > TOKEN_LOG_INTERVAL) {
+        console.log("Request with token:", token);
+        lastTokenLog = now;
+      }
     }
     return config;
   },

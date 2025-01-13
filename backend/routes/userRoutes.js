@@ -13,6 +13,7 @@ const {
   getFriends,
   getUserById,
   getUserProfile,
+  updateUserStatus,
 } = require("../controllers/userController");
 
 router.post("/signup", createUser);
@@ -31,5 +32,6 @@ router.post(
 );
 router.get("/user/friends", authenticateUser, getFriends);
 router.get("/user/:userId", authenticateUser, getUserById);
+router.post('/user/status', authenticateUser, updateUserStatus);
 
 module.exports = router;

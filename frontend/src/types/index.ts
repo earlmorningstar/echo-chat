@@ -9,7 +9,7 @@ export interface AuthUser {
   lastSeen?: Date;
 }
 
-export type UserStatus = "online" | "offline" | "away";
+export type UserStatus = "online" | "offline";
 
 export interface AuthContextType {
   user: AuthUser | null;
@@ -23,39 +23,39 @@ export interface AuthContextType {
 }
 
 export interface Message {
-    _id: string;
-    content: string;
-    senderId: string;
-    receiverId?: string;
-    chatRoomId?: string;
-    timestamp: Date;
-    status?: 'sent' | 'delivered' | 'read';
-    type?: 'text' | 'image' | 'file';
-    metadata?: {
-        fileName?: string;
-        fileSize?: number;
-        mimeType?: string;
-    };
+  _id: string;
+  content: string;
+  senderId: string;
+  receiverId?: string;
+  chatRoomId?: string;
+  timestamp: Date;
+  status?: "sent" | "delivered" | "read";
+  type?: "text" | "image" | "file";
+  metadata?: {
+    fileName?: string;
+    fileSize?: number;
+    mimeType?: string;
+  };
 }
 
 export interface ChatRoom {
-    _id: string;
-    name?: string,
-    type: 'direct' | 'group';
-    participants: AuthUser[];
-    lastMessage?: Message;
-    unreadCount?: number;
-    createdAt: Date;
-    updatedAt: Date;
+  _id: string;
+  name?: string;
+  type: "direct" | "group";
+  participants: AuthUser[];
+  lastMessage?: Message;
+  unreadCount?: number;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface ApiResponse<T> {
-    date: T;
-    message?: string;
-    status: number;
+  date: T;
+  message?: string;
+  status: number;
 }
 
 export interface AuthResponse {
-    user: AuthUser;
-    token: string;
+  user: AuthUser;
+  token: string;
 }

@@ -13,6 +13,7 @@ import { IoChevronBackOutline } from "react-icons/io5";
 
 interface ChatMessage extends Message {
   sender: AuthUser;
+  status?: "sent" | "delivered" | "read";
   // senderId: string;
 }
 

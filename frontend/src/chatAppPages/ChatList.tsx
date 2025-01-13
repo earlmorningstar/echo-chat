@@ -2,16 +2,13 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import api from "../utils/api";
-import { AuthUser } from "../types";
+import { AuthUser, Message } from "../types";
+import { CiUnread, CiRead } from "react-icons/ci";
 import "./ChatAppStyles.css";
 
 interface Friend extends AuthUser {
-  _id: string;
-  lastMessage?: {
-    content: string;
-    timestamp: Date;
-    unread: boolean;
-  };
+  lastMessage?: Message;
+  unreadCount?: number;
 }
 
 const ChatList: React.FC = () => {
@@ -22,6 +19,8 @@ const ChatList: React.FC = () => {
 
   useEffect(() => {
     fetchFriends();
+    const interval = setInterval(fetchFriends, 2000);
+    return () => clearInterval(interval);
   }, [user]);
 
   const fetchFriends = async () => {
@@ -31,16 +30,35 @@ const ChatList: React.FC = () => {
       const friendsWithMessages = await Promise.all(
         response.data.friends.map(async (friend: AuthUser) => {
           //last message for each friend
-          const messageResponse = await api.get(
-            `/api/messages/last/${friend._id}`
-          );
+          const [messageResponse, unreadCountResponse] = await Promise.all([
+            api.get(`/api/messages/last/${friend._id}`),
+            api.get(`/api/messages/unread-count/${friend._id}`),
+          ]);
+
           return {
             ...friend,
-            lastMessage: messageResponse.data.message || null,
-          };
+            lastMessage: messageResponse.data.message
+              ? {
+                  ...messageResponse.data.message,
+                  status: messageResponse.data.message.status || "sent",
+                }
+              : null,
+            unreadCount: unreadCountResponse.data.count || 0,
+          } as Friend;
         })
       );
-      setFriends(friendsWithMessages);
+
+      const sortedFriends = friendsWithMessages.sort((a, b) => {
+        const timeA = a.lastMessage?.timestamp
+          ? new Date(a.lastMessage.timestamp).getTime()
+          : 0;
+        const timeB = b.lastMessage?.timestamp
+          ? new Date(b.lastMessage.timestamp).getTime()
+          : 0;
+        return timeB - timeA;
+      });
+
+      setFriends(sortedFriends);
     } catch (error) {
       console.error("Error fetching friends:", error);
     } finally {
@@ -48,23 +66,47 @@ const ChatList: React.FC = () => {
     }
   };
 
-  const handleChatClick = (friendId: string) => {
+  const handleChatClick = async (friendId: string) => {
+    try {
+      await api.post(`/api/messages/mark-read/${friendId}`);
+
+      setFriends((prev) =>
+        prev.map((friend) =>
+          friend._id === friendId ? { ...friend, unreadCount: 0 } : friend
+        )
+      );
+    } catch (error) {
+      console.error("Error marking messages as read:", error);
+    }
     navigate(`/chat/${friendId}`);
   };
 
   const formatTimestamp = (timestamp: Date) => {
-    const date = new Date(timestamp);
+    const messageDate = new Date(timestamp);
     const now = new Date();
-    const diff = now.getTime() - date.getTime();
-    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const diffTime = now.getTime() - messageDate.getTime();
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
 
-    if (hours < 24) {
-      return date.toLocaleTimeString([], {
+    if (diffDays === 0) {
+      return messageDate.toLocaleTimeString([], {
         hour: "2-digit",
         minute: "2-digit",
       });
     }
-    return date.toLocaleDateString();
+
+    if (diffDays === 1) {
+      return "Yesterday";
+    }
+
+    if (diffDays < 7) {
+      return messageDate.toLocaleDateString([], { weekday: "long" });
+    }
+
+    return messageDate.toLocaleDateString([], {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
   };
 
   const truncateLastMessage = (message: string, wordLimit: number = 15) => {
@@ -73,18 +115,6 @@ const ChatList: React.FC = () => {
       return words.slice(0, wordLimit).join(" ") + "....";
     }
     return message;
-  };
-
-  const getLastActiveStatus = (lastSeen?: Date) => {
-    if (!lastSeen) return "Offline";
-    const lastSeenDate = new Date(lastSeen);
-    const now = new Date();
-    const diff = now.getTime() - lastSeenDate.getTime();
-    const minutes = Math.floor(diff / (1000 * 60));
-
-    if (minutes < 1) return "Online";
-    if (minutes < 60) return `${minutes}m ago`;
-    return formatTimestamp(lastSeenDate);
   };
 
   if (loading) {
@@ -117,7 +147,8 @@ const ChatList: React.FC = () => {
                   />
                 ) : (
                   <div className="default-avatar">
-                    {friend.firstName[0]}{friend.lastName[0]}
+                    {friend.firstName[0]}
+                    {friend.lastName[0]}
                   </div>
                 )}
                 <span
@@ -132,22 +163,41 @@ const ChatList: React.FC = () => {
                   </span>
                   {friend.lastMessage && (
                     <span className="chat-time">
-                     {friend.lastMessage?.unread && (
-                    <span className="unread-indicator" />
-                  )} {formatTimestamp(friend.lastMessage.timestamp)}
+                      {formatTimestamp(friend.lastMessage.timestamp)}
                     </span>
                   )}
                 </div>
 
                 <div className="chat-preview">
-                  <span className="last-message">
-                    {friend.lastMessage
-                      ? truncateLastMessage(friend.lastMessage.content)
-                      : "No messages yet"}
-                  </span>
-                  <div className="user-status">
-                    {getLastActiveStatus(friend.lastSeen)}
-                  </div>
+                  {friend.lastMessage && (
+                    <>
+                      {friend.lastMessage.senderId && (
+                        <span className="message-status">
+                          {friend.lastMessage.senderId === user?._id && (
+                            <>
+                              {friend.lastMessage.status === "read" ? (
+                                <CiRead
+                                  size={18}
+                                  className="message-status-icon read"
+                                />
+                              ) : (
+                                <CiUnread
+                                  size={18}
+                                  className="message-status-icon unread"
+                                />
+                              )}
+                            </>
+                          )}
+                        </span>
+                      )}
+                      <span className="last-message">
+                        {truncateLastMessage(friend.lastMessage.content)}
+                      </span>
+                    </>
+                  )}
+                  {(friend.unreadCount ?? 0) > 0 && (
+                    <span className="unread-count">{friend.unreadCount}</span>
+                  )}
                 </div>
               </div>
             </div>

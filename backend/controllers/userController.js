@@ -521,6 +521,27 @@ const getUserById = async (req, res) => {
   }
 };
 
+const updateUserStatus = async (req, res) => {
+  const userId = req.userId;
+  const { status } = req.body;
+
+  try {
+    await req.db.collection("users").updateOne(
+      { _id: new ObjectId(userId) },
+      {
+        $set: {
+          status: status,
+          lastSeen: status === "offline" ? new Date() : null,
+        },
+      }
+    );
+
+    sendSuccess(res, 200, "User status updated successfully");
+  } catch (error) {
+    sendError(res, 500, "Error updating user status", { error: error.message });
+  }
+};
+
 module.exports = {
   createUser,
   verifyEmail,
@@ -533,4 +554,5 @@ module.exports = {
   handleFriendRequest,
   getFriends,
   getUserById,
+  updateUserStatus,
 };

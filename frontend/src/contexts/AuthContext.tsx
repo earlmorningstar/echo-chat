@@ -128,7 +128,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const updateStatus = async (status: UserStatus) => {
     try {
-      await api.post("/users/status", { status });
+      await api.post("api/user/status", { status });
       if (user) {
         const updatedUser = { ...user, status };
         setUser(updatedUser);
