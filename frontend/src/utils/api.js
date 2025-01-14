@@ -7,6 +7,7 @@ const api = axios.create({
   headers: {
     "Content-Type": "application/json",
   },
+  withCredentials: true,
 });
 
 let lastTokenLog = 0;
@@ -17,7 +18,6 @@ api.interceptors.request.use(
     const token = localStorage.getItem("token");
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
-      
       // Only log token occasionally
       const now = Date.now();
       if (now - lastTokenLog > TOKEN_LOG_INTERVAL) {
