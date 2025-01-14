@@ -24,6 +24,10 @@ app.get("/api/health", (req, res) => {
   res.status(200).json({ message: "API is running successfully!" });
 });
 
+app.get("/", (req, res) => {
+  res.send("Welcome to the EchoChat Backend API");
+});
+
 const wss = new WebSocket.Server({ server });
 
 wss.on("connection", (ws) => {
