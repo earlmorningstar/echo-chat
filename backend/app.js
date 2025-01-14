@@ -10,9 +10,15 @@ const app = express();
 
 app.use(
   cors({
-    origin: "http://localhost:3000",
-    methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
+    origin: [
+      "http://localhost:3000",
+      "https://echochat-pi.vercel.app",
+      "https://echochat-git-master-onyeabor-joels-projects.vercel.app",
+      "https://echochat-nvw5ir5wi-onyeabor-joels-projects.vercel.app",
+    ],
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     credentials: true,
+    allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
 

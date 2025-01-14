@@ -90,7 +90,7 @@ const LoginPage: React.FC = () => {
       <div className="auth-container">
         <h2>Log in to EchoChat</h2>
         <p>
-          Welcome back! Login using your registered email to continue with us
+          Welcome! Login using your registered email to continue with us
         </p>
 
         <form onSubmit={handleLogin}>
