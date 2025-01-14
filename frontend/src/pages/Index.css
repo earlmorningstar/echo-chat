@@ -80,6 +80,8 @@
   width: 8rem;
   border: none;
   border-radius: 10px;
+  font-size: 13px;
+  font-weight: 500;
 }
 
 /* Login and Sign up Section--- */

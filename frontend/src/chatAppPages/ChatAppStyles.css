@@ -28,6 +28,7 @@
   padding: 10px;
   border-bottom: 1px solid #5c5b5b;
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+  z-index: 200;
 }
 
 .profile-picture {
@@ -106,7 +107,7 @@
   width: 9px;
   height: 9px;
   border-radius: 50%;
- }
+}
 
 .status-indicator.online {
   background-color: #4caf50;
@@ -330,7 +331,6 @@
 
 /* ChatWindow Section ---  */
 
-
 .chat-container {
   display: flex;
   flex-direction: column;
@@ -465,18 +465,17 @@
   color: #333;
 }
 
-.message-input:focus{
+.message-input:focus {
   border: 1.5px solid #208d7f;
 }
 
-.message-input::placeholder{
+.message-input::placeholder {
   font-style: italic;
   font-size: 13px;
   font-weight: 500;
-
 }
 
-.message-send-btn{
+.message-send-btn {
   color: #208d7f;
 }
 

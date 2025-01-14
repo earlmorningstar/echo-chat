@@ -1,11 +1,5 @@
 import { NavLink, Outlet } from "react-router-dom";
-import {
-  // IoChatboxEllipsesOutline,
-  IoPersonAdd,
-  // IoSettingsOutline,
-} from "react-icons/io5";
-// import { PiPhoneCallLight, PiFilmReelLight  } from "react-icons/pi";
-
+import { IoPersonAdd } from "react-icons/io5";
 import { RiMessage2Fill } from "react-icons/ri";
 import { BsFillTelephoneFill } from "react-icons/bs";
 import { PiFilmReelFill } from "react-icons/pi";
