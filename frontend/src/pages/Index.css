@@ -41,7 +41,7 @@
 .onboarding-container h2 {
   font-family: "Playwrite GB S", cursive;
   font-weight: 600;
-  font-size: 2rem;
+  font-size: 1.6rem;
   color: #208d7f;
   margin-bottom: 5rem;
 }
@@ -135,7 +135,7 @@
   cursor: pointer;
   padding: 10px 8px;
   background-color: #208d7f;
-  color: #000000;
+  color: #F3EADD;
   border: none;
   border-radius: 10px;
   margin: 1rem 0 1.5rem 0;

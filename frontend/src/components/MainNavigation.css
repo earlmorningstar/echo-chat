@@ -31,4 +31,5 @@
    background-color: #F3EADD;
     color: #ffffff;
     min-height: 100vh;
+    z-index: 1000;
   }
