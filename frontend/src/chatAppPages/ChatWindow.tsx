@@ -99,10 +99,21 @@ const ChatWindow: React.FC = () => {
       await api.post(`/api/messages/mark-read/${friendId}`);
       updateMessagesAsRead();
       queryClient.invalidateQueries({ queryKey: ["friends"] });
+
+      if (ws.current) {
+        ws.current.send(
+          JSON.stringify({
+            type: "read_status",
+            senderId: user?._id,
+            receiverId: friendId,
+            timestamp: new Date(),
+          })
+        );
+      }
     } catch (error) {
       console.error("Error marking messages as read:", error);
     }
-  }, [friendId, queryClient, updateMessagesAsRead]);
+  }, [friendId, queryClient, updateMessagesAsRead, user?._id]);
 
   const initializeWebSocket = useCallback(() => {
     ws.current = new WebSocket(
@@ -126,53 +137,69 @@ const ChatWindow: React.FC = () => {
         const message = JSON.parse(event.data);
         console.log("WebSocket message received:", message);
 
-        if (message.type === "message") {
-          if (message.senderId === friendId) {
-            await markMessageAsRead();
-          }
-          queryClient.setQueryData(
-            ["messages", friendId],
-            (oldMessages: ChatMessage[] | undefined) => {
-              const messageExists = oldMessages?.some(
-                (m) =>
-                  m.content === message.content &&
-                  m.senderId === message.senderId &&
-                  new Date(m.timestamp).getTime() ===
-                    new Date(message.timestamp).getTime()
-              );
-              if (!messageExists) {
-                const newMessage = {
-                  ...message,
-                  status:
-                    message.senderId === friendId ? "read" : message.status,
-                };
-                return oldMessages
-                  ? [...oldMessages, newMessage]
-                  : [newMessage];
-              }
-              return oldMessages;
+        switch (message.type) {
+          case "message":
+            if (message.senderId === friendId) {
+              await markMessageAsRead();
             }
-          );
-          scrollToBottom();
-        } else if (message.type === "typing" && message.senderId === friendId) {
-          setTyping(message.isTyping);
-         }
+            queryClient.setQueryData(
+              ["messages", friendId],
+              (oldMessages: ChatMessage[] | undefined) => {
+                const messageExists = oldMessages?.some(
+                  (m) => m._id === message._id
+                );
+                if (!messageExists) {
+                  const newMessage = {
+                    ...message,
+                    status: message.senderId === friendId ? "read" : "sent",
+                  };
+                  return oldMessages
+                    ? [...oldMessages, newMessage]
+                    : [newMessage];
+                }
+                return oldMessages;
+              }
+            );
+            scrollToBottom();
+            break;
+
+          case "read_status":
+            queryClient.setQueryData(
+              ["messages", friendId],
+              (oldMessages: ChatMessage[] | undefined) => {
+                if (!oldMessages) return [];
+                return oldMessages.map((msg: ChatMessage) => ({
+                  ...msg,
+                  status: msg.senderId === user?._id ? "read" : msg.status,
+                }));
+              }
+            );
+            queryClient.invalidateQueries({ queryKey: ["friends"] });
+            break;
+
+          case "typing":
+            if (message.senderId === friendId) {
+              setTyping(message.isTyping);
+            }
+            break;
+        }
       } catch (error) {
         console.error("Error processing WebSocket message:", error);
       }
     };
-  }, [
-    friendId,
-    queryClient,
-    scrollToBottom,
-    markMessageAsRead,
-  ]);
+  }, [friendId, queryClient, scrollToBottom, markMessageAsRead, user?._id]);
 
   useEffect(() => {
-    if (friendId) {
-      markMessageAsRead();
+    if (friendId && messages.length > 0) {
+      const hasUnreadMessages = messages.some(
+        (msg: ChatMessage) => msg.senderId === friendId && msg.status !== "read"
+      );
+
+      if (hasUnreadMessages) {
+        markMessageAsRead();
+      }
     }
-  }, [friendId, markMessageAsRead]);
+  }, [friendId, messages, markMessageAsRead]);
 
   useEffect(() => {
     if (friendId) {

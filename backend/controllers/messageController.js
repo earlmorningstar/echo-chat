@@ -120,7 +120,7 @@ const markMessageAsRead = async (req, res) => {
     const userObjectId = new ObjectId(userId);
     const friendObjectId = new ObjectId(friendId);
 
-    await req.db.collection("messages").updateMany(
+    const result = await req.db.collection("messages").updateMany(
       {
         senderId: friendObjectId,
         receiverId: userObjectId,
@@ -130,6 +130,20 @@ const markMessageAsRead = async (req, res) => {
         $set: { status: "read", readAt: new Date() },
       }
     );
+
+    if (result.modifiedCount > 0) {
+      const ws = connectedClients.get(friendId);
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(
+          JSON.stringify({
+            type: "read_status",
+            senderId: userId,
+            receiverId: friendId,
+            timestamp: new Date(),
+          })
+        );
+      }
+    }
 
     sendSuccess(res, 200, "Messages marked as read");
   } catch (error) {

@@ -70,7 +70,33 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
     queryClient.setQueryData(["friends"], (oldData: Friend[] | undefined) => {
       if (!oldData) return [];
       return oldData.map((friend) =>
-        friend._id === friendId ? { ...friend, unreadCount: 0 } : friend
+        friend._id === friendId
+          ? {
+              ...friend,
+              unreadCount: 0,
+              lastMessage: friend.lastMessage
+                ? { ...friend.lastMessage, status: "read" }
+                : null,
+            }
+          : friend
+      );
+    });
+  };
+
+  const updateMessageStatus = (
+    friendId: string,
+    messageId: string,
+    status: string
+  ) => {
+    queryClient.setQueryData(["friends"], (oldData: Friend[] | undefined) => {
+      if (!oldData) return [];
+      return oldData.map((friend) =>
+        friend._id === friendId && friend.lastMessage?._id === messageId
+          ? {
+              ...friend,
+              lastMessage: { ...friend.lastMessage, status },
+            }
+          : friend
       );
     });
   };
@@ -81,6 +107,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
     isError,
     refetch,
     setFriendAsRead,
+    updateMessageStatus,
   };
 
   return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;

@@ -36,6 +36,7 @@ export interface Message {
   timestamp: Date;
   status?: "sent" | "delivered" | "read";
   type?: "text" | "image" | "file";
+  readAt?: Date;
   metadata?: {
     fileName?: string;
     fileSize?: number;

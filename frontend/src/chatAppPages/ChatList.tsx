@@ -2,7 +2,6 @@ import React from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { useChat } from "../contexts/ChatContext";
-import api from "../utils/api";
 import { CiUnread, CiRead } from "react-icons/ci";
 import "./ChatAppStyles.css";
 
@@ -12,15 +11,8 @@ const ChatList: React.FC = () => {
   const { friends, isLoading, setFriendAsRead } = useChat();
 
   const handleChatClick = async (friendId: string) => {
-    try {
-      await api.post(`/api/messages/mark-read/${friendId}`);
-
-      setFriendAsRead(friendId);
-
-      navigate(`/chat/${friendId}`);
-    } catch (error) {
-      console.error("Error marking messages as read:", error);
-    }
+    setFriendAsRead(friendId);
+    navigate(`/chat/${friendId}`);
   };
 
   const formatTimestamp = (timestamp: Date) => {

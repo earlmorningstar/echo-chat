@@ -66,6 +66,21 @@ wss.on("connection", (ws) => {
                 senderId: parsedMessage.senderId,
                 content: parsedMessage.content,
                 timestamp: parsedMessage.timestamp,
+                status: "sent",
+              })
+            );
+          }
+          break;
+
+        case "read_status":
+          const senderWs = connectedClients.get(parsedMessage.receiverId);
+          if (senderWs && senderWs.readyState === WebSocket.OPEN) {
+            senderWs.send(
+              JSON.stringify({
+                type: "read_status",
+                senderId: parsedMessage.senderId,
+                receiverId: parsedMessage.receiverId,
+                timestamp: parsedMessage.timestamp,
               })
             );
           }
