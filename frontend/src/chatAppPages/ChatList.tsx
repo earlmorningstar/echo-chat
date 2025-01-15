@@ -9,7 +9,6 @@ import "./ChatAppStyles.css";
 const ChatList: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-
   const { friends, isLoading, setFriendAsRead } = useChat();
 
   const handleChatClick = async (friendId: string) => {
@@ -52,12 +51,23 @@ const ChatList: React.FC = () => {
     });
   };
 
-  const truncateLastMessage = (message: string, wordLimit: number = 15) => {
+  const truncateLastMessage = (
+    message: string,
+    wordLimit: number = 15,
+    charLimit: number = 100
+  ) => {
     const words = message.split(" ");
+    let truncatedMessage = message;
+
     if (words.length > wordLimit) {
-      return words.slice(0, wordLimit).join(" ") + "....";
+      truncatedMessage = words.slice(0, wordLimit).join(" ") + "....";
     }
-    return message;
+
+    if (truncatedMessage.length > charLimit) {
+      return truncatedMessage.slice(0, charLimit) + "...";
+    }
+
+    return truncatedMessage;
   };
 
   if (isLoading && !friends.length) {

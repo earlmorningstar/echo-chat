@@ -37,27 +37,79 @@ app.get("/", (req, res) => {
   res.send("Welcome to the EchoChat Backend API");
 });
 
+const connectedClients = new Map();
+
 const wss = new WebSocket.Server({ server });
 
 wss.on("connection", (ws) => {
   console.log("Connected a new ws client");
+  let userId = null;
 
   ws.on("message", (message) => {
     try {
       const parsedMessage = JSON.parse(message);
-      if (parsedMessage.type === "chat") {
-        wss.clients.forEach((client) => {
-          if (client !== ws && client.readyState === WebSocket.OPEN) {
-            client.send(parsedMessage.text);
+      console.log("Received message:", parsedMessage);
+
+      if (parsedMessage.senderId && !userId) {
+        userId = parsedMessage.senderId;
+        connectedClients.set(userId, ws);
+        console.log(`Client ${userId} registered`);
+      }
+
+      switch (parsedMessage.type) {
+        case "message":
+          const receiverWs = connectedClients.get(parsedMessage.receiverId);
+          if (receiverWs && receiverWs.readyState === WebSocket.OPEN) {
+            receiverWs.send(
+              JSON.stringify({
+                type: "message",
+                senderId: parsedMessage.senderId,
+                content: parsedMessage.content,
+                timestamp: parsedMessage.timestamp,
+              })
+            );
           }
-        });
+          break;
+
+        case "typing":
+          const receiverTypingWs = connectedClients.get(
+            parsedMessage.receiverId
+          );
+          if (
+            receiverTypingWs &&
+            receiverTypingWs.readyState === WebSocket.OPEN
+          ) {
+            receiverTypingWs.send(
+              JSON.stringify({
+                type: "typing",
+                senderId: parsedMessage.senderId,
+                isTyping: parsedMessage.isTyping,
+              })
+            );
+          }
+          break;
+
+        default:
+          console.log("Unknown message type:", parsedMessage.type);
       }
     } catch (error) {
       console.error("WS parsing error:", error);
     }
   });
+
   ws.on("close", () => {
+    if (userId) {
+      connectedClients.delete(userId);
+      console.log(`Client ${userId} disconnected`);
+    }
     console.log("Disconnected WS client");
+  });
+
+  ws.on("error", (error) => {
+    console.error("WebSocket error:", error);
+    if (userId) {
+      connectedClients.delete(userId);
+    }
   });
 });
 

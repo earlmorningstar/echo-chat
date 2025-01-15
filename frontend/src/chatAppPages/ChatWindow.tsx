@@ -29,6 +29,9 @@ const ChatWindow: React.FC = () => {
   const { user } = useAuth();
   const [newMessage, setNewMessage] = useState("");
   const [typing, setTyping] = useState(false);
+  const [typingTimeout, setTypingTimeout] = useState<NodeJS.Timeout | null>(
+    null
+  );
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const ws = useRef<WebSocket | null>(null);
   const queryClient = useQueryClient();
@@ -153,12 +156,17 @@ const ChatWindow: React.FC = () => {
           scrollToBottom();
         } else if (message.type === "typing" && message.senderId === friendId) {
           setTyping(message.isTyping);
-        }
+         }
       } catch (error) {
         console.error("Error processing WebSocket message:", error);
       }
     };
-  }, [friendId, queryClient, scrollToBottom, markMessageAsRead]);
+  }, [
+    friendId,
+    queryClient,
+    scrollToBottom,
+    markMessageAsRead,
+  ]);
 
   useEffect(() => {
     if (friendId) {
@@ -226,6 +234,45 @@ const ChatWindow: React.FC = () => {
       setNewMessage("");
     }
   };
+
+  const sendTypingStatus = useCallback(
+    (isTyping: boolean) => {
+      if (ws.current && friendId && user?._id) {
+        const typingMessage = {
+          type: "typing",
+          senderId: user._id,
+          receiverId: friendId,
+          isTyping,
+        };
+        ws.current.send(JSON.stringify(typingMessage));
+      }
+    },
+    [friendId, user?._id]
+  );
+
+  const handleMessageInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setNewMessage(e.target.value);
+
+    sendTypingStatus(true);
+
+    if (typingTimeout) {
+      clearTimeout(typingTimeout);
+    }
+
+    const timeout = setTimeout(() => {
+      sendTypingStatus(false);
+    }, 2000);
+
+    setTypingTimeout(timeout);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (typingTimeout) {
+        clearTimeout(typingTimeout);
+      }
+    };
+  }, [typingTimeout]);
 
   return (
     <div className="chat-container">
@@ -315,9 +362,16 @@ const ChatWindow: React.FC = () => {
                 </div>
               </div>
             ))}
-            {typing && (
+            {typing && friend && (
               <div className="typing-indicator">
-                {friend?.firstName} is typing...
+                <div className="typing-indicator-bubble">
+                  <div className="typing-indicator-dot"></div>
+                  <div className="typing-indicator-dot"></div>
+                  <div className="typing-indicator-dot"></div>
+                </div>
+                <span className="typing-indicator-text">
+                  {friend?.firstName} is typing...
+                </span>
               </div>
             )}
             <div ref={messagesEndRef} />
@@ -332,7 +386,7 @@ const ChatWindow: React.FC = () => {
         <input
           className="message-input"
           value={newMessage}
-          onChange={(e) => setNewMessage(e.target.value)}
+          onChange={handleMessageInput}
           onKeyUp={handleKeyPress}
           placeholder="Type a message..."
           type="text"

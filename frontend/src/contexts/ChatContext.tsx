@@ -17,7 +17,6 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   const queryClient = useQueryClient();
-
   const fetchFriendsWithMessages = async (): Promise<Friend[]> => {
     const response = await api.get("/api/user/friends");
 
