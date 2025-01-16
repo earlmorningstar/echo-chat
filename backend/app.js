@@ -39,6 +39,7 @@ app.get("/", (req, res) => {
 
 const connectedClients = new Map();
 const userStatuses = new Map();
+const lastSeenTimes = new Map();
 
 const wss = new WebSocket.Server({ server });
 
@@ -65,6 +66,7 @@ wss.on("connection", (ws) => {
                 type: "status",
                 userId: userId,
                 status: currentStatus,
+                lastSeen: null,
               })
             );
           }
@@ -78,10 +80,33 @@ wss.on("connection", (ws) => {
                 type: "status",
                 userId: uid,
                 status: status,
+                lastSeen: lastSeenTimes.get(uid),
               })
             );
           });
         return;
+      }
+
+      if (
+        parsedMessage.type === "status" &&
+        parsedMessage.status === "offline"
+      ) {
+        const currentTime = new Date().toISOString();
+        lastSeenTimes.set(userId, currentTime);
+        userStatuses.set(userId, "offline");
+
+        wss.client.forEach((client) => {
+          if (client.readyState === WebSocket.OPEN) {
+            client.send(
+              JSON.stringify({
+                type: "status",
+                userId: userId,
+                status: "offline",
+                lastSeen: currentTime,
+              })
+            );
+          }
+        });
       }
 
       if (parsedMessage.type === "status") {
@@ -168,23 +193,26 @@ wss.on("connection", (ws) => {
 
   ws.on("close", () => {
     if (userId) {
+      const currentTime = new Date().toISOString();
+      lastSeenTimes.set(userId, currentTime);
       connectedClients.delete(userId);
       userStatuses.set(userId, "offline");
       console.log(`Client ${userId} disconnected`);
+
+      wss.clients.forEach((client) => {
+        if (client.readyState === WebSocket.OPEN) {
+          client.send(
+            JSON.stringify({
+              type: "status",
+              userId: userId,
+              status: "offline",
+              lastSeen: currentTime,
+            })
+          );
+        }
+      });
     }
     console.log("Disconnected WS client");
-  });
-
-  wss.clients.forEach((client) => {
-    if (client.readyState === WebSocket.OPEN) {
-      client.send(
-        JSON.stringify({
-          type: "status",
-          userId: userId,
-          status: "offline",
-        })
-      );
-    }
   });
 
   ws.on("error", (error) => {

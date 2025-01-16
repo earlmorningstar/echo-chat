@@ -37,11 +37,11 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
   >({});
 
   useEffect(() => {
-    if (user?._id) { 
+    if (user?._id) {
       sendMessage({
         type: "register",
-        senderId: user._id, 
-        status: "online"
+        senderId: user._id,
+        status: "online",
       });
     }
   }, [user?._id, sendMessage]);
@@ -63,11 +63,15 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
           api.get(`/api/messages/unread-count/${friend._id}`),
         ]);
 
-        
+        const status =
+          queryClient.getQueryData(["userStatus", friend._id]) || "offline";
+        const lastSeen = queryClient.getQueryData(["userLastSeen", friend._id]);
+
         return {
           ...friend,
-          status: getUserStatus(friend._id),
-          lastMessage: messageResponse.data.message
+          status,
+          lastSeen,
+         lastMessage: messageResponse.data.message
             ? {
                 ...messageResponse.data.message,
                 status: messageResponse.data.message.status || "sent",
@@ -180,7 +184,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
     updateTypingStatus,
     typingStatus,
     friendTypingStatus,
-    getUserStatus
+    getUserStatus,
   };
 
   return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;

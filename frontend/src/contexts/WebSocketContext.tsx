@@ -92,6 +92,9 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
               ["userStatus", message.userId],
               message.status
             );
+            if(message.lastSeen) {
+                queryClient.setQueryData(["userLastSeen", message.userId], message.lastSeen)
+            }
             queryClient.invalidateQueries({ queryKey: ["friends"] });
             break;
         }

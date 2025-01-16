@@ -33,6 +33,26 @@ const ChatWindow: React.FC = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
 
+  const formatLastSeen = (lastSeen: string | undefined) => {
+    if (!lastSeen) return "";
+
+    const lastSeenDate = new Date(lastSeen);
+    const now = new Date();
+    const diffInSeconds = Math.floor(
+      (now.getTime() - lastSeenDate.getTime()) / 1000
+    );
+
+    if (diffInSeconds < 60) return "last seen just now";
+    if (diffInSeconds < 3600)
+      return `last seen ${Math.floor(diffInSeconds / 60)} minutes ago`;
+    if (diffInSeconds < 86400)
+      return `last seen ${Math.floor(diffInSeconds / 3600)} hours ago`;
+    if (diffInSeconds < 604800)
+      return `last seen ${Math.floor(diffInSeconds / 86400)} days ago`;
+
+    return `last seen on ${lastSeenDate.toLocaleDateString()}`;
+  };
+
   const { data: friend } = useQuery({
     queryKey: ["friend", friendId],
     queryFn: async () => {
@@ -44,6 +64,7 @@ const ChatWindow: React.FC = () => {
       return {
         ...userData,
         status: getUserStatus(friendId),
+        lastSeen: queryClient.getQueryData(["userLastSeen", friendId]),
       };
     },
     enabled: !!friendId,
@@ -265,7 +286,11 @@ const ChatWindow: React.FC = () => {
               <div className="friend-details">
                 <h3>{`${friend.firstName} ${friend.lastName}`}</h3>
                 <span className="status">
-                  {friend.status === "online" ? "Online" : "Offline"}
+                  {friend.status === "online" ? (
+                    "Online"
+                  ) : (
+                    <>Offline • {formatLastSeen(friend.lastSeen)}</>
+                  )}
                 </span>
               </div>
             </div>
