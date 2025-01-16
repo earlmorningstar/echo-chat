@@ -38,6 +38,7 @@ app.get("/", (req, res) => {
 });
 
 const connectedClients = new Map();
+const userStatuses = new Map();
 
 const wss = new WebSocket.Server({ server });
 
@@ -53,8 +54,49 @@ wss.on("connection", (ws) => {
       if (parsedMessage.type === "register") {
         userId = parsedMessage.senderId;
         connectedClients.set(userId, ws);
+        userStatuses.set(userId, "online");
         console.log(`Client ${userId} registered`);
+
+        const currentStatus = userStatuses.get(userId) || "online";
+        wss.clients.forEach((client) => {
+          if (client.readyState === WebSocket.OPEN) {
+            client.send(
+              JSON.stringify({
+                type: "status",
+                userId: userId,
+                status: currentStatus,
+              })
+            );
+          }
+        });
+
+        Array.from(userStatuses.entries())
+          .filter(([uid]) => uid !== userId)
+          .forEach(([uid, status]) => {
+            ws.send(
+              JSON.stringify({
+                type: "status",
+                userId: uid,
+                status: status,
+              })
+            );
+          });
         return;
+      }
+
+      if (parsedMessage.type === "status") {
+        userStatuses.set(userId, parsedMessage.status);
+        wss.clients.forEach((client) => {
+          if (client.readyState === WebSocket.OPEN) {
+            client.send(
+              JSON.stringify({
+                type: "status",
+                userId: userId,
+                status: parsedMessage.status,
+              })
+            );
+          }
+        });
       }
 
       if (!userId && parsedMessage.senderId) {
@@ -111,6 +153,11 @@ wss.on("connection", (ws) => {
           }
           break;
 
+        case "status":
+          userStatuses.set(userId, parsedMessage.status);
+          broadcastStatus(userId, parsedMessage.status);
+          break;
+
         default:
           console.log("Unknown message type:", parsedMessage.type);
       }
@@ -122,15 +169,29 @@ wss.on("connection", (ws) => {
   ws.on("close", () => {
     if (userId) {
       connectedClients.delete(userId);
+      userStatuses.set(userId, "offline");
       console.log(`Client ${userId} disconnected`);
     }
     console.log("Disconnected WS client");
+  });
+
+  wss.clients.forEach((client) => {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(
+        JSON.stringify({
+          type: "status",
+          userId: userId,
+          status: "offline",
+        })
+      );
+    }
   });
 
   ws.on("error", (error) => {
     console.error("WebSocket error:", error);
     if (userId) {
       connectedClients.delete(userId);
+      userStatuses.set(userId, "offline");
     }
   });
 });

@@ -7,7 +7,7 @@ import React, {
 } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import api from "../utils/api";
-import { Friend, AuthUser } from "../types";
+import { Friend, AuthUser, UserStatus } from "../types";
 import { useWebSocket } from "./WebSocketContext";
 import { useAuth } from "./AuthContext";
 
@@ -20,6 +20,7 @@ interface ChatContextType {
   updateTypingStatus: (friendId: string, isTyping: boolean) => void;
   typingStatus: Record<string, boolean>;
   friendTypingStatus: Record<string, boolean>;
+  getUserStatus: (userId: string) => UserStatus;
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
@@ -36,23 +37,21 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
   >({});
 
   useEffect(() => {
-    const unsubscribe = queryClient.getQueryCache().subscribe(() => {
-      // Update friendTypingStatus when WebSocket messages arrive (common mistake if ignored);
-      queryClient
-        .getQueriesData({ queryKey: ["friendTypingStatus"] })
-        .forEach(([key, value]) => {
-          if (Array.isArray(key) && key.length > 1) {
-            const friendId = key[1];
-            setFriendTypingStatus((prev) => ({
-              ...prev,
-              [friendId]: value as boolean,
-            }));
-          }
-        });
-    });
+    if (user?._id) { 
+      sendMessage({
+        type: "register",
+        senderId: user._id, 
+        status: "online"
+      });
+    }
+  }, [user?._id, sendMessage]);
 
-    return () => unsubscribe();
-  }, [queryClient]);
+  const getUserStatus = useCallback(
+    (userId: string): UserStatus => {
+      return queryClient.getQueryData(["userStatus", userId]) || "offline";
+    },
+    [queryClient]
+  );
 
   const fetchFriendsWithMessages = async (): Promise<Friend[]> => {
     const response = await api.get("/api/user/friends");
@@ -64,8 +63,10 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
           api.get(`/api/messages/unread-count/${friend._id}`),
         ]);
 
+        
         return {
           ...friend,
+          status: getUserStatus(friend._id),
           lastMessage: messageResponse.data.message
             ? {
                 ...messageResponse.data.message,
@@ -87,6 +88,25 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
       return timeB - timeA;
     });
   };
+
+  useEffect(() => {
+    const unsubscribe = queryClient.getQueryCache().subscribe(() => {
+      // Update friendTypingStatus when WebSocket messages arrive (common mistake if ignored);
+      queryClient
+        .getQueriesData({ queryKey: ["friendTypingStatus"] })
+        .forEach(([key, value]) => {
+          if (Array.isArray(key) && key.length > 1) {
+            const friendId = key[1];
+            setFriendTypingStatus((prev) => ({
+              ...prev,
+              [friendId]: value as boolean,
+            }));
+          }
+        });
+    });
+
+    return () => unsubscribe();
+  }, [queryClient]);
 
   const {
     data: friends = [],
@@ -160,6 +180,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
     updateTypingStatus,
     typingStatus,
     friendTypingStatus,
+    getUserStatus
   };
 
   return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;

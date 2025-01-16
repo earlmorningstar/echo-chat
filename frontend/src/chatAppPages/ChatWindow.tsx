@@ -24,7 +24,7 @@ const ChatWindow: React.FC = () => {
   const { friendId } = useParams<ChatParams>();
   const { user } = useAuth();
   const { sendMessage } = useWebSocket();
-  const { updateTypingStatus } = useChat();
+  const { updateTypingStatus, getUserStatus } = useChat();
   const [newMessage, setNewMessage] = useState("");
   const [typing, setTyping] = useState(false);
   const [typingTimeout, setTypingTimeout] = useState<NodeJS.Timeout | null>(
@@ -36,11 +36,19 @@ const ChatWindow: React.FC = () => {
   const { data: friend } = useQuery({
     queryKey: ["friend", friendId],
     queryFn: async () => {
+      if (!friendId) throw new Error("No friend ID provided");
+
       const response = await api.get(`/api/user/${friendId}`);
-      return response.data.user;
+      const userData = response.data.user;
+
+      return {
+        ...userData,
+        status: getUserStatus(friendId),
+      };
     },
     enabled: !!friendId,
     staleTime: 1000 * 60,
+    refetchInterval: 2000,
   });
 
   const { data: messages = [], isLoading } = useQuery({
