@@ -8,7 +8,7 @@ import "./ChatAppStyles.css";
 const ChatList: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { friends, isLoading, setFriendAsRead } = useChat();
+  const { friends, isLoading, setFriendAsRead, friendTypingStatus } = useChat();
 
   const handleChatClick = async (friendId: string) => {
     setFriendAsRead(friendId);
@@ -135,9 +135,20 @@ const ChatList: React.FC = () => {
                           )}
                         </span>
                       )}
-                      <span className="last-message">
-                        {truncateLastMessage(friend.lastMessage.content)}
-                      </span>
+                      {friendTypingStatus[friend._id] ? (
+                        <div className="typing-indicator-list">
+                          <div className="typing-indicator-dots">
+                            <div className="typing-dot"></div>
+                            <div className="typing-dot"></div>
+                            <div className="typing-dot"></div>
+                          </div>
+                          <span className="typing-text">typing...</span>
+                        </div>
+                      ) : (
+                        <span className="last-message">
+                          {truncateLastMessage(friend.lastMessage.content)}
+                        </span>
+                      )}
                     </>
                   )}
                   {(friend.unreadCount ?? 0) > 0 && (

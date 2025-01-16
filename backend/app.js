@@ -50,7 +50,14 @@ wss.on("connection", (ws) => {
       const parsedMessage = JSON.parse(message);
       console.log("Received message:", parsedMessage);
 
-      if (parsedMessage.senderId && !userId) {
+      if (parsedMessage.type === "register") {
+        userId = parsedMessage.senderId;
+        connectedClients.set(userId, ws);
+        console.log(`Client ${userId} registered`);
+        return;
+      }
+
+      if (!userId && parsedMessage.senderId) {
         userId = parsedMessage.senderId;
         connectedClients.set(userId, ws);
         console.log(`Client ${userId} registered`);
@@ -72,20 +79,6 @@ wss.on("connection", (ws) => {
           }
           break;
 
-        case "read_status":
-          const senderWs = connectedClients.get(parsedMessage.receiverId);
-          if (senderWs && senderWs.readyState === WebSocket.OPEN) {
-            senderWs.send(
-              JSON.stringify({
-                type: "read_status",
-                senderId: parsedMessage.senderId,
-                receiverId: parsedMessage.receiverId,
-                timestamp: parsedMessage.timestamp,
-              })
-            );
-          }
-          break;
-
         case "typing":
           const receiverTypingWs = connectedClients.get(
             parsedMessage.receiverId
@@ -99,6 +92,20 @@ wss.on("connection", (ws) => {
                 type: "typing",
                 senderId: parsedMessage.senderId,
                 isTyping: parsedMessage.isTyping,
+              })
+            );
+          }
+          break;
+
+        case "read_status":
+          const senderWs = connectedClients.get(parsedMessage.receiverId);
+          if (senderWs && senderWs.readyState === WebSocket.OPEN) {
+            senderWs.send(
+              JSON.stringify({
+                type: "read_status",
+                senderId: parsedMessage.senderId,
+                receiverId: parsedMessage.receiverId,
+                timestamp: parsedMessage.timestamp,
               })
             );
           }

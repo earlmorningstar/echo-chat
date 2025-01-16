@@ -1,15 +1,12 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, NavLink } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
+import { useChat } from "../contexts/ChatContext";
+import { useWebSocket } from "../contexts/WebSocketContext";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import api from "../utils/api";
 import { Message, AuthUser } from "../types";
-import {
-  IconButton,
-  Backdrop,
-  // TextField,
-  CircularProgress,
-} from "@mui/material";
+import { IconButton, Backdrop, CircularProgress } from "@mui/material";
 import { Send, AttachFile, MoreVert } from "@mui/icons-material";
 import { IoChevronBackOutline } from "react-icons/io5";
 import { CiUnread, CiRead } from "react-icons/ci";
@@ -17,7 +14,6 @@ import { CiUnread, CiRead } from "react-icons/ci";
 interface ChatMessage extends Message {
   sender: AuthUser;
   status?: "sent" | "delivered" | "read";
-  // senderId: string;
 }
 
 interface ChatParams extends Record<string, string> {
@@ -27,13 +23,14 @@ interface ChatParams extends Record<string, string> {
 const ChatWindow: React.FC = () => {
   const { friendId } = useParams<ChatParams>();
   const { user } = useAuth();
+  const { sendMessage } = useWebSocket();
+  const { updateTypingStatus } = useChat();
   const [newMessage, setNewMessage] = useState("");
   const [typing, setTyping] = useState(false);
   const [typingTimeout, setTypingTimeout] = useState<NodeJS.Timeout | null>(
     null
   );
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const ws = useRef<WebSocket | null>(null);
   const queryClient = useQueryClient();
 
   const { data: friend } = useQuery({
@@ -59,6 +56,28 @@ const ChatWindow: React.FC = () => {
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
   });
+
+  useEffect(() => {
+    const unsubscribe = queryClient.getQueryCache().subscribe(() => {
+      const typingStatusData = queryClient.getQueryData([
+        "typingStatus",
+        friendId,
+      ]);
+      setTyping(!!typingStatusData);
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [friendId, queryClient]);
+
+  useEffect(() => {
+    const typingStatusData = queryClient.getQueryData([
+      "typingStatus",
+      friendId,
+    ]);
+    setTyping(!!typingStatusData);
+  }, [friendId, queryClient]);
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -93,101 +112,23 @@ const ChatWindow: React.FC = () => {
   }, [friendId, queryClient]);
 
   const markMessageAsRead = useCallback(async () => {
-    if (!friendId) return;
+    if (!friendId || !user?._id) return;
 
     try {
       await api.post(`/api/messages/mark-read/${friendId}`);
       updateMessagesAsRead();
       queryClient.invalidateQueries({ queryKey: ["friends"] });
 
-      if (ws.current) {
-        ws.current.send(
-          JSON.stringify({
-            type: "read_status",
-            senderId: user?._id,
-            receiverId: friendId,
-            timestamp: new Date(),
-          })
-        );
-      }
+      sendMessage({
+        type: "read_status",
+        senderId: user._id,
+        receiverId: friendId,
+        timestamp: new Date(),
+      });
     } catch (error) {
       console.error("Error marking messages as read:", error);
     }
-  }, [friendId, queryClient, updateMessagesAsRead, user?._id]);
-
-  const initializeWebSocket = useCallback(() => {
-    ws.current = new WebSocket(
-      process.env.REACT_APP_WS_URL || "ws://localhost:5000"
-    );
-
-    ws.current.onopen = () => {
-      console.log("WebSocket connected");
-    };
-
-    ws.current.onerror = (error) => {
-      console.error("WebSocket error:", error);
-    };
-
-    ws.current.onclose = () => {
-      console.log("WebSocket disconnected");
-    };
-
-    ws.current.onmessage = async (event) => {
-      try {
-        const message = JSON.parse(event.data);
-        console.log("WebSocket message received:", message);
-
-        switch (message.type) {
-          case "message":
-            if (message.senderId === friendId) {
-              await markMessageAsRead();
-            }
-            queryClient.setQueryData(
-              ["messages", friendId],
-              (oldMessages: ChatMessage[] | undefined) => {
-                const messageExists = oldMessages?.some(
-                  (m) => m._id === message._id
-                );
-                if (!messageExists) {
-                  const newMessage = {
-                    ...message,
-                    status: message.senderId === friendId ? "read" : "sent",
-                  };
-                  return oldMessages
-                    ? [...oldMessages, newMessage]
-                    : [newMessage];
-                }
-                return oldMessages;
-              }
-            );
-            scrollToBottom();
-            break;
-
-          case "read_status":
-            queryClient.setQueryData(
-              ["messages", friendId],
-              (oldMessages: ChatMessage[] | undefined) => {
-                if (!oldMessages) return [];
-                return oldMessages.map((msg: ChatMessage) => ({
-                  ...msg,
-                  status: msg.senderId === user?._id ? "read" : msg.status,
-                }));
-              }
-            );
-            queryClient.invalidateQueries({ queryKey: ["friends"] });
-            break;
-
-          case "typing":
-            if (message.senderId === friendId) {
-              setTyping(message.isTyping);
-            }
-            break;
-        }
-      } catch (error) {
-        console.error("Error processing WebSocket message:", error);
-      }
-    };
-  }, [friendId, queryClient, scrollToBottom, markMessageAsRead, user?._id]);
+  }, [friendId, queryClient, updateMessagesAsRead, user?._id, sendMessage]);
 
   useEffect(() => {
     if (friendId && messages.length > 0) {
@@ -202,23 +143,11 @@ const ChatWindow: React.FC = () => {
   }, [friendId, messages, markMessageAsRead]);
 
   useEffect(() => {
-    if (friendId) {
-      initializeWebSocket();
-    }
-
-    return () => {
-      if (ws.current) {
-        ws.current.close();
-      }
-    };
-  }, [friendId, initializeWebSocket]);
-
-  useEffect(() => {
     scrollToBottom();
   }, [messages, scrollToBottom]);
 
   const handleSendMessage = async () => {
-    if (!newMessage.trim() || !ws.current || !user?._id) return;
+    if (!newMessage.trim() || !user?._id) return;
 
     try {
       const messageToSend = {
@@ -241,13 +170,11 @@ const ChatWindow: React.FC = () => {
       };
 
       addNewMessage(localMessage);
-
-      ws.current.send(JSON.stringify(messageToSend));
+      sendMessage(messageToSend);
       setNewMessage("");
 
-      //save to db
+      // save to db
       await api.post("/api/messages/send", messageToSend);
-
       queryClient.invalidateQueries({ queryKey: ["messages", friendId] });
     } catch (error) {
       console.error("Error sending message:", error);
@@ -264,17 +191,18 @@ const ChatWindow: React.FC = () => {
 
   const sendTypingStatus = useCallback(
     (isTyping: boolean) => {
-      if (ws.current && friendId && user?._id) {
+      if (friendId && user?._id) {
         const typingMessage = {
           type: "typing",
           senderId: user._id,
           receiverId: friendId,
           isTyping,
         };
-        ws.current.send(JSON.stringify(typingMessage));
+        sendMessage(typingMessage);
+        updateTypingStatus(friendId, isTyping);
       }
     },
-    [friendId, user?._id]
+    [friendId, user?._id, sendMessage, updateTypingStatus]
   );
 
   const handleMessageInput = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -418,19 +346,6 @@ const ChatWindow: React.FC = () => {
           placeholder="Type a message..."
           type="text"
         />
-        {/* <TextField
-        className="message-input"
-          fullWidth
-          multiline
-          maxRows={4}
-          value={newMessage}
-          onChange={(e) => setNewMessage(e.target.value)}
-          onKeyDown={handleKeyPress}
-          placeholder="Type a message..."
-          variant="standard"
-          size="small"
-        /> */}
-
         <IconButton onClick={handleSendMessage} disabled={!newMessage.trim()}>
           <Send
             sx={{
