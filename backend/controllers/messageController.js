@@ -42,16 +42,26 @@ const getChatHistory = async (req, res) => {
 };
 
 const sendMessage = async (req, res) => {
-  const { content, receiverId } = req.body;
+  const { content, receiverId, type = "text", metadata = {} } = req.body;
   const senderId = req.userId;
 
   try {
     const message = await req.db.collection("messages").insertOne({
       content,
+      type,
       senderId: new ObjectId(senderId),
       receiverId: new ObjectId(receiverId),
       timestamp: new Date(),
       status: "sent",
+      metadata:
+        type !== "text"
+          ? {
+              fileName: metadata.fileName,
+              fileSize: metadata.fileSize,
+              mimeType: metadata.mimeType,
+              fileId: metadata.fileId, //storing Gridfs file ID and not the url
+            }
+          : undefined,
     });
 
     sendSuccess(res, 201, "Message sent successfully", {

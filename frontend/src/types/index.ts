@@ -41,6 +41,8 @@ export interface Message {
     fileName?: string;
     fileSize?: number;
     mimeType?: string;
+    fileUrl?: string;
+    fileId?: string;
   };
 }
 

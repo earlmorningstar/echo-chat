@@ -4,6 +4,7 @@ const cookieParser = require("cookie-parser");
 const { connectToDatabase } = require("./config/database");
 const userRoutes = require("./routes/userRoutes");
 const messageRoutes = require("./routes/messageRoutes");
+const uploadRoutes = require("./routes/uploadRoutes");
 const WebSocket = require("ws");
 require("dotenv").config();
 
@@ -233,8 +234,40 @@ connectToDatabase()
       next();
     });
 
+    app.use((req, res, next) => {
+      console.log(`${new Date().toISOString()} ${req.method} ${req.url}`);
+      next();
+    });
+
+    app.get("/api/test-db", async (req, res) => {
+      try {
+        const collections = await req.db.listCollections().toArray();
+        res.json({
+          collections: collections.map((c) => c.name),
+          hasGridFS: collections.some((c) => c.name.startsWith("fs.")),
+        });
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
     app.use("/api", userRoutes);
     app.use("/api/messages", messageRoutes);
+    app.use("/api/uploads", uploadRoutes);
+
+    app.use((err, req, res, next) => {
+      console.error("Error:", err);
+      res.status(500).json({ error: err.message });
+    });
+
+    app.use((req, res, next) => {
+      console.log("Incoming request:", {
+        method: req.method,
+        url: req.url,
+        path: req.path,
+      });
+      next();
+    });
 
     const PORT = process.env.PORT || 5000;
     server.listen(PORT, () => {

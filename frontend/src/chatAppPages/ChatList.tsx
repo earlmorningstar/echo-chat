@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { useChat } from "../contexts/ChatContext";
 import { CiUnread, CiRead } from "react-icons/ci";
+import { Friend, Message } from "../types";
 import "./ChatAppStyles.css";
 
 const ChatList: React.FC = () => {
@@ -43,6 +44,20 @@ const ChatList: React.FC = () => {
     });
   };
 
+  const getMessagePreview = (message: Message) => {
+    switch (message.type) {
+      case "image":
+        return "📷 Sent a photo";
+      case "file":
+        if (message.metadata?.fileName) {
+          return `📎 Sent ${message.metadata.fileName}`;
+        }
+        return "📎 Sent a file";
+      default:
+        return truncateLastMessage(message.content);
+    }
+  };
+
   const truncateLastMessage = (
     message: string,
     wordLimit: number = 15,
@@ -77,7 +92,7 @@ const ChatList: React.FC = () => {
             </button>
           </div>
         ) : (
-          friends.map((friend) => (
+          friends.map((friend: Friend) => (
             <div
               key={friend._id}
               className="chat-item"
@@ -146,7 +161,7 @@ const ChatList: React.FC = () => {
                         </div>
                       ) : (
                         <span className="last-message">
-                          {truncateLastMessage(friend.lastMessage.content)}
+                          {getMessagePreview(friend.lastMessage)}
                         </span>
                       )}
                     </>

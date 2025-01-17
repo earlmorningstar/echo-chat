@@ -600,6 +600,61 @@
   font-style: italic;
 }
 
+.image-container {
+  max-width: 300px;
+  overflow: hidden;
+  border-radius: 8px;
+  background: #f8f9fa;
+}
+
+.message-content.image {
+  max-width: 60%;
+  padding: 4px;
+}
+
+.message-image {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.image-error {
+  padding: 8px;
+  background: #f8f9fa;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  margin: 4px 0;
+}
+
+.file-attachment {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 8px;
+  text-decoration: none;
+  color: inherit;
+}
+
+.file-size {
+  color: #3333;
+  font-size: 0.8em;
+  margin-left: auto;
+}
+
+.message.sent .message-content.image,
+.message.sent .message-content.file {
+  background-color: #000000;
+}
+
+.message.received .message-content.image,
+.message.received .message-content.file {
+  background-color: #000000;
+}
+
 @keyframes typing-animation {
   0%,
   100% {
