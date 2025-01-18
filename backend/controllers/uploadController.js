@@ -17,8 +17,7 @@ const handleFileUpload = async (req, res) => {
     const baseUrl = `${req.protocol}://${req.get("host")}`;
     //create file url
     const fileUrl = `${baseUrl}/api/uploads/files/${fileData.fileId}`;
-    console.log("Generated file URL:", fileUrl);
-
+    
     sendSuccess(res, 200, "File uploaded successfully", {
       fileUrl,
       fileId: fileData.fileId,
@@ -51,7 +50,6 @@ const serveFile = async (req, res) => {
     }
 
     if (!ObjectId.isValid(fileId)) {
-      console.log("Invalid ObjectId format:", fileId);
       return sendError(res, 400, "Invalid file ID format");
     }
 
@@ -64,7 +62,7 @@ const serveFile = async (req, res) => {
     console.log("Found file metadata:", file);
 
     if (!file) {
-        console.log("Filenot found in database");
+      console.log("Filenot found in database");
       return sendError(res, 404, "File not found");
     }
 
@@ -75,7 +73,7 @@ const serveFile = async (req, res) => {
         file.metadata.originalname || file.fileName
       }"`,
       "Cache-Control": "no-cache",
-     });
+    });
 
     //stream file to response
     bucket.openDownloadStream(new ObjectId(fileId)).pipe(res);
@@ -86,6 +84,5 @@ const serveFile = async (req, res) => {
     }
   }
 };
-
 
 export { handleFileUpload, serveFile };
