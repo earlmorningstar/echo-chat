@@ -16,7 +16,7 @@ import UserProfile from "./chatAppPages/UserProfile";
 import AddUser from "./chatAppPages/AddUser";
 import ChatWindow from "./chatAppPages/ChatWindow";
 import Request from "./chatAppPages/Request";
-
+import FriendsProfile from "./chatAppPages/FriendsProfile";
 
 const router = createBrowserRouter([
   {
@@ -72,7 +72,12 @@ const router = createBrowserRouter([
     path: "/chat/:friendId",
     element: <ChatWindow />,
     errorElement: <ErrorPage />,
-  }
+  },
+  {
+    path: "/friends-profile",
+    element: <FriendsProfile />,
+    errorElement: <ErrorPage />,
+  },
 ]);
 
 const App: React.FC = () => {
