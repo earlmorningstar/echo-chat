@@ -1,13 +1,13 @@
-const express = require("express");
+import express from "express";
 const router = express.Router();
-const authenticateUser = require("../middleware/authMiddleware");
-const {
+import authenticateUser from "../middleware/authMiddleware.js";
+import {
   getChatHistory,
   sendMessage,
   getLastMessage,
   markMessageAsRead,
   getUnreadCount,
-} = require("../controllers/messageController");
+} from "../controllers/messageController.js";
 
 router.get("/:friendId", authenticateUser, getChatHistory);
 router.post("/send", authenticateUser, sendMessage);
@@ -15,4 +15,4 @@ router.get("/last/:userId", authenticateUser, getLastMessage);
 router.post("/mark-read/:friendId", authenticateUser, markMessageAsRead);
 router.get("/unread-count/:friendId", authenticateUser, getUnreadCount);
 
-module.exports = router;
+export default router;

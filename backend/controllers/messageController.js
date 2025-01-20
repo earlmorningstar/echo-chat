@@ -1,5 +1,5 @@
-const { ObjectId } = require("mongodb");
-const { sendError, sendSuccess } = require("../utils/response");
+import { ObjectId } from "mongodb";
+import { sendError, sendSuccess } from "../utils/response.js";
 
 const getChatHistory = async (req, res) => {
   const { friendId } = req.params;
@@ -21,7 +21,15 @@ const getChatHistory = async (req, res) => {
           { senderId: friendObjectId, receiverId: userObjectId },
         ],
       })
-      .sort({ timestamp: 1 })
+      .project({
+        content: 1,
+        type: 1,
+        senderId: 1,
+        receiverId: 1,
+        timestamp: 1,
+        status: 1,
+        metadata: 1,
+      })
       .toArray();
 
     const formattedMessages = messages.map((message) => ({
@@ -29,6 +37,8 @@ const getChatHistory = async (req, res) => {
       _id: message._id.toString(),
       senderId: message.senderId.toString(),
       receiverId: message.receiverId.toString(),
+      type: message.type || "text",
+      metadata: message.metadata || undefined,
     }));
 
     sendSuccess(res, 200, "Chat history retrieved successfully", {
@@ -46,7 +56,7 @@ const sendMessage = async (req, res) => {
   const senderId = req.userId;
 
   try {
-    const message = await req.db.collection("messages").insertOne({
+    const messageData = {
       content,
       type,
       senderId: new ObjectId(senderId),
@@ -62,10 +72,15 @@ const sendMessage = async (req, res) => {
               fileId: metadata.fileId, //storing Gridfs file ID and not the url
             }
           : undefined,
-    });
+    };
+
+    const message = await req.db.collection("messages").insertOne(messageData);
 
     sendSuccess(res, 201, "Message sent successfully", {
       messageId: message.insertedId.toString(),
+      ...messageData,
+      senderId: senderId.toString(),
+      receiverId: receiverId.toString(),
     });
   } catch (error) {
     sendError(res, 500, "Error sending message", { error: error.message });
@@ -182,7 +197,7 @@ const getUnreadCount = async (req, res) => {
   }
 };
 
-module.exports = {
+export {
   getChatHistory,
   sendMessage,
   getLastMessage,

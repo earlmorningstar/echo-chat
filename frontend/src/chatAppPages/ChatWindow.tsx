@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
-import { useParams, NavLink } from "react-router-dom";
+import { useParams, NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { useChat } from "../contexts/ChatContext";
 import { useWebSocket } from "../contexts/WebSocketContext";
@@ -7,15 +7,22 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import api from "../utils/api";
 import { Message, AuthUser } from "../types";
 import { IconButton, Backdrop, CircularProgress } from "@mui/material";
-import { Send, AttachFile, MoreVert } from "@mui/icons-material";
-import { IoChevronBackOutline } from "react-icons/io5";
+import {
+  Send,
+  AttachFile,
+  MoreVert,
+  Videocam,
+  Phone,
+} from "@mui/icons-material";
+import { IoChevronBackOutline, IoCloudDownloadOutline } from "react-icons/io5";
 import { CiUnread, CiRead } from "react-icons/ci";
 import { formatFileSize, uploadFile } from "../utils/fileUpload";
+import ImageViewer from "./ImageViewer";
 
 interface ChatMessage extends Message {
   sender: AuthUser;
   status?: "sent" | "delivered" | "read";
-  metadaata?: {
+  metadata?: {
     fileName?: string;
     fileSize?: number;
     mimeType?: string;
@@ -29,40 +36,31 @@ interface ChatParams extends Record<string, string> {
 
 const MessageContent: React.FC<{ message: ChatMessage }> = ({ message }) => {
   const { token } = useAuth();
+  const [showImageViewer, setShowImageViewer] = useState(false);
 
   switch (message.type) {
     case "image":
-      console.log("Rendering image with URL:", message.content);
-
       const imageUrl = `${message.content}?token=${token}`;
 
       return (
-        <div className="image-container">
-          <img
-            src={imageUrl}
-            alt={message.metadata?.fileName || "Shared image"}
-            className="message-image"
-            loading="lazy"
-            onError={(e) => {
-              console.error("Image load error for:", message.content);
-              const target = e.target as HTMLImageElement;
-              target.onerror = null;
-
-              target.style.display = "none";
-              const fallback = document.createElement("div");
-              fallback.className = "image-error";
-              fallback.innerHTML = `
-              <div style="padding: 10px; background: #f8f9fa; border-radius: 4px;">
-              <div>Unable to load image</div>
-              <div style="font-size: 12px; color: #333;">
-              ${message.metadata?.fileName || "Image"}
-              </div>
-              </div>`;
-
-              target.parentNode?.appendChild(fallback);
-            }}
-          />
-        </div>
+        <>
+          <div className="image-container">
+            <img
+              src={imageUrl}
+              alt={message.metadata?.fileName || "Shared image"}
+              className="message-image"
+              loading="lazy"
+              onClick={() => setShowImageViewer(true)}
+            />
+          </div>
+          {showImageViewer && (
+            <ImageViewer
+              imageUrl={imageUrl}
+              fileName={message.metadata?.fileName}
+              onClose={() => setShowImageViewer(false)}
+            />
+          )}
+        </>
       );
 
     case "file":
@@ -71,14 +69,13 @@ const MessageContent: React.FC<{ message: ChatMessage }> = ({ message }) => {
         <a
           href={fileUrl}
           download={message.metadata?.fileName}
-          target="_blank"
-          rel="noopener noreferrer"
           className="file-attachment"
         >
           <AttachFile />
-          <span>{message.metadata?.fileName}</span>
+          <span className="file-name">{message.metadata?.fileName}</span>
           <span className="file-size">
-            {formatFileSize(message.metadata?.fileSize)}
+            {formatFileSize(message.metadata?.fileSize)}{" "}
+            <IoCloudDownloadOutline size={16} />
           </span>
         </a>
       );
@@ -100,6 +97,7 @@ const ChatWindow: React.FC = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   const formatLastSeen = (lastSeen: string | undefined) => {
     if (!lastSeen) return "";
@@ -132,7 +130,9 @@ const ChatWindow: React.FC = () => {
       return {
         ...userData,
         status: getUserStatus(friendId),
-        lastSeen: queryClient.getQueryData(["userLastSeen", friendId]),
+        lastSeen:
+          userData.lastSeen ||
+          queryClient.getQueryData(["userLastSeen", friendId]),
       };
     },
     enabled: !!friendId,
@@ -326,6 +326,10 @@ const ChatWindow: React.FC = () => {
     };
   }, [typingTimeout]);
 
+  const handleFriendProfile = () => {
+    navigate("/friends-profile");
+  };
+
   const handleFileSelect = async (
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
@@ -337,14 +341,11 @@ const ChatWindow: React.FC = () => {
       formData.append("file", file);
 
       const uploadResponse = await uploadFile(formData);
-      console.log("Upload Response:", uploadResponse);
 
       const fileUrl = uploadResponse.fileUrl;
-      console.log("File URL:", fileUrl);
 
       //message type
       const messageType = file.type.startsWith("image/") ? "image" : "file";
-      console.log("Message Type:", messageType);
 
       //explicit typing rather of spread OP
       const messageToSend = {
@@ -361,8 +362,6 @@ const ChatWindow: React.FC = () => {
           fileUrl,
         },
       };
-
-      console.log("Message to send:", messageToSend);
 
       const localMessage: ChatMessage = {
         _id: Date.now().toString(),
@@ -394,8 +393,8 @@ const ChatWindow: React.FC = () => {
     <div className="chat-container">
       <div className="chat-window-header">
         {friend && (
-          <>
-            <div className="friend-info">
+          <section className="chat-window-section-flex">
+            <div className="friend-info" onClick={handleFriendProfile}>
               <NavLink
                 to="/main-navigation/chats"
                 className="login-redirection-arrow"
@@ -416,7 +415,17 @@ const ChatWindow: React.FC = () => {
                 />
               </div>
               <div className="friend-details">
-                <h3>{`${friend.firstName} ${friend.lastName}`}</h3>
+                <h3>
+                  {`${friend.firstName} ${friend.lastName}`
+                    .split(" ")
+                    .map(
+                      (name) =>
+                        `${name.charAt(0).toUpperCase()}${name
+                          .slice(1)
+                          .toLowerCase()}`
+                    )
+                    .join(" ")}
+                </h3>
                 <span className="status">
                   {friend.status === "online" ? (
                     "Online"
@@ -427,10 +436,18 @@ const ChatWindow: React.FC = () => {
               </div>
             </div>
 
-            <IconButton>
-              <MoreVert />
-            </IconButton>
-          </>
+            <div className="profile-comm-btn-container">
+              <IconButton>
+                <Phone />
+              </IconButton>
+              <IconButton>
+                <Videocam />
+              </IconButton>
+              <IconButton>
+                <MoreVert />
+              </IconButton>
+            </div>
+          </section>
         )}
       </div>
 
@@ -457,7 +474,6 @@ const ChatWindow: React.FC = () => {
                 }`}
               >
                 <div className={`message-content ${message.type}`}>
-                  {/* {message.content} */}
                   {renderMessage(message)}
                   <span className="message-time" id="chat-windown-message-time">
                     {new Date(message.timestamp).toLocaleTimeString([], {

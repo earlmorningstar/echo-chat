@@ -1,14 +1,13 @@
-const { ObjectId } = require("mongodb");
-const bcrypt = require("bcryptjs");
-const jwt = require("jsonwebtoken");
-const crypto = require("crypto");
-const {
+import { ObjectId } from "mongodb";
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
+import {
   sendVerificationEmail,
   sendPasswordResetCode,
   sendFriendRequestNotificationEmail,
   sendFriendRequestAcceptedEmail,
-} = require("../utils/emailService");
-const { sendError, sendSuccess } = require("../utils/response");
+} from "../utils/emailService.js";
+import { sendError, sendSuccess } from "../utils/response.js";
 
 const generateRandomCode = () => {
   return Math.floor(100000 + Math.random() * 900000).toString();
@@ -26,7 +25,11 @@ const createUser = async (req, res) => {
   }
 
   try {
-    const existingUser = await req.db.collection("users").findOne({ email });
+    const normalizedEmail = email.toLowerCase();
+
+    const existingUser = await req.db
+      .collection("users")
+      .findOne({ email: normalizedEmail });
     if (existingUser) {
       return sendError(
         res,
@@ -273,11 +276,11 @@ const sendFriendRequest = async (req, res) => {
     });
 
     if (existingRequest) {
-      const status =
+      const errorMessage =
         existingRequest.status === "pending"
-          ? "already send"
-          : "already friends";
-      return sendError(res, 400, `Friend request ${status}`);
+          ? "Friend request already sent"
+          : "Users are already friends";
+      return sendError(res, 400, errorMessage);
     }
 
     const friendRequest = {
@@ -454,6 +457,13 @@ const handleFriendRequest = async (req, res) => {
 
 const getFriends = async (req, res) => {
   try {
+    console.log("Getting friends for user:", req.userId);
+
+    if (!req.db) {
+      console.error("Database connection not available");
+      return sendError(res, 500, "Database connection error");
+    }
+
     const userObjectId = new ObjectId(req.userId);
 
     const user = await req.db
@@ -461,12 +471,22 @@ const getFriends = async (req, res) => {
       .findOne({ _id: userObjectId });
 
     if (!user) {
+      console.log("User not found:", req.userId);
       return sendError(res, 404, "User not found");
     }
 
     const userFriends = user.friends || [];
 
-    const friendObjectIds = userFriends.map((id) => new ObjectId(id));
+    const friendObjectIds = userFriends
+      .map((id) => {
+        try {
+          return new ObjectId(id);
+        } catch (error) {
+          console.error("Invalid friend Id:", id);
+          return null;
+        }
+      })
+      .filter((id) => id !== null);
 
     const friends = await req.db
       .collection("users")
@@ -478,6 +498,8 @@ const getFriends = async (req, res) => {
       ...friend,
       _id: friend._id.toString(),
     }));
+
+    console.log("Successfully retrieved friends:", formattedFriends.length);
 
     sendSuccess(res, 200, "Friends retrieved successfully", {
       friends: formattedFriends,
@@ -530,8 +552,8 @@ const updateUserStatus = async (req, res) => {
       { _id: new ObjectId(userId) },
       {
         $set: {
-          status: status,
-          lastSeen: status === "offline" ? new Date() : null,
+          lastSeen: new Date(),
+          status: "offline",
         },
       }
     );
@@ -542,7 +564,7 @@ const updateUserStatus = async (req, res) => {
   }
 };
 
-module.exports = {
+export {
   createUser,
   verifyEmail,
   loginUser,

@@ -10,9 +10,9 @@ export interface AuthUser {
 }
 
 export interface Friend extends AuthUser {
-    lastMessage?: Message;
-    unreadCount?: number;
-  }
+  lastMessage?: Message;
+  unreadCount?: number;
+}
 
 export type UserStatus = "online" | "offline";
 

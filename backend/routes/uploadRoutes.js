@@ -1,11 +1,11 @@
-const express = require("express");
+import express from "express";
 const router = express.Router();
-const { upload } = require("../config/storage");
-const authenticateUser = require("../middleware/authMiddleware");
-const {
+import { upload } from "../config/storage.js";
+import authenticateUser from "../middleware/authMiddleware.js";
+import {
   handleFileUpload,
   serveFile,
-} = require("../controllers/uploadController");
+} from "../controllers/uploadController.js";
 
 router.post(
   "/upload",
@@ -15,4 +15,4 @@ router.post(
 );
 router.get("/files/:fileId", serveFile);
 
-module.exports = router;
+export default router;

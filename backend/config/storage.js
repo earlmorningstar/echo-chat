@@ -41,7 +41,7 @@ const uploadToGridFS = async (file, db) => {
     },
   });
 
-  //upload fille
+  //upload file
   return new Promise((resolve, reject) => {
     uploadStream.end(file.buffer, (error) => {
       if (error) {

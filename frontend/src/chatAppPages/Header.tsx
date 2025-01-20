@@ -42,7 +42,7 @@ function Header() {
       </div>
 
       <NavLink to="add-user">
-        <PiPlusCircle size={24} color="#ffffff" />
+        <PiPlusCircle size={24} color="#00000099" />
       </NavLink>
     </header>
   );

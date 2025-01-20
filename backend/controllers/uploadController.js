@@ -3,27 +3,37 @@ import { uploadToGridFS } from "../config/storage.js";
 import jwt from "jsonwebtoken";
 import { sendError, sendSuccess } from "../utils/response.js";
 
+const getMessageType = (mimetype) => {
+  //check to see if it's an image
+  if (mimetype.startsWith("image/")) {
+    return "image";
+  }
+  return "file";
+};
+
 const handleFileUpload = async (req, res) => {
   try {
     if (!req.file) {
       return sendError(res, 400, "No file uploaded");
     }
 
-    console.log("Upload file:", req.file);
-
     const fileData = await uploadToGridFS(req.file, req.db);
-    console.log("File uploaded to GridFS:", fileData);
 
     const baseUrl = `${req.protocol}://${req.get("host")}`;
+
     //create file url
     const fileUrl = `${baseUrl}/api/uploads/files/${fileData.fileId}`;
-    
+
+    //determine type based on mime
+    const messageType = getMessageType(req.file.mimetype);
+
     sendSuccess(res, 200, "File uploaded successfully", {
       fileUrl,
       fileId: fileData.fileId,
       fileName: req.file.originalname,
       fileSize: req.file.size,
       mimeType: req.file.mimetype,
+      type: messageType
     });
   } catch (error) {
     console.error("File upload error:", error);
@@ -36,7 +46,6 @@ const serveFile = async (req, res) => {
   try {
     const fileId = req.params.fileId;
     const token = req.query.token;
-    console.log("Requested file ID:", fileId);
 
     if (!token) {
       return sendError(res, 401, "Unauthorized access");
@@ -59,10 +68,7 @@ const serveFile = async (req, res) => {
       .collection("fs.files")
       .findOne({ _id: new ObjectId(fileId) });
 
-    console.log("Found file metadata:", file);
-
     if (!file) {
-      console.log("Filenot found in database");
       return sendError(res, 404, "File not found");
     }
 

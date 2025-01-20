@@ -1,7 +1,7 @@
-const express = require("express");
+import express from "express";
 const router = express.Router();
-const authenticateUser = require("../middleware/authMiddleware");
-const {
+import authenticateUser from "../middleware/authMiddleware.js";
+import {
   createUser,
   verifyEmail,
   loginUser,
@@ -14,7 +14,7 @@ const {
   getUserById,
   getUserProfile,
   updateUserStatus,
-} = require("../controllers/userController");
+} from "../controllers/userController.js";
 
 router.post("/signup", createUser);
 router.post("/verify-email", verifyEmail);
@@ -34,4 +34,4 @@ router.get("/user/friends", authenticateUser, getFriends);
 router.get("/user/:userId", authenticateUser, getUserById);
 router.post('/user/status', authenticateUser, updateUserStatus);
 
-module.exports = router;
+export default router;

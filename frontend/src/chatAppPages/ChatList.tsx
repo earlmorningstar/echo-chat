@@ -45,17 +45,38 @@ const ChatList: React.FC = () => {
   };
 
   const getMessagePreview = (message: Message) => {
-    switch (message.type) {
-      case "image":
-        return "📷 Sent a photo";
-      case "file":
-        if (message.metadata?.fileName) {
-          return `📎 Sent ${message.metadata.fileName}`;
-        }
-        return "📎 Sent a file";
-      default:
-        return truncateLastMessage(message.content);
+    console.log("Message preview detail:", {
+      type: message.type,
+      content: message.content,
+      metadata: message.metadata,
+      mimeType: message.metadata?.mimeType,
+      isImageURL:
+        message.content?.includes("/api/uploads/") &&
+        message.metadata?.mimeType?.startsWith("image/"),
+    });
+
+    if (!message || !message.content) return "";
+
+    if (message.type === "image") {
+      return "📷 Sent a photo";
     }
+
+    if (message.type === "file") {
+      return message.metadata?.fileName
+        ? `📎 ${message.metadata.fileName}`
+        : "📎 Sent a file";
+    }
+    if (message.content.includes("/api/uploads")) {
+      if (message.metadata?.mimeType?.startsWith("image/")) {
+        return "📷 Sent a photo";
+      }
+
+      if (message.metadata?.fileName) {
+        return `📎 ${message.metadata.fileName}`;
+      }
+      return "📎 Sent a file";
+    }
+    return truncateLastMessage(message.content);
   };
 
   const truncateLastMessage = (
@@ -119,7 +140,15 @@ const ChatList: React.FC = () => {
               <div className="chat-info">
                 <div className="chat-header">
                   <span className="chat-name">
-                    {friend.firstName} {friend.lastName}
+                    {`${friend.firstName} ${friend.lastName}`
+                      .split(" ")
+                      .map(
+                        (name) =>
+                          `${name.charAt(0).toUpperCase()}${name
+                            .slice(1)
+                            .toLowerCase()}`
+                      )
+                      .join(" ")}
                   </span>
                   {friend.lastMessage && (
                     <span className="chat-time">
