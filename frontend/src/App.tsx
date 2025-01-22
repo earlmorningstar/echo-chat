@@ -74,7 +74,7 @@ const router = createBrowserRouter([
     errorElement: <ErrorPage />,
   },
   {
-    path: "/friends-profile",
+    path: "/friends-profile/:friendId",
     element: <FriendsProfile />,
     errorElement: <ErrorPage />,
   },

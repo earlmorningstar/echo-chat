@@ -1,8 +1,9 @@
+import React from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { PiPlusCircle } from "react-icons/pi";
 import "./ChatAppStyles.css";
 
-function Header() {
+const Header: React.FC = () => {
   const location = useLocation();
 
   const getTitle = () => {
@@ -13,13 +14,13 @@ function Header() {
         return "Calls";
       case "/main-navigation/updates":
         return "Updates";
-        case "/main-navigation/requests":
-          return "Requests";
+      case "/main-navigation/requests":
+        return "Requests";
       case "/main-navigation/settings":
         return "Settings";
       case "/main-navigation/user-profile":
         return "Profile";
-        case "/main-navigation/add-user":
+      case "/main-navigation/add-user":
         return "Add a user";
       default:
         return "Chats";
@@ -46,6 +47,6 @@ function Header() {
       </NavLink>
     </header>
   );
-}
+};
 
 export default Header;

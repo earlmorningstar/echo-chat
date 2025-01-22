@@ -45,16 +45,6 @@ const ChatList: React.FC = () => {
   };
 
   const getMessagePreview = (message: Message) => {
-    console.log("Message preview detail:", {
-      type: message.type,
-      content: message.content,
-      metadata: message.metadata,
-      mimeType: message.metadata?.mimeType,
-      isImageURL:
-        message.content?.includes("/api/uploads/") &&
-        message.metadata?.mimeType?.startsWith("image/"),
-    });
-
     if (!message || !message.content) return "";
 
     if (message.type === "image") {
@@ -188,10 +178,12 @@ const ChatList: React.FC = () => {
                           </div>
                           <span className="typing-text">typing...</span>
                         </div>
-                      ) : (
+                      ) : friend.lastMessage ? (
                         <span className="last-message">
                           {getMessagePreview(friend.lastMessage)}
                         </span>
+                      ) : (
+                        <span className="no-messages">No messages yet</span>
                       )}
                     </>
                   )}

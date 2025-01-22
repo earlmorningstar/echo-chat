@@ -5,6 +5,7 @@ import { useChat } from "../contexts/ChatContext";
 import { useWebSocket } from "../contexts/WebSocketContext";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import api from "../utils/api";
+import { formatLastSeen } from "../utils/chatUtils";
 import { Message, AuthUser } from "../types";
 import { IconButton, Backdrop, CircularProgress } from "@mui/material";
 import {
@@ -99,25 +100,25 @@ const ChatWindow: React.FC = () => {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
-  const formatLastSeen = (lastSeen: string | undefined) => {
-    if (!lastSeen) return "";
+  // const formatLastSeen = (lastSeen: string | undefined) => {
+  //   if (!lastSeen) return "";
 
-    const lastSeenDate = new Date(lastSeen);
-    const now = new Date();
-    const diffInSeconds = Math.floor(
-      (now.getTime() - lastSeenDate.getTime()) / 1000
-    );
+  //   const lastSeenDate = new Date(lastSeen);
+  //   const now = new Date();
+  //   const diffInSeconds = Math.floor(
+  //     (now.getTime() - lastSeenDate.getTime()) / 1000
+  //   );
 
-    if (diffInSeconds < 60) return "last seen just now";
-    if (diffInSeconds < 3600)
-      return `last seen ${Math.floor(diffInSeconds / 60)} minutes ago`;
-    if (diffInSeconds < 86400)
-      return `last seen ${Math.floor(diffInSeconds / 3600)} hours ago`;
-    if (diffInSeconds < 604800)
-      return `last seen ${Math.floor(diffInSeconds / 86400)} days ago`;
+  //   if (diffInSeconds < 60) return "last seen just now";
+  //   if (diffInSeconds < 3600)
+  //     return `last seen ${Math.floor(diffInSeconds / 60)} minutes ago`;
+  //   if (diffInSeconds < 86400)
+  //     return `last seen ${Math.floor(diffInSeconds / 3600)} hours ago`;
+  //   if (diffInSeconds < 604800)
+  //     return `last seen ${Math.floor(diffInSeconds / 86400)} days ago`;
 
-    return `last seen on ${lastSeenDate.toLocaleDateString()}`;
-  };
+  //   return `last seen on ${lastSeenDate.toLocaleDateString()}`;
+  // };
 
   const { data: friend } = useQuery({
     queryKey: ["friend", friendId],
@@ -326,9 +327,6 @@ const ChatWindow: React.FC = () => {
     };
   }, [typingTimeout]);
 
-  const handleFriendProfile = () => {
-    navigate("/friends-profile");
-  };
 
   const handleFileSelect = async (
     event: React.ChangeEvent<HTMLInputElement>
@@ -389,18 +387,22 @@ const ChatWindow: React.FC = () => {
     return <MessageContent message={message} />;
   };
 
+  const handleFriendProfile = () => {
+    navigate(`/friends-profile/${friendId}`);
+  };
+
   return (
     <div className="chat-container">
       <div className="chat-window-header">
         {friend && (
           <section className="chat-window-section-flex">
+            <NavLink
+              to="/main-navigation/chats"
+              className="login-redirection-arrow"
+            >
+              <IoChevronBackOutline size={20} color="#333" />
+            </NavLink>
             <div className="friend-info" onClick={handleFriendProfile}>
-              <NavLink
-                to="/main-navigation/chats"
-                className="login-redirection-arrow"
-              >
-                <IoChevronBackOutline size={20} color="#333" />
-              </NavLink>
               <div className="friend-avatar">
                 {friend.avatarUrl ? (
                   <img src={friend.avatarUrl} alt={friend.firstName} />
@@ -430,7 +432,7 @@ const ChatWindow: React.FC = () => {
                   {friend.status === "online" ? (
                     "Online"
                   ) : (
-                    <>Offline • {formatLastSeen(friend.lastSeen)}</>
+                    <>{formatLastSeen(friend.lastSeen)}</>
                   )}
                 </span>
               </div>

@@ -1,7 +1,7 @@
 import { NavLink, Outlet } from "react-router-dom";
 import { IoPersonAdd } from "react-icons/io5";
 import { RiMessage2Fill } from "react-icons/ri";
-import { BsFillTelephoneFill } from "react-icons/bs";
+import { IoMdCall } from "react-icons/io";
 import { PiFilmReelFill } from "react-icons/pi";
 import { RiSettings3Fill } from "react-icons/ri";
 
@@ -20,7 +20,7 @@ const MainNavigation: React.FC = () => {
           <RiMessage2Fill size={22} />
         </NavLink>
         <NavLink to="calls">
-          <BsFillTelephoneFill size={22} />
+          <IoMdCall size={22} />
         </NavLink>
         <NavLink to="updates">
           <PiFilmReelFill size={22} />

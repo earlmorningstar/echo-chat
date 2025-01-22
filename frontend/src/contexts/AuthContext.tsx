@@ -93,16 +93,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       return;
     }
 
-    console.log("Setting user data:", userData);
-
-    setUser(userData);
+   setUser(userData);
     setToken(authToken);
     setIsAuthenticated(true);
     localStorage.setItem("token", authToken);
     localStorage.setItem("user", JSON.stringify(userData));
-
-    console.log("Login successful:", { userData, authToken });
-  };
+ };
 
   const logout = async () => {
     try {

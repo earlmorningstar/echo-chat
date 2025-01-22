@@ -34,7 +34,6 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
     );
 
     ws.current.onopen = () => {
-      console.log("WebSocket connected");
       setIsConnected(true);
 
       if (user?._id && ws.current?.readyState === WebSocket.OPEN) {
@@ -49,8 +48,7 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
     };
 
     ws.current.onclose = () => {
-      console.log("WebSocket disconnected");
-      setIsConnected(false);
+     setIsConnected(false);
       setTimeout(connectWebSocket, 3000);
     };
 
@@ -62,8 +60,7 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
     ws.current.onmessage = (event) => {
       try {
         const message = JSON.parse(event.data);
-        console.log("WebSocket message received:", message);
-
+      
         switch (message.type) {
           case "typing":
             queryClient.setQueryData(
