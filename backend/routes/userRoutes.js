@@ -15,6 +15,8 @@ import {
   getUserProfile,
   updateUserStatus,
   getFriendshipStatus,
+  updateUserProfile,
+  deleteUserAccount,
 } from "../controllers/userController.js";
 
 router.post("/signup", createUser);
@@ -23,6 +25,8 @@ router.post("/login", loginUser);
 router.post("/forgot-password", forgotPassword);
 router.post("/reset-password", resetPassword);
 router.get("/profile", authenticateUser, getUserProfile);
+router.patch("/user/profile", authenticateUser, updateUserProfile);
+router.delete("/user/profile", authenticateUser, deleteUserAccount);
 
 router.post("/user/send-friend-request", authenticateUser, sendFriendRequest);
 router.get("/user/friend-requests", authenticateUser, getFriendRequests);

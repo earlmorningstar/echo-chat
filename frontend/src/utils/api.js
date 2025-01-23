@@ -21,8 +21,7 @@ api.interceptors.request.use(
       // Only log token occasionally
       const now = Date.now();
       if (now - lastTokenLog > TOKEN_LOG_INTERVAL) {
-        console.log("Request with token:", token);
-        lastTokenLog = now;
+       lastTokenLog = now;
       }
     }
     return config;

@@ -19,7 +19,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           headers: { Authorization: `Bearer ${authToken}` },
         });
 
-         if (response.data?.user?._id) {
+        if (response.data?.user?._id) {
           const userData: AuthUser = {
             _id: response.data.user._id,
             firstName: response.data.user.firstName,
@@ -48,6 +48,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       const storedToken = localStorage.getItem("token");
       const storedUser = localStorage.getItem("user");
 
+     
+
       if (!storedToken) {
         setIsLoading(false);
         return;
@@ -58,12 +60,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       if (storedUser) {
         try {
           const parsedUser = JSON.parse(storedUser);
+         
+
           if (parsedUser._id) {
-            setUser(parsedUser);
+            setUser({
+              ...parsedUser,
+              avatarUrl: parsedUser.avatarUrl,
+            });
             setIsAuthenticated(true);
             setIsLoading(false);
           } else {
-             await fetchUser(storedToken);
+            await fetchUser(storedToken);
           }
         } catch (error) {
           console.error("Error parsing stored user:", error);
@@ -93,12 +100,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       return;
     }
 
-   setUser(userData);
+    setUser(userData);
     setToken(authToken);
     setIsAuthenticated(true);
     localStorage.setItem("token", authToken);
     localStorage.setItem("user", JSON.stringify(userData));
- };
+  };
 
   const logout = async () => {
     try {
@@ -147,7 +154,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   if (isLoading) {
-    return <div>Loading...</div>
+    return <div>Loading...</div>;
     //work on this loader soonest.
   }
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

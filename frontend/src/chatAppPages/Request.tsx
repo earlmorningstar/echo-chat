@@ -31,12 +31,12 @@ const Request: React.FC = () => {
   const fetchRequests = async () => {
     try {
       const response = await api.get("/api/user/friend-requests");
-      console.log("Fetching request response:", response.data);
+     
 
       if (response.data && response.data.data) {
         setSentRequests(response.data.data.sent || []);
         setReceivedRequests(response.data.data.received || []);
-        console.log("Received requests:", response.data.data.received);
+       
       } else {
         throw new Error("Invalid response format");
       }

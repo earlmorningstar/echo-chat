@@ -33,7 +33,7 @@ const handleFileUpload = async (req, res) => {
       fileName: req.file.originalname,
       fileSize: req.file.size,
       mimeType: req.file.mimetype,
-      type: messageType
+      type: messageType,
     });
   } catch (error) {
     console.error("File upload error:", error);

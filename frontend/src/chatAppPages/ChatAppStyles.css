@@ -31,11 +31,17 @@
   z-index: 200;
 }
 
+.header-navlink {
+  text-decoration: none;
+}
+
 .profile-picture {
+  font-family: "Finlandica", serif;
   width: 40px;
   height: 40px;
   border-radius: 50%;
   object-fit: cover;
+
 }
 
 .header div {
@@ -78,26 +84,29 @@
 .chat-item-avatar {
   position: relative;
   margin-right: 6px;
+  
 }
 
-/* .profile-image {
-  width: 35px;
-  height: 35px;
-  border-radius: 50%;
-  object-fit: cover;
-  margin-right: 10px;
-} */
-
-.default-avatar {
+.profile-image {
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background-color: #e0e0e0;
+  object-fit: cover;
+}
+
+.default-avatar {
+  font-family: "Finlandica", serif;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background-color: #208d7f;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: bold;
-  color: rgb(104, 104, 118);
+  gap: 5px;
+  font-weight: 600;
+  /* color: rgb(104, 104, 118); */
+  color: #ffffff;
 }
 
 .status-indicator {
@@ -812,9 +821,9 @@
 }
 .friends-profile-image-container img {
   width: 170px;
-  height: auto;
+  height: 170px;
   border-radius: 50%;
-  object-fit: contain;
+  object-fit: cover;
 }
 
 .friends-info-section {
@@ -846,7 +855,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: 3rem 0 0 0;
+  margin: 3rem 0;
 }
 
 .user-blk-btn {
@@ -875,15 +884,14 @@
   align-items: center;
   justify-content: center;
   flex-direction: column;
-  /* gap: 10px; */
   margin: 1rem auto 0 auto;
 }
 
 .user-profile-image-container img {
-  width: 170px;
-  height: auto;
+  width: 150px;
+  height: 150px;
   border-radius: 50%;
-  object-fit: contain;
+  object-fit: cover;
   background-color: #208d7f;
   padding: 4px;
 }
@@ -893,13 +901,11 @@
   padding: 12px;
 }
 
-/* .user-profile-detaiils {
-
-} */
-
-/* 
-@media screen and (max-width: 1000) {
-  */
+.user-acct-del-btn {
+  font-family: "Roboto", serif;
+  font-size: 14px;
+  padding: 7px 10px;
+}
 
 @media screen and (max-width: 800px) {
   .last-message {

@@ -1,4 +1,4 @@
-import { ObjectId } from "mongodb";
+import { GridFSBucket, ObjectId } from "mongodb";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import {
@@ -224,6 +224,9 @@ const getUserProfile = async (req, res) => {
       firstName: user.firstName,
       lastName: user.lastName,
       isVerified: user.isVerified,
+      avatarUrl: user.avatarUrl,
+      lastSeen: user.lastSeen,
+      status: user.status,
     };
     sendSuccess(res, 200, "User profile retrieved successfully", {
       user: userData,
@@ -233,6 +236,37 @@ const getUserProfile = async (req, res) => {
     sendError(res, 500, "Error retrieving user profile", {
       error: error.message,
     });
+  }
+};
+
+const updateUserProfile = async (req, res) => {
+  try {
+    const userObjectId = new ObjectId(req.userId);
+    const { avatarUrl } = req.body;
+
+    await req.db
+      .collection("users")
+      .updateOne({ _id: userObjectId }, { $set: { avatarUrl: avatarUrl } });
+
+    const user = await req.db
+      .collection("users")
+      .findOne({ _id: userObjectId });
+
+    const friendships = await req.db
+      .collection("friendships")
+      .find({
+        $or: [{ user1id: userObjectId }, { user2id: userObjectId }],
+      })
+      .toArray();
+
+    friendships.forEach(async (friendship) => {
+      await broadcastProfileUpdate(friendship, user);
+    });
+
+    sendSuccess(res, 200, "Profile updated successfully");
+  } catch (error) {
+    console.error("Error updating profile:", error);
+    sendError(res, 500, "Error updating profile", { error: error.message });
   }
 };
 
@@ -437,8 +471,6 @@ const handleFriendRequest = async (req, res) => {
           status: "active",
         });
 
-        // console.log("Created friendship:", friendship);
-
         return sendSuccess(res, 200, "Friend request accepted", friendship);
       } catch (error) {
         console.error("Error in friend request acceptance:", error);
@@ -615,6 +647,31 @@ const getFriendshipStatus = async (req, res) => {
   }
 };
 
+const deleteUserAccount = async (req, res) => {
+  try {
+    const userObjectId = new ObjectId(req.userId);
+
+    //deleting user doc
+    await req.db.collection("users").deleteOne({ _id: userObjectId });
+
+    //clean up related data (delete user files from gridFS)
+    const bucket = new GridFSBucket(req.db);
+    const userFiles = await req.db
+      .collection("fs.files")
+      .find({ "metadata.userId": req.userId })
+      .toArray();
+
+    for (const file of userFiles) {
+      await bucket.delete(file._id);
+    }
+
+    sendSuccess(res, 200, "Account deleted successfully");
+  } catch (error) {
+    console.error("Error deleting account:", error);
+    sendError(res, 500, "Error deleting account", { error: error.meessage });
+  }
+};
+
 export {
   createUser,
   verifyEmail,
@@ -622,6 +679,7 @@ export {
   forgotPassword,
   resetPassword,
   getUserProfile,
+  updateUserProfile,
   sendFriendRequest,
   getFriendRequests,
   handleFriendRequest,
@@ -629,4 +687,5 @@ export {
   getUserById,
   updateUserStatus,
   getFriendshipStatus,
+  deleteUserAccount,
 };
