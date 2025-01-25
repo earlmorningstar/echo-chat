@@ -5,6 +5,7 @@ import {
   Box,
   List,
   Snackbar,
+  CircularProgress,
 } from "@mui/material";
 import { useAuth } from "../contexts/AuthContext";
 import api from "../utils/api";
@@ -20,6 +21,9 @@ interface FriendRequest {
 const Request: React.FC = () => {
   const [tabValue, setTabValue] = useState(0);
   const [sentRequests, setSentRequests] = useState<FriendRequest[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isAccepting, setIsAccepting] = useState(false);
+  const [isDeclining, setIsDeclining] = useState(false);
   const [receivedRequests, setReceivedRequests] = useState<FriendRequest[]>([]);
   const [snackbar, setSnackbar] = useState({ open: false, message: "" });
   const { token } = useAuth();
@@ -31,12 +35,10 @@ const Request: React.FC = () => {
   const fetchRequests = async () => {
     try {
       const response = await api.get("/api/user/friend-requests");
-     
 
       if (response.data && response.data.data) {
         setSentRequests(response.data.data.sent || []);
         setReceivedRequests(response.data.data.received || []);
-       
       } else {
         throw new Error("Invalid response format");
       }
@@ -51,6 +53,9 @@ const Request: React.FC = () => {
     action: "accept" | "decline"
   ) => {
     try {
+      setIsSubmitting(true);
+      if (action === "accept") setIsAccepting(true);
+      if (action === "decline") setIsDeclining(true);
       await api.post("/api/user/handle-friend-request", { requestId, action });
       setSnackbar({
         open: true,
@@ -62,6 +67,10 @@ const Request: React.FC = () => {
     } catch (error) {
       console.error("Error handling request:", error);
       setSnackbar({ open: true, message: "Error handling request" });
+    } finally {
+      setIsSubmitting(false);
+      if (action === "accept") setIsAccepting(false);
+      if (action === "decline") setIsDeclining(false);
     }
   };
 
@@ -98,16 +107,26 @@ const Request: React.FC = () => {
                   <span className="req-action-btn">
                     <button
                       onClick={() => handleRequestAction(request._id, "accept")}
+                      disabled={isSubmitting || isDeclining}
                     >
-                      Accept
+                      {isSubmitting && !isDeclining ? (
+                        <CircularProgress size={14} color="inherit" />
+                      ) : (
+                        "Accept"
+                      )}
                     </button>
                     <button
                       id="req-decline"
                       onClick={() =>
                         handleRequestAction(request._id, "decline")
                       }
+                      disabled={isSubmitting || isAccepting}
                     >
-                      Decline
+                      {isSubmitting && !isAccepting ? (
+                        <CircularProgress size={14} color="inherit" />
+                      ) : (
+                        "Decline"
+                      )}
                     </button>
                   </span>
                 </section>

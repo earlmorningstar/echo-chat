@@ -6,6 +6,7 @@ import { connectToDatabase } from "./config/database.js";
 import userRoutes from "./routes/userRoutes.js";
 import messageRoutes from "./routes/messageRoutes.js";
 import uploadRoutes from "./routes/uploadRoutes.js";
+import authRoutes from "./routes/authRoutes.js";
 import initializeWebSocket from "./WebSocket/WebSocket.js";
 import dotenv from "dotenv";
 
@@ -53,6 +54,7 @@ connectToDatabase()
     });
 
     app.use("/api", userRoutes);
+    app.use("/api/auth", authRoutes);
     app.use("/api/messages", messageRoutes);
     app.use("/api/uploads", uploadRoutes);
 

@@ -95,12 +95,7 @@ const UserProfile: React.FC = () => {
   };
 
   const getAvatarUrl = () => {
-    if (user?.avatarUrl) {
-      return user.avatarUrl.includes("?token=")
-        ? user.avatarUrl
-        : `${user.avatarUrl}?token=${token}`;
-    }
-    return undefined;
+    return user?.avatarUrl;
   };
 
   const handleDeleteAccount = async () => {
@@ -121,8 +116,6 @@ const UserProfile: React.FC = () => {
     });
   };
 
- 
-
   return (
     <section className="main-container">
       <div className="user-profile-main-container" key={profileKey}>
@@ -130,10 +123,13 @@ const UserProfile: React.FC = () => {
           {getAvatarUrl() ? (
             <img
               src={getAvatarUrl()}
-              alt="profile"
+              alt={getInitialsAvatar() || getAvatarUrl() || "Profile"}
               onError={(e) => {
                 console.error("Image load error:", getAvatarUrl());
                 e.currentTarget.src = "";
+                if (user) {
+                  updateUser({ avatarUrl: undefined });
+                }
               }}
             />
           ) : (
@@ -146,9 +142,9 @@ const UserProfile: React.FC = () => {
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                color: "white",
+                color: "#ffffff",
                 fontSize: "3rem",
-                fontWeight: "bold",
+                fontWeight: "500",
               }}
             >
               {getInitialsAvatar()}

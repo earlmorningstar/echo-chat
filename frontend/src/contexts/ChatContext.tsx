@@ -71,7 +71,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
           ...friend,
           status,
           lastSeen,
-         lastMessage: messageResponse.data.message
+          lastMessage: messageResponse.data.message
             ? {
                 ...messageResponse.data.message,
                 status: messageResponse.data.message.status || "sent",

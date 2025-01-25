@@ -113,12 +113,16 @@ const loginUser = async (req, res) => {
       return sendError(res, 401, "Invalid email or password");
     }
 
+    const cleanAvatarUrl = user.avatarUrl ? user.avatarUrl.split("?")[0] : null;
+
     const token = jwt.sign(
       {
         userId: user._id.toString(),
         email: user.email,
         firstName: user.firstName,
         lastName: user.lastName,
+        isVerified: user.isVerified,
+        avatarUrl: cleanAvatarUrl,
       },
       process.env.JWT_SECRET,
       { expiresIn: "9h" }
@@ -130,6 +134,7 @@ const loginUser = async (req, res) => {
       firstName: user.firstName,
       lastName: user.lastName,
       isVerified: user.isVerified,
+      avatarUrl: cleanAvatarUrl,
     };
 
     sendSuccess(res, 200, "Login successful", {
@@ -232,7 +237,9 @@ const getUserProfile = async (req, res) => {
       user: userData,
     });
   } catch (error) {
-    console.error("Error retrieving user profile:", error);
+    console.error("Profile Retrieval Error:", {
+      userId: req.userId,
+    });
     sendError(res, 500, "Error retrieving user profile", {
       error: error.message,
     });
@@ -504,11 +511,6 @@ const handleFriendRequest = async (req, res) => {
 
 const getFriends = async (req, res) => {
   try {
-    if (!req.db) {
-      console.error("Database connection not available");
-      return sendError(res, 500, "Database connection error");
-    }
-
     const userObjectId = new ObjectId(req.userId);
 
     const user = await req.db
@@ -543,9 +545,15 @@ const getFriends = async (req, res) => {
       _id: friend._id.toString(),
     }));
 
-    sendSuccess(res, 200, "Friends retrieved successfully", {
-      friends: formattedFriends,
-    });
+    sendSuccess(
+      res,
+      200,
+      "Friends retrieved successfully",
+      {
+        friends: formattedFriends,
+      },
+      false
+    );
   } catch (error) {
     console.error("Error retrieving friends:", error);
 
@@ -559,12 +567,14 @@ const getFriends = async (req, res) => {
 
 const getUserById = async (req, res) => {
   const { userId } = req.params;
+
   try {
     const userObjectId = new ObjectId(userId);
 
     const user = await req.db
       .collection("users")
       .findOne({ _id: userObjectId });
+
     if (!user) {
       return sendError(res, 404, "User not found");
     }
@@ -578,6 +588,12 @@ const getUserById = async (req, res) => {
       user: userResponse,
     });
   } catch (error) {
+    console.error("Detailed User Retrieval Error:", {
+      userId,
+      errorName: error.name,
+      errorMessage: error.message,
+    });
+
     if (error.name === "BSONTypeError" || error.name === "BSONError") {
       return sendError(res, 400, "Invalid user ID format");
     }
@@ -622,18 +638,22 @@ const getFriendshipStatus = async (req, res) => {
       return sendError(res, 404, "Friendship not found");
     }
 
+    const createdAt = friendship.createdAt?.$date
+      ? new Date(friendship.createdAt.$date.$numberLong)
+      : friendship.createdAt;
+
     const response = {
       data: {
         friendship: {
-          friendsSince: friendship.createdAt,
+          createdAt: createdAt,
           _id: friendship._id.toString(),
           user1: friendship.user1.toString(),
           user2: friendship.user2.toString(),
           status: friendship.status,
-          createdAt: friendship.createdAt.toISOString(),
         },
       },
     };
+
     sendSuccess(res, 200, "friendship retrieved successfully", response);
   } catch (error) {
     console.error("Error in getFriendshipStatus:", error);

@@ -41,9 +41,15 @@ const getChatHistory = async (req, res) => {
       metadata: message.metadata || undefined,
     }));
 
-    sendSuccess(res, 200, "Chat history retrieved successfully", {
-      messages: formattedMessages,
-    });
+    sendSuccess(
+      res,
+      200,
+      "Chat history retrieved successfully",
+      {
+        messages: formattedMessages,
+      },
+      false
+    );
   } catch (error) {
     sendError(res, 500, "Error retrieving chat history", {
       error: error.message,
@@ -119,17 +125,23 @@ const getLastMessage = async (req, res) => {
         lastMessage.receiverId.toString() === userId
       : false;
 
-    sendSuccess(res, 200, "Last message retrieved successfully", {
-      message: lastMessage
-        ? {
-            content: lastMessage.content,
-            timestamp: lastMessage.timestamp,
-            unread: unread,
-            senderId: lastMessage.senderId.toString(),
-            status: lastMessage.status,
-          }
-        : null,
-    });
+    sendSuccess(
+      res,
+      200,
+      "Last message retrieved successfully",
+      {
+        message: lastMessage
+          ? {
+              content: lastMessage.content,
+              timestamp: lastMessage.timestamp,
+              unread: unread,
+              senderId: lastMessage.senderId.toString(),
+              status: lastMessage.status,
+            }
+          : null,
+      },
+      false
+    );
   } catch (error) {
     sendError(res, 500, "Error retrieving last message", {
       error: error.message,
@@ -191,7 +203,13 @@ const getUnreadCount = async (req, res) => {
       receiverId: userObjectId,
       status: "sent",
     });
-    sendSuccess(res, 200, "Unread count retrieved successfully", { count });
+    sendSuccess(
+      res,
+      200,
+      "Unread count retrieved successfully",
+      { count },
+      false
+    );
   } catch (error) {
     sendError(res, 500, "Error getting unread count", { error: error.message });
   }

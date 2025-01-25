@@ -21,10 +21,10 @@ const FriendsProfile: React.FC = () => {
     queryFn: async () => {
       if (!friendId) throw new Error("No friend ID provided");
 
-      const [userResponse, friendshipResponse] = await Promise.all([
-        api.get(`/api/user/${friendId}`),
-        api.get(`/api/user/friendship/${friendId}`),
-      ]);
+      const userResponse = await api.get(`/api/user/${friendId}`);
+      const friendshipResponse = await api.get(
+        `/api/user/friendship/${friendId}`
+      );
 
       const userData = userResponse.data.user as AuthUser;
       const friendshipData = friendshipResponse.data.data?.friendship;
@@ -33,7 +33,7 @@ const FriendsProfile: React.FC = () => {
         ...userData,
         status: getUserStatus(friendId),
         friendsSince: friendshipData?.createdAt
-          ? new Date(friendshipData.createdAt.$date.$numberLong)
+          ? new Date(friendshipData.createdAt)
           : undefined,
       };
     },

@@ -15,7 +15,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   useEffect(() => {
     const fetchUser = async (authToken: string) => {
       try {
-        const response = await api.get("/api/user/profile", {
+        const response = await api.get("/profile", {
           headers: { Authorization: `Bearer ${authToken}` },
         });
 
@@ -36,7 +36,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         } else {
           throw new Error("User data missing _id field");
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error("Error fetching user:", error);
         await logout();
       } finally {
@@ -48,8 +48,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       const storedToken = localStorage.getItem("token");
       const storedUser = localStorage.getItem("user");
 
-     
-
       if (!storedToken) {
         setIsLoading(false);
         return;
@@ -60,7 +58,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       if (storedUser) {
         try {
           const parsedUser = JSON.parse(storedUser);
-         
 
           if (parsedUser._id) {
             setUser({
@@ -96,15 +93,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const login = (userData: AuthUser, authToken: string) => {
     if (!userData?._id || !authToken) {
-      console.error("Invalid login data received:", { userData, authToken });
-      return;
+     return;
     }
 
-    setUser(userData);
-    setToken(authToken);
+    const cleanUserData = {
+      ...userData,
+      avatarUrl: userData.avatarUrl?.split("?")[0] || undefined,
+    };
+
+    const cleanToken = authToken.split("?")[0];
+
+    setUser(cleanUserData);
+    setToken(cleanToken);
     setIsAuthenticated(true);
-    localStorage.setItem("token", authToken);
-    localStorage.setItem("user", JSON.stringify(userData));
+    localStorage.setItem("token", cleanToken);
+    localStorage.setItem("user", JSON.stringify(cleanUserData));
   };
 
   const logout = async () => {

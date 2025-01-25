@@ -6,7 +6,7 @@ import "./ChatAppStyles.css";
 
 const Header: React.FC = () => {
   const location = useLocation();
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
 
   const getTitle = () => {
     switch (location.pathname) {
@@ -30,40 +30,46 @@ const Header: React.FC = () => {
   };
 
   const getInitialsAvatar = () => {
-    if (!user) return '';
+    if (!user) return "";
     return `${user.firstName[0]}${user.lastName[0]}`.toUpperCase();
+  };
+
+  const getAvatarUrl = () => {
+    return user?.avatarUrl;
   };
 
   return (
     <header className="header">
       <div>
-        <NavLink className='header-navlink' to="user-profile">
+        <NavLink className="header-navlink" to="user-profile">
           <span>
-          {user?.avatarUrl ? (
+            {getAvatarUrl() ? (
               <img
-                src={user.avatarUrl}
-                alt="Profile"
+                src={getAvatarUrl()}
+                alt={getInitialsAvatar() || getAvatarUrl() || "Profile"}
                 className="profile-picture"
                 onError={(e) => {
-                  e.currentTarget.src = `/default-avatar/${getInitialsAvatar()}`;
-                  console.warn("Failed to load profile image, using default");
+                  console.error("Image load error:", getAvatarUrl());
+                  e.currentTarget.src = "";
+                  if (user) {
+                    updateUser({ avatarUrl: undefined });
+                  }
                 }}
               />
             ) : (
-              <div 
+              <div
                 className="profile-picture"
                 style={{
-                  backgroundColor: '#208d7f',
-                  color: '#ffffff',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  borderRadius: '50%',
-                  width: '40px', 
-                  height: '40px',
-                  fontSize: '1rem',
-                  fontWeight: '500',
-                  textDecoration: "none"
+                  backgroundColor: "#208d7f",
+                  color: "#ffffff",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  borderRadius: "50%",
+                  width: "40px",
+                  height: "40px",
+                  fontSize: "1rem",
+                  fontWeight: "500",
                 }}
               >
                 {getInitialsAvatar()}
