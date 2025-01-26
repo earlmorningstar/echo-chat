@@ -36,47 +36,34 @@ const handleFileUpload = async (req, res) => {
       type: messageType,
     });
   } catch (error) {
-     sendError(res, 500, "Error uploading file", { error: error.message });
+    sendError(res, 500, "Error uploading file", { error: error.message });
   }
 };
 
-//to serve files
 const serveFile = async (req, res) => {
   try {
     const fileId = req.params.fileId;
     const token = req.query.token;
 
     if (!token) {
-      // Attempt to serve file without strict token validation
-      const bucket = new GridFSBucket(req.db);
-      const file = await req.db
-        .collection("fs.files")
-        .findOne({ _id: new ObjectId(fileId) });
-
-      if (!file) {
-        return sendError(res, 404, "File not found");
-      }
-
-      res.set({
-        "Content-Type": file.metadata.minetype || file.contentType,
-        "Content-Length": file.length,
-        "Content-Disposition": `inline; filename="${
-          file.metadata.originalname || file.fileName
-        }"`,
-        "Cache-Control": "no-cache",
-      });
-
-      return bucket.openDownloadStream(new ObjectId(fileId)).pipe(res);
+      // Fallback logic for serving file without token
+      return serveFallbackFile(req, res, fileId);
     }
 
-    // Existing token validation logic remains
     try {
-      const cleanToken = token.split("?")[0];
-      jwt.verify(cleanToken, process.env.JWT_SECRET);
-    } catch (error) {
-      console.error("Token Verification Error:", error);
+      // Attempt to verify token
+      jwt.verify(token, process.env.JWT_SECRET);
+    } catch (verificationError) {
+      // IF token is expired, attempt to renew
+      try {
+        const renewedToken = await renewToken(token);
+        token = renewedToken;
+      } catch (renewError) {
+        return serveFallbackFile(req, res, fileId);
+      }
     }
 
+    // Serve file with verified/renewed token
     const bucket = new GridFSBucket(req.db);
     const file = await req.db
       .collection("fs.files")
@@ -97,11 +84,31 @@ const serveFile = async (req, res) => {
 
     bucket.openDownloadStream(new ObjectId(fileId)).pipe(res);
   } catch (error) {
-    console.error("Error serving file:", error);
-    if (!res.headersSent) {
-      sendError(res, 500, "Error retrieving file", { error: error.message });
-    }
+    sendError(res, 500, "Error retrieving file");
   }
+};
+
+// Helper function to serve file without strict token validation
+const serveFallbackFile = async (req, res, fileId) => {
+  const bucket = new GridFSBucket(req.db);
+  const file = await req.db
+    .collection("fs.files")
+    .findOne({ _id: new ObjectId(fileId) });
+
+  if (!file) {
+    return sendError(res, 404, "File not found");
+  }
+
+  res.set({
+    "Content-Type": file.metadata.minetype || file.contentType,
+    "Content-Length": file.length,
+    "Content-Disposition": `inline; filename="${
+      file.metadata.originalname || file.fileName
+    }"`,
+    "Cache-Control": "no-cache",
+  });
+
+  return bucket.openDownloadStream(new ObjectId(fileId)).pipe(res);
 };
 
 export { handleFileUpload, serveFile };

@@ -56,8 +56,7 @@ const createUser = async (req, res) => {
       userid: user.insertedId,
     });
   } catch (error) {
-    console.error("Error creating user:", error);
-    sendError(res, 500, "Error creating user", { error: error.message });
+    sendError(res, 500, "Error creating user");
   }
 };
 
@@ -84,8 +83,7 @@ const verifyEmail = async (req, res) => {
     );
     sendSuccess(res, 200, "Email verified successfully");
   } catch (error) {
-    console.error("Error verifying email:", error);
-    sendError(res, 500, "Error verifying email", { error: error.message });
+    sendError(res, 500, "Error verifying email");
   }
 };
 
@@ -113,8 +111,6 @@ const loginUser = async (req, res) => {
       return sendError(res, 401, "Invalid email or password");
     }
 
-    const cleanAvatarUrl = user.avatarUrl ? user.avatarUrl.split("?")[0] : null;
-
     const token = jwt.sign(
       {
         userId: user._id.toString(),
@@ -122,10 +118,10 @@ const loginUser = async (req, res) => {
         firstName: user.firstName,
         lastName: user.lastName,
         isVerified: user.isVerified,
-        avatarUrl: cleanAvatarUrl,
+        avatarUrl: user.avatarUrl,
       },
       process.env.JWT_SECRET,
-      { expiresIn: "9h" }
+      { expiresIn: "24h" }
     );
 
     const sanitizedUser = {
@@ -134,7 +130,7 @@ const loginUser = async (req, res) => {
       firstName: user.firstName,
       lastName: user.lastName,
       isVerified: user.isVerified,
-      avatarUrl: cleanAvatarUrl,
+      avatarUrl: user.avatarUrl,
     };
 
     sendSuccess(res, 200, "Login successful", {
@@ -142,8 +138,7 @@ const loginUser = async (req, res) => {
       token: token,
     });
   } catch (error) {
-    console.error("Error during login:", error);
-    sendError(res, 500, "Error logging in", { error: error.message });
+    sendError(res, 500, "Error logging in");
   }
 };
 
@@ -175,10 +170,7 @@ const forgotPassword = async (req, res) => {
 
     sendSuccess(res, 200, "Password reset code has been sent to your email");
   } catch (error) {
-    console.error("Error processing password reset:", error);
-    sendError(res, 500, "Error processing password reset", {
-      error: error.message,
-    });
+    sendError(res, 500, "Error processing password reset");
   }
 };
 
@@ -207,8 +199,7 @@ const resetPassword = async (req, res) => {
 
     sendSuccess(res, 200, "Password reset successful.");
   } catch (error) {
-    console.error("Error resetting password:", error);
-    sendError(res, 500, "Error resetting password", { error: error.message });
+    sendError(res, 500, "Error resetting password");
   }
 };
 
@@ -237,12 +228,7 @@ const getUserProfile = async (req, res) => {
       user: userData,
     });
   } catch (error) {
-    console.error("Profile Retrieval Error:", {
-      userId: req.userId,
-    });
-    sendError(res, 500, "Error retrieving user profile", {
-      error: error.message,
-    });
+    sendError(res, 500, "Error retrieving user profile");
   }
 };
 
@@ -272,8 +258,7 @@ const updateUserProfile = async (req, res) => {
 
     sendSuccess(res, 200, "Profile updated successfully");
   } catch (error) {
-    console.error("Error updating profile:", error);
-    sendError(res, 500, "Error updating profile", { error: error.message });
+    sendError(res, 500, "Error updating profile");
   }
 };
 
@@ -341,29 +326,13 @@ const sendFriendRequest = async (req, res) => {
         receiver.firstName,
         `${sender.firstName} ${sender.lastName}`
       );
-    } catch (emailError) {
-      console.error(
-        "Failed to send friend request notification email:",
-        emailError
-      );
+    } catch {
+      console.error("Failed to send friend request notification email:");
     }
 
     sendSuccess(res, 200, "Friend request sent successfully");
   } catch (error) {
-    console.error("Detailed error in sendFriendRequest:", {
-      error: error.message,
-      stack: error.stack,
-      userId: req.userId,
-      receiverEmail,
-    });
-
-    if (error.name === "BSONTypeError" || error.name === "BSONError") {
-      return sendError(res, 400, "Invalid user ID format");
-    }
-
-    sendError(res, 500, "Error sending friend request", {
-      error: error.message,
-    });
+    sendError(res, 500, "Error sending friend request");
   }
 };
 
@@ -398,10 +367,7 @@ const getFriendRequests = async (req, res) => {
 
     return res.status(200).json(response);
   } catch (error) {
-    console.error("Error retrieving friend requests:", error);
-    sendError(res, 500, "Error retrieving friend request", {
-      error: error.message,
-    });
+    sendError(res, 500, "Error retrieving friend request");
   }
 };
 
@@ -450,8 +416,8 @@ const handleFriendRequest = async (req, res) => {
               sender.firstName,
               `${accepter.firstName} ${accepter.lastName}`
             );
-          } catch (emailError) {
-            console.error("Failed to send acceptance email:", emailError);
+          } catch {
+            console.error("Failed to send acceptance email:");
           }
         }
 
@@ -480,7 +446,7 @@ const handleFriendRequest = async (req, res) => {
 
         return sendSuccess(res, 200, "Friend request accepted", friendship);
       } catch (error) {
-        console.error("Error in friend request acceptance:", error);
+        console.error("Error in friend request acceptance:");
         throw error;
       }
     } else if (action === "decline") {
@@ -493,19 +459,11 @@ const handleFriendRequest = async (req, res) => {
       return sendSuccess(res, 200, "Friend request declined");
     }
   } catch (error) {
-    console.error("Error handling friend request:", {
-      error: error.message,
-      stack: error.stack,
-      requestId,
-      userId,
-      action,
-    });
+    console.error("Error handling friend request:");
     if (error.message.includes("ObjectId")) {
       return sendError(res, 400, "Invalid Request ID format");
     }
-    sendError(res, 500, "Error handling friend request", {
-      error: error.message,
-    });
+    sendError(res, 500, "Error handling friend request");
   }
 };
 
@@ -528,7 +486,7 @@ const getFriends = async (req, res) => {
         try {
           return new ObjectId(id);
         } catch (error) {
-          console.error("Invalid friend Id:", id);
+          console.error("Invalid friend Id");
           return null;
         }
       })
@@ -555,13 +513,13 @@ const getFriends = async (req, res) => {
       false
     );
   } catch (error) {
-    console.error("Error retrieving friends:", error);
+    console.error("Error retrieving friends:");
 
     if (error.name === "BSONTypeError" || error.name === "BSONError") {
       return sendError(res, 400, "invalid user ID format");
     }
 
-    sendError(res, 500, "Error retrieving friends", { error: error.message });
+    sendError(res, 500, "Error retrieving friends");
   }
 };
 
@@ -588,16 +546,12 @@ const getUserById = async (req, res) => {
       user: userResponse,
     });
   } catch (error) {
-    console.error("Detailed User Retrieval Error:", {
-      userId,
-      errorName: error.name,
-      errorMessage: error.message,
-    });
+    console.error("Detailed User Retrieval Error");
 
     if (error.name === "BSONTypeError" || error.name === "BSONError") {
       return sendError(res, 400, "Invalid user ID format");
     }
-    sendError(res, 500, "Error retrieving user", { error: error.message });
+    sendError(res, 500, "Error retrieving user");
   }
 };
 
@@ -656,14 +610,12 @@ const getFriendshipStatus = async (req, res) => {
 
     sendSuccess(res, 200, "friendship retrieved successfully", response);
   } catch (error) {
-    console.error("Error in getFriendshipStatus:", error);
+    console.error("Error in getFriendshipStatus:");
 
     if (error.name === "BSONTypeError" || error.name === "BSONError") {
       return sendError(res, 400, "Invalid ID format");
     }
-    sendError(res, 500, "Error retrieving friendship", {
-      error: error.message,
-    });
+    sendError(res, 500, "Error retrieving friendship");
   }
 };
 
@@ -687,8 +639,24 @@ const deleteUserAccount = async (req, res) => {
 
     sendSuccess(res, 200, "Account deleted successfully");
   } catch (error) {
-    console.error("Error deleting account:", error);
-    sendError(res, 500, "Error deleting account", { error: error.meessage });
+    sendError(res, 500, "Error deleting account");
+  }
+};
+
+const logoutUser = async (req, res) => {
+  try {
+    if (!req.user || !req.user._id) {
+      return sendError(res, 401, "User not authenticated");
+    }
+    const userId = new ObjectId(req.user._id);
+
+    await req.db
+      .collection("users")
+      .updateOne({ _id: userId }, { $unset: { activeTokens: 1 } });
+
+    sendSuccess(res, 200, "Logout successful");
+  } catch (error) {
+    sendError(res, 500, "Error during logout");
   }
 };
 
@@ -708,4 +676,5 @@ export {
   updateUserStatus,
   getFriendshipStatus,
   deleteUserAccount,
+  logoutUser,
 };

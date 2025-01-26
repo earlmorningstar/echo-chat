@@ -17,7 +17,12 @@ import PopupState, { bindTrigger, bindPopover } from "material-ui-popup-state";
 import { MdOutlineBlock } from "react-icons/md";
 
 const UserProfile: React.FC = () => {
-  const { token, user, updateUser, logout } = useAuth();
+  const {
+    // token,
+    user,
+    updateUser,
+    logout,
+  } = useAuth();
   const navigate = useNavigate();
   const [profileKey, setProfileKey] = React.useState(0);
   const [isUploading, setIsUploading] = React.useState(false);
@@ -50,15 +55,15 @@ const UserProfile: React.FC = () => {
         formData.append("file", file);
 
         const uploadResponse = await uploadFile(formData);
-        const fileurlWithToken = `${uploadResponse.fileUrl}?token=${token}`;
+        const fileUrl = uploadResponse.fileUrl;
 
-        //update user profile with new avatar url
+        // Update user profile with base file URL
         await api.patch("/api/user/profile", {
-          avatarUrl: fileurlWithToken,
+          avatarUrl: fileUrl,
         });
 
-        //update local user state--
-        updateUser({ avatarUrl: fileurlWithToken });
+        // Update local user state
+        updateUser({ avatarUrl: fileUrl });
         setProfileKey((prev) => prev + 1);
         PopupState.close();
         setSnackbar({ open: true, message: "Image uploaded successfully" });
@@ -70,7 +75,7 @@ const UserProfile: React.FC = () => {
         setIsUploading(false);
       }
     },
-    [updateUser, token]
+    [updateUser]
   );
 
   const handleRemoveImage = async (PopupState: any) => {

@@ -17,6 +17,7 @@ import {
   getFriendshipStatus,
   updateUserProfile,
   deleteUserAccount,
+  logoutUser,
 } from "../controllers/userController.js";
 
 router.post("/signup", createUser);
@@ -39,5 +40,6 @@ router.get("/user/friends", authenticateUser, getFriends);
 router.get("/user/:userId", authenticateUser, getUserById);
 router.post("/user/status", authenticateUser, updateUserStatus);
 router.get("/user/friendship/:friendId", authenticateUser, getFriendshipStatus);
+router.post("/logout", authenticateUser, logoutUser);
 
 export default router;

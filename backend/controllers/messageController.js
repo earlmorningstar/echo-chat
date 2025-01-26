@@ -51,9 +51,7 @@ const getChatHistory = async (req, res) => {
       false
     );
   } catch (error) {
-    sendError(res, 500, "Error retrieving chat history", {
-      error: error.message,
-    });
+    sendError(res, 500, "Error retrieving chat history");
   }
 };
 
@@ -89,7 +87,7 @@ const sendMessage = async (req, res) => {
       receiverId: receiverId.toString(),
     });
   } catch (error) {
-    sendError(res, 500, "Error sending message", { error: error.message });
+    sendError(res, 500, "Error sending message");
   }
 };
 
@@ -143,9 +141,7 @@ const getLastMessage = async (req, res) => {
       false
     );
   } catch (error) {
-    sendError(res, 500, "Error retrieving last message", {
-      error: error.message,
-    });
+    sendError(res, 500, "Error retrieving last message");
   }
 };
 
@@ -184,9 +180,7 @@ const markMessageAsRead = async (req, res) => {
 
     sendSuccess(res, 200, "Messages marked as read");
   } catch (error) {
-    sendError(res, 500, "Error marking messages as read", {
-      error: error.message,
-    });
+    sendError(res, 500, "Error marking messages as read");
   }
 };
 
@@ -211,7 +205,7 @@ const getUnreadCount = async (req, res) => {
       false
     );
   } catch (error) {
-    sendError(res, 500, "Error getting unread count", { error: error.message });
+    sendError(res, 500, "Error getting unread count");
   }
 };
 

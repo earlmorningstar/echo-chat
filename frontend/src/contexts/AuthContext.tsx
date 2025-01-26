@@ -37,7 +37,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           throw new Error("User data missing _id field");
         }
       } catch (error: any) {
-        console.error("Error fetching user:", error);
+        console.error("Error fetching user:");
         await logout();
       } finally {
         setIsLoading(false);
@@ -70,7 +70,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
             await fetchUser(storedToken);
           }
         } catch (error) {
-          console.error("Error parsing stored user:", error);
+          console.error("Error parsing stored user:");
           await fetchUser(storedToken);
         }
       } else {
@@ -93,26 +93,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const login = (userData: AuthUser, authToken: string) => {
     if (!userData?._id || !authToken) {
-     return;
+      return;
     }
-
-    const cleanUserData = {
-      ...userData,
-      avatarUrl: userData.avatarUrl?.split("?")[0] || undefined,
-    };
-
-    const cleanToken = authToken.split("?")[0];
-
-    setUser(cleanUserData);
-    setToken(cleanToken);
+    setUser(userData);
+    setToken(authToken);
     setIsAuthenticated(true);
-    localStorage.setItem("token", cleanToken);
-    localStorage.setItem("user", JSON.stringify(cleanUserData));
+    localStorage.setItem("token", authToken);
+    localStorage.setItem("user", JSON.stringify(userData));
   };
 
   const logout = async () => {
     try {
-      await api.post("/auth/logout");
+      await api.post("/api/logout");
     } catch (error) {
       console.error("Logout error", error);
     } finally {
@@ -121,6 +113,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       setUser(null);
       setToken(null);
       setIsAuthenticated(false);
+      window.location.href = "/login";
     }
   };
 
@@ -141,7 +134,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         localStorage.setItem("user", JSON.stringify(updatedUser));
       }
     } catch (error) {
-      console.error("Status update error:", error);
+      console.error("Status update error:");
     }
   };
 

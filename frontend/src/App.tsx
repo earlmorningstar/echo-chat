@@ -1,4 +1,5 @@
 import { RouterProvider, createBrowserRouter } from "react-router-dom";
+import { UnauthorizedErrorHandler } from "./utils/UnauthorizedErrorHandler ";
 import SplashScreen from "./pages/SplashScreen";
 import OnboardingScreen from "./pages/OnboardingScreen";
 import LoginPage from "./pages/LoginPage";
@@ -81,7 +82,12 @@ const router = createBrowserRouter([
 ]);
 
 const App: React.FC = () => {
-  return <RouterProvider router={router} />;
+  return (
+    <>
+      <RouterProvider router={router} />
+      <UnauthorizedErrorHandler />
+    </>
+  );
 };
 
 export default App;

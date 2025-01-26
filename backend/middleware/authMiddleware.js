@@ -12,9 +12,10 @@ const renewToken = async (req, res) => {
   const token = authHeader.split(" ")[1];
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET, {});
+    const decoded = jwt.verify(token, process.env.JWT_SECRET, {
+      ignoreExpiration: false,
+    });
 
-    // user in database
     const user = await req.db.collection("users").findOne({
       _id: new ObjectId(decoded.userId),
     });
@@ -22,8 +23,6 @@ const renewToken = async (req, res) => {
     if (!user) {
       return sendError(res, 401, "User not found");
     }
-
-    const cleanAvatarUrl = user.avatarUrl ? user.avatarUrl.split("?")[0] : null;
 
     // Generate new token with same payload in loginUser
     const newToken = jwt.sign(
@@ -33,10 +32,10 @@ const renewToken = async (req, res) => {
         firstName: user.firstName,
         lastName: user.lastName,
         isVerified: user.isVerified,
-        avatarUrl: cleanAvatarUrl,
+        avatarUrl: user.avatarUrl,
       },
       process.env.JWT_SECRET,
-      { expiresIn: "9h" }
+      { expiresIn: "24h" }
     );
 
     return sendSuccess(res, 200, "Token renewed", { token: newToken });
@@ -45,11 +44,11 @@ const renewToken = async (req, res) => {
   }
 };
 
-const authenticateUser = (req, res, next) => {
+const authenticateUser = async (req, res, next) => {
   let token = req.headers.authorization?.split(" ")[1] || req.query.token;
 
   if (!token) {
-    return res.status(401).json({ message: "Unauthorized access" });
+    return sendError(res, 401, "Unauthorized access");
   }
 
   try {
@@ -59,12 +58,19 @@ const authenticateUser = (req, res, next) => {
       throw new Error("Invalid token structure");
     }
 
+    const user = await req.db.collection("users").findOne({
+      _id: new ObjectId(decoded.userId),
+    });
+
+    if (!user) {
+      return sendError(res, 401, "User not found");
+    }
+
+    req.user = user;
     req.userId = decoded.userId;
     next();
   } catch (error) {
-    res.status(401).json({
-      message: "Invalid or expired token",
-    });
+    sendError(res, 401, "Invalid or expired token");
   }
 };
 
