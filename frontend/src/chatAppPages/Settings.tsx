@@ -37,11 +37,14 @@ const Settings: React.FC = () => {
 
   return (
     <section className="main-container">
-      <div className="settings-main-container">
-        <h1>Settings</h1>
-        <Button variant="contained" color="primary" onClick={handleLogoutClick}>
+      <div className="add-user-page">
+        <p className="add-user-title">App Settings</p>
+        <span className="req-action-btn">
+          <button  onClick={handleLogoutClick}>
           Logout
-        </Button>
+        </button>
+        </span>
+        
 
         <Dialog open={openLogoutDialog} onClose={handleLogoutCancel}>
           <DialogTitle>Confirm Logout</DialogTitle>
@@ -56,10 +59,10 @@ const Settings: React.FC = () => {
             </Button>
             <Button
               onClick={handleLogoutConfirm}
-              color="primary"
+              color="error"
               disabled={isLoggingOut}
             >
-              {isLoggingOut ? <CircularProgress size={24} /> : "Logout"}
+              {isLoggingOut ? <CircularProgress size={20} /> : "Logout"}
             </Button>
           </DialogActions>
         </Dialog>

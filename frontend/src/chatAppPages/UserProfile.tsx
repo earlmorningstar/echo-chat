@@ -17,12 +17,7 @@ import PopupState, { bindTrigger, bindPopover } from "material-ui-popup-state";
 import { MdOutlineBlock } from "react-icons/md";
 
 const UserProfile: React.FC = () => {
-  const {
-    // token,
-    user,
-    updateUser,
-    logout,
-  } = useAuth();
+  const { user, updateUser, logout } = useAuth();
   const navigate = useNavigate();
   const [profileKey, setProfileKey] = React.useState(0);
   const [isUploading, setIsUploading] = React.useState(false);
@@ -105,7 +100,7 @@ const UserProfile: React.FC = () => {
 
   const handleDeleteAccount = async () => {
     try {
-      await api.delete("/api/user/profile/delete");
+      await api.delete("/api/user/profile/delete-account");
       await logout();
       navigate("/signup");
     } catch (error) {
@@ -261,22 +256,18 @@ const UserProfile: React.FC = () => {
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <button
-            className="user-acct-del-btn"
-            onClick={() => setDeleteDialog1Open(false)}
-          >
+          <Button color="primary" onClick={() => setDeleteDialog1Open(false)}>
             Cancel
-          </button>
-          <button
-            className="user-acct-del-btn"
+          </Button>
+          <Button
+            color="error"
             onClick={() => {
               setDeleteDialog1Open(false);
               setDeleteDialog2Open(true);
             }}
-            style={{ color: "red" }}
           >
             Continue
-          </button>
+          </Button>
         </DialogActions>
       </Dialog>
 
@@ -292,19 +283,12 @@ const UserProfile: React.FC = () => {
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <button
-            className="user-acct-del-btn"
-            onClick={() => setDeleteDialog2Open(false)}
-          >
+          <Button color="primary" onClick={() => setDeleteDialog2Open(false)}>
             Cancel
-          </button>
-          <button
-            className="user-acct-del-btn"
-            onClick={handleDeleteAccount}
-            style={{ color: "red" }}
-          >
+          </Button>
+          <Button color="error" onClick={handleDeleteAccount}>
             Delete Account
-          </button>
+          </Button>
         </DialogActions>
       </Dialog>
       <Snackbar

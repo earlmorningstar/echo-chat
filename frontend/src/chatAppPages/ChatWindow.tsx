@@ -7,6 +7,9 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import api from "../utils/api";
 import { formatLastSeen } from "../utils/chatUtils";
 import { Message, AuthUser } from "../types";
+import { formatFileSize, uploadFile } from "../utils/fileUpload";
+import ImageViewer from "./ImageViewer";
+import { useCachedImage } from "../utils/imageCache";
 import { IconButton, Backdrop, CircularProgress } from "@mui/material";
 import {
   Send,
@@ -17,8 +20,6 @@ import {
 } from "@mui/icons-material";
 import { IoChevronBackOutline, IoCloudDownloadOutline } from "react-icons/io5";
 import { CiUnread, CiRead } from "react-icons/ci";
-import { formatFileSize, uploadFile } from "../utils/fileUpload";
-import ImageViewer from "./ImageViewer";
 
 interface ChatMessage extends Message {
   sender: AuthUser;
@@ -38,25 +39,30 @@ interface ChatParams extends Record<string, string> {
 const MessageContent: React.FC<{ message: ChatMessage }> = ({ message }) => {
   const { token } = useAuth();
   const [showImageViewer, setShowImageViewer] = useState(false);
+  const { cachedUrl } = useCachedImage(message.content, {
+    token: token || undefined,
+  });
 
   switch (message.type) {
     case "image":
-      const imageUrl = `${message.content}?token=${token}`;
-
       return (
         <>
           <div className="image-container">
             <img
-              src={imageUrl}
+              src={cachedUrl}
               alt={message.metadata?.fileName || "Shared image"}
               className="message-image"
               loading="lazy"
               onClick={() => setShowImageViewer(true)}
+              onError={(e) => {
+                console.error("Image load error:", message.content);
+                e.currentTarget.src = "";
+              }}
             />
           </div>
           {showImageViewer && (
             <ImageViewer
-              imageUrl={imageUrl}
+              imageUrl={cachedUrl || ""}
               fileName={message.metadata?.fileName}
               onClose={() => setShowImageViewer(false)}
             />
@@ -324,7 +330,6 @@ const ChatWindow: React.FC = () => {
       //message type
       const messageType = file.type.startsWith("image/") ? "image" : "file";
 
-      //explicit typing rather of spread OP
       const messageToSend = {
         type: messageType,
         content: fileUrl,
@@ -370,6 +375,7 @@ const ChatWindow: React.FC = () => {
     navigate(`/friends-profile/${friendId}`);
   };
 
+ 
   return (
     <div className="chat-container">
       <div className="chat-window-header">

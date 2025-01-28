@@ -58,19 +58,27 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
 
     const friendsWithMessages = await Promise.all(
       response.data.friends.map(async (friend: AuthUser) => {
-        const [messageResponse, unreadCountResponse] = await Promise.all([
-          api.get(`/api/messages/last/${friend._id}`),
-          api.get(`/api/messages/unread-count/${friend._id}`),
-        ]);
+        const [messageResponse, unreadCountResponse, friendshipResponse] =
+          await Promise.all([
+            api.get(`/api/messages/last/${friend._id}`),
+            api.get(`/api/messages/unread-count/${friend._id}`),
+            api.get(`/api/user/friendship/${friend._id}`),
+          ]);
 
         const status =
           queryClient.getQueryData(["userStatus", friend._id]) || "offline";
         const lastSeen = queryClient.getQueryData(["userLastSeen", friend._id]);
 
+        const friendshipCreatedAt = friendshipResponse.data.data.friendship
+          .createdAt
+          ? new Date(friendshipResponse.data.data.friendship.createdAt)
+          : new Date();
+
         return {
           ...friend,
           status,
           lastSeen,
+          friendshipCreatedAt,
           lastMessage: messageResponse.data.message
             ? {
                 ...messageResponse.data.message,
@@ -83,13 +91,21 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
     );
 
     return friendsWithMessages.sort((a, b) => {
-      const timeA = a.lastMessage?.timestamp
-        ? new Date(a.lastMessage.timestamp).getTime()
-        : 0;
-      const timeB = b.lastMessage?.timestamp
-        ? new Date(b.lastMessage.timestamp).getTime()
-        : 0;
-      return timeB - timeA;
+     
+      
+      // timestamps for comparison
+      const aFriendshipTime = a.friendshipCreatedAt ? new Date(a.friendshipCreatedAt).getTime() : 0;
+      const bFriendshipTime = b.friendshipCreatedAt ? new Date(b.friendshipCreatedAt).getTime() : 0;
+      
+      const aMessageTime = a.lastMessage?.timestamp ? new Date(a.lastMessage.timestamp).getTime() : 0;
+      const bMessageTime = b.lastMessage?.timestamp ? new Date(b.lastMessage.timestamp).getTime() : 0;
+      
+      // the most recent activity time (either message or friendship)
+      const aLatestActivity = Math.max(aFriendshipTime, aMessageTime);
+      const bLatestActivity = Math.max(bFriendshipTime, bMessageTime);
+  
+      // Sort by most recent activity (whether it's a new friendship or new message)
+      return bLatestActivity - aLatestActivity;
     });
   };
 

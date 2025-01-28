@@ -21,20 +21,46 @@ const FriendsProfile: React.FC = () => {
     queryFn: async () => {
       if (!friendId) throw new Error("No friend ID provided");
 
-      const userResponse = await api.get(`/api/user/${friendId}`);
-      const friendshipResponse = await api.get(
-        `/api/user/friendship/${friendId}`
-      );
+      const [userResponse, friendshipResponse] = await Promise.all([
+        api.get(`/api/user/${friendId}`),
+        api.get(`/api/user/friendship/${friendId}`),
+      ]);
+
+      // const userData = userResponse.data.user as AuthUser;
+      // const friendshipCreatedAt = friendshipResponse.data.data.friendship.createdAt;
+
+      // return {
+      //   ...userData,
+      //   status: getUserStatus(friendId),
+      //   friendshipCreatedAt: friendshipCreatedAt ? new Date(friendshipCreatedAt) : undefined
+      // };
 
       const userData = userResponse.data.user as AuthUser;
-      const friendshipData = friendshipResponse.data.data?.friendship;
+      const friendshipData = friendshipResponse.data.data.friendship;
+
+      console.log("Friendship Response:", friendshipResponse.data);
+      console.log("Friendship Created At:", friendshipData.createdAt);
+
+      let parsedDate: Date | undefined;
+
+      if (friendshipData?.createdAt) {
+        // Handle different possible date formats
+        if (friendshipData.createdAt instanceof Date) {
+          parsedDate = friendshipData.createdAt;
+        } else if (typeof friendshipData.createdAt === "string") {
+          parsedDate = new Date(friendshipData.createdAt);
+        } else if (friendshipData.createdAt.$date) {
+          // Handle MongoDB extended JSON format if present
+          parsedDate = new Date(friendshipData.createdAt.$date);
+        }
+      }
+
+      console.log("Parsed Date:", parsedDate);
 
       return {
         ...userData,
         status: getUserStatus(friendId),
-        friendsSince: friendshipData?.createdAt
-          ? new Date(friendshipData.createdAt)
-          : undefined,
+        friendshipCreatedAt: parsedDate,
       };
     },
     enabled: !!friendId,
@@ -42,23 +68,64 @@ const FriendsProfile: React.FC = () => {
   });
 
   const formatDateAdded = (date: Date | undefined) => {
-    if (!date) return "Not available";
+    // if (!date) return "Not available";
 
-    const friendsSince = new Date(date);
-    const now = new Date();
-    const diffTime = Math.abs(now.getTime() - friendsSince.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    console.log("Formatting date:", date);
 
-    if (diffDays === 1) return "Added yesterday";
-    if (diffDays < 7) return `Added ${diffDays} days ago`;
-    if (diffDays < 30) return `Added ${Math.floor(diffDays / 7)} weeks ago`;
-    if (diffDays < 365) return `Added ${Math.floor(diffDays / 30)} months ago`;
+    if (!date || !(date instanceof Date) || isNaN(date.getTime())) {
+      console.log("Invalid date received:", date);
+      return "Not available";
+    }
 
-    return `Added on ${friendsSince.toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    })}`;
+    try {
+      const now = new Date();
+      const diffTime = Math.abs(now.getTime() - date.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+      console.log("Difference in days:", diffDays); // Debug log
+
+      if (diffDays === 1) return "Added yesterday";
+      if (diffDays < 7) return `Added ${diffDays} days ago`;
+      if (diffDays < 30) {
+        const weeks = Math.floor(diffDays / 7);
+        return `Added ${weeks} ${weeks === 1 ? "week" : "weeks"} ago`;
+      }
+      if (diffDays < 365) {
+        const months = Math.floor(diffDays / 30);
+        return `Added ${months} ${months === 1 ? "month" : "months"} ago`;
+      }
+
+      return date.toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
+    } catch (error) {
+      console.error("Error formatting date:", error);
+      return "Not available";
+    }
+
+    // const friendshipCreatedAt = new Date(date);
+    // const now = new Date();
+    // const diffTime = Math.abs(now.getTime() - friendshipCreatedAt.getTime());
+    // const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    // if (diffDays === 1) return "Added yesterday";
+    // if (diffDays < 7) return `Added ${diffDays} days ago`;
+    // if (diffDays < 30) {
+    //   const weeks = Math.floor(diffDays / 7);
+    //   return `Added ${weeks} ${weeks === 1 ? 'week' : 'weeks'} ago`;
+    // }
+    // if (diffDays < 365) {
+    //   const months = Math.floor(diffDays / 30);
+    //   return `Added ${months} ${months === 1 ? 'month' : 'months'} ago`;
+    // }
+
+    // return friendshipCreatedAt.toLocaleDateString("en-US", {
+    //   year: "numeric",
+    //   month: "long",
+    //   day: "numeric"
+    // });
   };
 
   const navigateToChatWindow = () => {
@@ -66,6 +133,8 @@ const FriendsProfile: React.FC = () => {
       navigate(`/chat/${friendId}`);
     }
   };
+
+  console.log("Friend data:", friend);
 
   return (
     <section className="friends-profile-main-container">
@@ -138,7 +207,12 @@ const FriendsProfile: React.FC = () => {
         </span>
         <span>
           <p>Date Added</p>
-          <h3>{formatDateAdded(friend?.friendsSince)}</h3>
+          <h3>
+            {friend?.friendshipCreatedAt
+              ? formatDateAdded(friend.friendshipCreatedAt)
+              : "Not available"}
+          </h3>
+          {/* <h3>{formatDateAdded(friend?.friendshipCreatedAt)}</h3> */}
         </span>
         <span>
           <p>Status</p>

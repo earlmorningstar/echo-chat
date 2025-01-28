@@ -47,16 +47,8 @@ const renewToken = async (req, res) => {
 const authenticateUser = async (req, res, next) => {
   let token = req.headers.authorization?.split(" ")[1] || req.query.token;
 
-  if (!token) {
-    return sendError(res, 401, "Unauthorized access");
-  }
-
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-    if (!decoded.userId) {
-      throw new Error("Invalid token structure");
-    }
 
     const user = await req.db.collection("users").findOne({
       _id: new ObjectId(decoded.userId),
@@ -69,8 +61,8 @@ const authenticateUser = async (req, res, next) => {
     req.user = user;
     req.userId = decoded.userId;
     next();
-  } catch (error) {
-    sendError(res, 401, "Invalid or expired token");
+  } catch {
+    sendError(res, 401, "Unauthorized");
   }
 };
 

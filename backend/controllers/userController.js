@@ -108,7 +108,7 @@ const loginUser = async (req, res) => {
     const isPasswordValid = await bcrypt.compare(password, user.password);
 
     if (!isPasswordValid) {
-      return sendError(res, 401, "Invalid email or password");
+      return sendError(res, 401, "Password is incorrect");
     }
 
     const token = jwt.sign(
@@ -588,13 +588,17 @@ const getFriendshipStatus = async (req, res) => {
       ],
     });
 
+    console.log('Raw friendship from DB:', friendship);
+    console.log('CreatedAt type:', typeof friendship.createdAt);
+    console.log('CreatedAt value:', friendship.createdAt);
+
     if (!friendship) {
       return sendError(res, 404, "Friendship not found");
     }
 
-    const createdAt = friendship.createdAt?.$date
-      ? new Date(friendship.createdAt.$date.$numberLong)
-      : friendship.createdAt;
+    const createdAt = friendship.createdAt instanceof Date 
+      ? friendship.createdAt 
+      : new Date(friendship.createdAt);
 
     const response = {
       data: {
@@ -610,7 +614,7 @@ const getFriendshipStatus = async (req, res) => {
 
     sendSuccess(res, 200, "friendship retrieved successfully", response);
   } catch (error) {
-    console.error("Error in getFriendshipStatus:");
+    console.error("Error in getFriendshipStatus:", error);
 
     if (error.name === "BSONTypeError" || error.name === "BSONError") {
       return sendError(res, 400, "Invalid ID format");

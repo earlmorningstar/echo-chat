@@ -7,13 +7,13 @@ export interface AuthUser {
   avatarUrl?: string;
   status?: UserStatus;
   lastSeen?: Date;
-  friendsSince?: Date;
+  friendshipCreatedAt?: Date;
 }
 
 export interface Friend extends AuthUser {
   lastMessage?: Message;
   unreadCount?: number;
-  friendsSince?: Date;
+  friendshipCreatedAt?: Date;
 }
 
 export type UserStatus = "online" | "offline";

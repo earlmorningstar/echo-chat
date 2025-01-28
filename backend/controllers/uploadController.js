@@ -79,7 +79,8 @@ const serveFile = async (req, res) => {
       "Content-Disposition": `inline; filename="${
         file.metadata.originalname || file.fileName
       }"`,
-      "Cache-Control": "no-cache",
+      "Cache-Control": "public, max-age=86400",
+      ETag: `"${file._id}"`,
     });
 
     bucket.openDownloadStream(new ObjectId(fileId)).pipe(res);

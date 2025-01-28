@@ -19,6 +19,8 @@ app.use(
     origin: [
       "http://localhost:3000",
       "https://echochat-pi.vercel.app",
+      // "http://echo-chat-qz2m.onrender.com",
+      // "https://echo-chat-qz2m.onrender.com",
       "https://echochat-git-master-onyeabor-joels-projects.vercel.app",
       "https://echochat-nvw5ir5wi-onyeabor-joels-projects.vercel.app",
     ],
