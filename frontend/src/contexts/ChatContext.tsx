@@ -91,19 +91,25 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
     );
 
     return friendsWithMessages.sort((a, b) => {
-     
-      
       // timestamps for comparison
-      const aFriendshipTime = a.friendshipCreatedAt ? new Date(a.friendshipCreatedAt).getTime() : 0;
-      const bFriendshipTime = b.friendshipCreatedAt ? new Date(b.friendshipCreatedAt).getTime() : 0;
-      
-      const aMessageTime = a.lastMessage?.timestamp ? new Date(a.lastMessage.timestamp).getTime() : 0;
-      const bMessageTime = b.lastMessage?.timestamp ? new Date(b.lastMessage.timestamp).getTime() : 0;
-      
+      const aFriendshipTime = a.friendshipCreatedAt
+        ? new Date(a.friendshipCreatedAt).getTime()
+        : 0;
+      const bFriendshipTime = b.friendshipCreatedAt
+        ? new Date(b.friendshipCreatedAt).getTime()
+        : 0;
+
+      const aMessageTime = a.lastMessage?.timestamp
+        ? new Date(a.lastMessage.timestamp).getTime()
+        : 0;
+      const bMessageTime = b.lastMessage?.timestamp
+        ? new Date(b.lastMessage.timestamp).getTime()
+        : 0;
+
       // the most recent activity time (either message or friendship)
       const aLatestActivity = Math.max(aFriendshipTime, aMessageTime);
       const bLatestActivity = Math.max(bFriendshipTime, bMessageTime);
-  
+
       // Sort by most recent activity (whether it's a new friendship or new message)
       return bLatestActivity - aLatestActivity;
     });

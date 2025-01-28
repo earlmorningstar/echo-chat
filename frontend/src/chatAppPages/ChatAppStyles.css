@@ -244,9 +244,11 @@
 }
 
 .no-messages {
+  font-family: "Finlandica", serif;
   font-style: italic;
-  color: #999;
-  font-size: 18px;
+  color: #333;
+  font-size: 13px;
+  font-weight: lighter;
 }
 
 .unread-indicator {

@@ -588,22 +588,19 @@ const getFriendshipStatus = async (req, res) => {
       ],
     });
 
-    console.log('Raw friendship from DB:', friendship);
-    console.log('CreatedAt type:', typeof friendship.createdAt);
-    console.log('CreatedAt value:', friendship.createdAt);
-
     if (!friendship) {
       return sendError(res, 404, "Friendship not found");
     }
 
-    const createdAt = friendship.createdAt instanceof Date 
-      ? friendship.createdAt 
-      : new Date(friendship.createdAt);
+    const createdAt =
+      friendship.createdAt instanceof Date
+        ? friendship.createdAt.toISOString()
+        : new Date(friendship.createdAt).toISOString();
 
     const response = {
       data: {
         friendship: {
-          createdAt: createdAt,
+          createdAt,
           _id: friendship._id.toString(),
           user1: friendship.user1.toString(),
           user2: friendship.user2.toString(),
@@ -614,7 +611,7 @@ const getFriendshipStatus = async (req, res) => {
 
     sendSuccess(res, 200, "friendship retrieved successfully", response);
   } catch (error) {
-    console.error("Error in getFriendshipStatus:", error);
+    console.error("Error in getFriendshipStatus");
 
     if (error.name === "BSONTypeError" || error.name === "BSONError") {
       return sendError(res, 400, "Invalid ID format");

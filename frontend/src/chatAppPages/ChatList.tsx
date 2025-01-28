@@ -148,9 +148,18 @@ const ChatList: React.FC = () => {
                 </div>
 
                 <div className="chat-preview">
-                  {friend.lastMessage && (
-                    <>
-                      {friend.lastMessage.senderId && (
+                  {friendTypingStatus[friend._id] ? (
+                   <div className="typing-indicator-list">
+                      <div className="typing-indicator-dots">
+                        <div className="typing-dot"></div>
+                        <div className="typing-dot"></div>
+                        <div className="typing-dot"></div>
+                      </div>
+                      <span className="typing-text">typing...</span>
+                    </div>
+                  ) : (
+                  <>
+                      {friend.lastMessage && (
                         <span className="message-status">
                           {friend.lastMessage.senderId === user?._id && (
                             <>
@@ -169,21 +178,14 @@ const ChatList: React.FC = () => {
                           )}
                         </span>
                       )}
-                      {friendTypingStatus[friend._id] ? (
-                        <div className="typing-indicator-list">
-                          <div className="typing-indicator-dots">
-                            <div className="typing-dot"></div>
-                            <div className="typing-dot"></div>
-                            <div className="typing-dot"></div>
-                          </div>
-                          <span className="typing-text">typing...</span>
-                        </div>
-                      ) : friend.lastMessage ? (
+                      {friend.lastMessage ? (
                         <span className="last-message">
                           {getMessagePreview(friend.lastMessage)}
                         </span>
                       ) : (
-                        <span className="no-messages">No messages yet</span>
+                        <span className="no-messages">
+                          No messages yet
+                        </span>
                       )}
                     </>
                   )}
