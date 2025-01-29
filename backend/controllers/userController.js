@@ -43,7 +43,7 @@ const createUser = async (req, res) => {
     const user = await req.db.collection("users").insertOne({
       firstName,
       lastName,
-      email,
+      email: normalizedEmail,
       password: hashedPassword,
       isVerified: false,
       verificationCode,

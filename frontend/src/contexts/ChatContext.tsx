@@ -29,7 +29,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   const queryClient = useQueryClient();
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const { sendMessage } = useWebSocket();
   const [typingStatus, setTypingStatus] = useState<Record<string, boolean>>({});
   const [friendTypingStatus, setFriendTypingStatus] = useState<
@@ -37,14 +37,14 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
   >({});
 
   useEffect(() => {
-    if (user?._id) {
+    if (isAuthenticated && user?._id) {
       sendMessage({
         type: "register",
         senderId: user._id,
         status: "online",
       });
     }
-  }, [user?._id, sendMessage]);
+  }, [isAuthenticated, user?._id, sendMessage]);
 
   const getUserStatus = useCallback(
     (userId: string): UserStatus => {
@@ -54,6 +54,10 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
   );
 
   const fetchFriendsWithMessages = async (): Promise<Friend[]> => {
+    if(!isAuthenticated) {
+      return [];
+    }
+
     const response = await api.get("/api/user/friends");
 
     const friendsWithMessages = await Promise.all(
@@ -147,6 +151,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
     gcTime: 5 * 60 * 1000,
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
+    enabled: isAuthenticated,
   });
 
   const setFriendAsRead = (friendId: string) => {

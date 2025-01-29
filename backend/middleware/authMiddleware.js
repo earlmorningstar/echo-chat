@@ -61,8 +61,8 @@ const authenticateUser = async (req, res, next) => {
     req.user = user;
     req.userId = decoded.userId;
     next();
-  } catch {
-    sendError(res, 401, "Unauthorized");
+  } catch (error) {
+    sendError(res, 401, "Unauthorized - Authentication Error");
   }
 };
 
