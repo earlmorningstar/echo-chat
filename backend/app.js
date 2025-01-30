@@ -8,6 +8,7 @@ import messageRoutes from "./routes/messageRoutes.js";
 import uploadRoutes from "./routes/uploadRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
 import initializeWebSocket from "./WebSocket/WebSocket.js";
+import { setupFriendshipCollections } from "./models/friendshipSchema.js";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -19,8 +20,6 @@ app.use(
     origin: [
       "http://localhost:3000",
       "https://echochat-pi.vercel.app",
-      // "http://echo-chat-qz2m.onrender.com",
-      // "https://echo-chat-qz2m.onrender.com",
       "https://echochat-git-master-onyeabor-joels-projects.vercel.app",
       "https://echochat-nvw5ir5wi-onyeabor-joels-projects.vercel.app",
     ],
@@ -45,8 +44,18 @@ app.get("/", (req, res) => {
 const server = http.createServer(app);
 
 connectToDatabase()
-  .then((db) => {
+  .then(async (db) => {
     console.log("Database connected and ready to use.");
+
+    const initializeDatabase = async () => {
+      try {
+        await setupFriendshipCollections(db);
+      } catch (error) {
+        console.error("Error initializing database");
+      }
+    };
+
+    await initializeDatabase();
 
     const wss = initializeWebSocket(server, db);
 

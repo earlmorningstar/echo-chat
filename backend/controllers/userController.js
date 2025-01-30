@@ -16,20 +16,30 @@ const generateRandomCode = () => {
 const createUser = async (req, res) => {
   const { firstName, lastName, email, password, confirmPassword } = req.body;
 
-  if (!firstName || !lastName || !email || !password || !confirmPassword) {
-    return sendError(res, 400, "All fields are required");
-  }
-
-  if (password !== confirmPassword) {
-    return sendError(res, 400, "Passwords do not match");
-  }
-
   try {
-    const normalizedEmail = email.toLowerCase();
+    if (!firstName || !lastName || !email || !password || !confirmPassword) {
+      return sendError(res, 400, "All fields are required");
+    }
+
+    if (password !== confirmPassword) {
+      return sendError(res, 400, "Passwords do not match");
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+    if (!normalizedEmail.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
+      return sendError(res, 400, "Invalid email format");
+    }
+
+    // Check DB connection
+    if (!req.db) {
+      console.error("Database connection not available");
+      return sendError(res, 500, "Database connection error");
+    }
 
     const existingUser = await req.db
       .collection("users")
       .findOne({ email: normalizedEmail });
+
     if (existingUser) {
       return sendError(
         res,
@@ -40,7 +50,7 @@ const createUser = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
     const verificationCode = generateRandomCode();
 
-    const user = await req.db.collection("users").insertOne({
+    const userDoc = {
       firstName,
       lastName,
       email: normalizedEmail,
@@ -48,15 +58,43 @@ const createUser = async (req, res) => {
       isVerified: false,
       verificationCode,
       verificationCodeExpires: new Date(Date.now() + 600000),
-    });
+      createdAt: new Date(),
+      status: "offline",
+      lastSeen: new Date(),
+      friends: [],
+    };
 
-    await sendVerificationEmail(email, verificationCode);
+    const user = await req.db.collection("users").insertOne(userDoc);
 
-    sendSuccess(res, 201, "Please check your email for verification code.", {
-      userid: user.insertedId,
-    });
+    // Initialize friendships for new user
+    try {
+      await initializeFriendshipsForUser(req.db, user.insertedId);
+    } catch (friendshipError) {
+      console.error("Friendship initialization error");
+    }
+
+    try {
+      await sendVerificationEmail(email, verificationCode);
+    } catch (emailError) {
+      console.error("Email sending error");
+    }
+
+    return sendSuccess(
+      res,
+      201,
+      "Please check your email for verification code.",
+      {
+        userid: user.insertedId,
+      }
+    );
   } catch (error) {
-    sendError(res, 500, "Error creating user");
+    console.error("User creation error");
+    return sendError(res, 500, "Error creating user", {
+      error:
+        process.env.NODE_ENV === "development"
+          ? error.message
+          : "Internal server error",
+    });
   }
 };
 
@@ -371,13 +409,32 @@ const getFriendRequests = async (req, res) => {
   }
 };
 
+const toObjectId = (id) => {
+  if (!id) return null;
+  try {
+    return typeof id === "string" ? new ObjectId(id) : id;
+  } catch (error) {
+    console.error("Invalid ID format");
+    return null;
+  }
+};
+
+const toString = (id) => {
+  if (!id) return null;
+  return id.toString();
+};
+
 const handleFriendRequest = async (req, res) => {
   const { requestId, action } = req.body;
   const userId = req.userId;
 
   try {
-    const requestObjectId = new ObjectId(requestId);
-    const userObjectId = new ObjectId(userId);
+    const requestObjectId = toObjectId(requestId);
+    const userObjectId = toObjectId(userId);
+
+    if (!requestObjectId || !userObjectId) {
+      return sendError(res, 400, "Invalid ID format");
+    }
 
     const request = await req.db.collection("friendRequests").findOne({
       _id: requestObjectId,
@@ -388,122 +445,190 @@ const handleFriendRequest = async (req, res) => {
       return sendError(res, 404, "Friend request not found");
     }
 
+    const senderObjectId = toObjectId(request.senderId);
+
     if (action === "accept") {
+      const session = req.db.client.startSession();
+
       try {
-        await req.db
-          .collection("friendRequests")
-          .updateOne(
+        await session.withTransaction(async () => {
+          // Update request status
+          await req.db.collection("friendRequests").updateOne(
             { _id: requestObjectId },
-            { $set: { status: "accepted", updatedAt: new Date() } }
+            {
+              $set: {
+                status: "accepted",
+                updatedAt: new Date(),
+              },
+            },
+            { session }
           );
 
-        const senderObjectId =
-          typeof request.senderId === "string"
-            ? new ObjectId(request.senderId)
-            : request.senderId;
+          // Create or update friendship
+          await req.db.collection("friendships").updateOne(
+            {
+              $or: [
+                {
+                  user1Id: toString(senderObjectId),
+                  user2Id: toString(userObjectId),
+                },
+                {
+                  user1Id: toString(userObjectId),
+                  user2Id: toString(senderObjectId),
+                },
+              ],
+            },
+            {
+              $set: {
+                status: "accepted",
+                updatedAt: new Date(),
+              },
+              $setOnInsert: {
+                user1Id: toString(senderObjectId),
+                user2Id: toString(userObjectId),
+                createdAt: new Date(),
+              },
+            },
+            { upsert: true, session }
+          );
 
-        const sender = await req.db
-          .collection("users")
-          .findOne({ _id: senderObjectId });
-        const accepter = await req.db
-          .collection("users")
-          .findOne({ _id: userObjectId });
+          // Get user details for email
+          const [sender, accepter] = await Promise.all([
+            req.db
+              .collection("users")
+              .findOne({ _id: senderObjectId }, { session }),
+            req.db
+              .collection("users")
+              .findOne({ _id: userObjectId }, { session }),
+          ]);
 
-        if (sender && accepter) {
-          try {
-            await sendFriendRequestAcceptedEmail(
-              sender.email,
-              sender.firstName,
-              `${accepter.firstName} ${accepter.lastName}`
-            );
-          } catch {
-            console.error("Failed to send acceptance email:");
+          if (sender && accepter) {
+            try {
+              await sendFriendRequestAcceptedEmail(
+                sender.email,
+                sender.firstName,
+                `${accepter.firstName} ${accepter.lastName}`
+              );
+            } catch (emailError) {
+              console.error("Failed to send acceptance email");
+            }
           }
-        }
-
-        //adding to friends list on both ends
-        await Promise.all([
-          req.db
-            .collection("users")
-            .updateOne(
-              { _id: senderObjectId },
-              { $addToSet: { friends: userObjectId } }
-            ),
-          req.db
-            .collection("users")
-            .updateOne(
-              { _id: userObjectId },
-              { $addToSet: { friends: senderObjectId } }
-            ),
-        ]);
-
-        const friendship = await req.db.collection("friendships").insertOne({
-          user1: senderObjectId,
-          user2: userObjectId,
-          createdAt: new Date(),
-          status: "active",
         });
 
-        return sendSuccess(res, 200, "Friend request accepted", friendship);
+        return sendSuccess(res, 200, "Friend request accepted");
       } catch (error) {
-        console.error("Error in friend request acceptance:");
-        throw error;
+        console.error("Error in friend request acceptance");
+      } finally {
+        await session.endSession();
       }
     } else if (action === "decline") {
-      await req.db
-        .collection("friendRequests")
-        .updateOne(
-          { _id: requestObjectId },
-          { $set: { status: "declined", updatedAt: new Date() } }
-        );
+      await req.db.collection("friendRequests").updateOne(
+        { _id: requestObjectId },
+        {
+          $set: {
+            status: "declined",
+            updatedAt: new Date(),
+          },
+        }
+      );
+
+      await req.db.collection("friendships").updateOne(
+        {
+          $or: [
+            {
+              user1Id: toString(senderObjectId),
+              user2Id: toString(userObjectId),
+            },
+            {
+              user1Id: toString(userObjectId),
+              user2Id: toString(senderObjectId),
+            },
+          ],
+        },
+        {
+          $set: {
+            status: "declined",
+            updatedAt: new Date(),
+          },
+        }
+      );
+
       return sendSuccess(res, 200, "Friend request declined");
     }
+
+    return sendError(res, 400, "Invalid action");
   } catch (error) {
-    console.error("Error handling friend request:");
-    if (error.message.includes("ObjectId")) {
-      return sendError(res, 400, "Invalid Request ID format");
-    }
-    sendError(res, 500, "Error handling friend request");
+    return sendError(res, 500, "Error handling friend request");
   }
 };
 
 const getFriends = async (req, res) => {
   try {
-    const userObjectId = new ObjectId(req.userId);
+    const userId = toString(req.userId);
+    const userObjectId = toObjectId(userId);
 
-    const user = await req.db
-      .collection("users")
-      .findOne({ _id: userObjectId });
-
-    if (!user) {
-      return sendError(res, 404, "User not found");
+    if (!userObjectId) {
+      return sendError(res, 400, "Invalid user ID format");
     }
 
-    const userFriends = user.friends || [];
-
-    const friendObjectIds = userFriends
-      .map((id) => {
-        try {
-          return new ObjectId(id);
-        } catch (error) {
-          console.error("Invalid friend Id");
-          return null;
-        }
+    // Find all accepted friendships for this user
+    const friendships = await req.db
+      .collection("friendships")
+      .find({
+        $or: [{ user1Id: userId }, { user2Id: userId }],
+        status: "accepted",
       })
+      .toArray();
+
+    const newFriendships = await req.db
+      .collection("friendships")
+      .find({
+        $or: [{ user1Id: userId }, { user2Id: userId }],
+        status: "accepted",
+      })
+      .toArray();
+
+    if (newFriendships.length === 0) {
+      return sendSuccess(
+        res,
+        200,
+        "Friends retrieved successfully",
+        {
+          friends: [],
+        },
+        false
+      );
+    }
+    // Extract friend IDs
+    const friendIds = friendships
+      .map((friendship) =>
+        toObjectId(
+          friendship.user1Id === userId
+            ? friendship.user2Id
+            : friendship.user1Id
+        )
+      )
       .filter((id) => id !== null);
 
+    // Get friend details
     const friends = await req.db
       .collection("users")
-      .find({ _id: { $in: friendObjectIds } })
-      .project({ password: 0, resetPasswordToken: 0, resetPasswordExpires: 0 })
+      .find({ _id: { $in: friendIds } })
+      .project({
+        password: 0,
+        resetPasswordToken: 0,
+        resetPasswordExpires: 0,
+        verificationCode: 0,
+        verificationCodeExpires: 0,
+      })
       .toArray();
 
     const formattedFriends = friends.map((friend) => ({
       ...friend,
-      _id: friend._id.toString(),
+      _id: toString(friend._id),
     }));
 
-    sendSuccess(
+    return sendSuccess(
       res,
       200,
       "Friends retrieved successfully",
@@ -513,13 +638,48 @@ const getFriends = async (req, res) => {
       false
     );
   } catch (error) {
-    console.error("Error retrieving friends:");
+    return sendError(res, 500, "Error retrieving friends");
+  }
+};
 
-    if (error.name === "BSONTypeError" || error.name === "BSONError") {
-      return sendError(res, 400, "invalid user ID format");
-    }
+const initializeFriendshipsForUser = async (db, userId) => {
+  try {
+    // search for all users except the current user
+    const otherUsers = await db
+      .collection("users")
+      .find({
+        _id: { $ne: new ObjectId(userId) },
+      })
+      .toArray();
 
-    sendError(res, 500, "Error retrieving friends");
+    // Create friendship records
+    const friendshipPromises = otherUsers.map(async (otherUser) => {
+      const existingFriendship = await db.collection("friendships").findOne({
+        $or: [
+          { user1Id: userId, user2Id: otherUser._id.toString() },
+          { user1Id: otherUser._id.toString(), user2Id: userId },
+        ],
+      });
+
+      if (!existingFriendship) {
+        const status =
+          otherUsers.indexOf(otherUser) < 3 ? "accepted" : "pending";
+
+        return db.collection("friendships").insertOne({
+          user1Id: userId,
+          user2Id: otherUser._id.toString(),
+          status,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+      }
+    });
+
+    await Promise.all(friendshipPromises);
+    return true;
+  } catch (error) {
+    console.error("Error initializing friendships");
+    return false;
   }
 };
 
@@ -572,19 +732,19 @@ const updateUserStatus = async (req, res) => {
 
     sendSuccess(res, 200, "User status updated successfully");
   } catch (error) {
-    sendError(res, 500, "Error updating user status", { error: error.message });
+    sendError(res, 500, "Error updating user status");
   }
 };
 
 const getFriendshipStatus = async (req, res) => {
   try {
-    const userId = new ObjectId(req.user._id);
-    const friendId = new ObjectId(req.params.friendId);
+    const userId = toObjectId(req.params.friendId);
+    const currentUserId = toObjectId(req.userId);
 
     const friendship = await req.db.collection("friendships").findOne({
       $or: [
-        { user1: userId, user2: friendId },
-        { user1: friendId, user2: userId },
+        { user1Id: currentUserId.toString(), user2Id: userId.toString() },
+        { user1Id: userId.toString(), user2Id: currentUserId.toString() },
       ],
     });
 
@@ -592,31 +752,27 @@ const getFriendshipStatus = async (req, res) => {
       return sendError(res, 404, "Friendship not found");
     }
 
-    const createdAt =
-      friendship.createdAt instanceof Date
-        ? friendship.createdAt.toISOString()
-        : new Date(friendship.createdAt).toISOString();
-
     const response = {
       data: {
         friendship: {
-          createdAt,
-          _id: friendship._id.toString(),
-          user1: friendship.user1.toString(),
-          user2: friendship.user2.toString(),
+          createdAt: friendship.createdAt,
           status: friendship.status,
+          _id: friendship._id.toString(),
+          user1Id: friendship.user1Id,
+          user2Id: friendship.user2Id,
         },
       },
     };
 
-    sendSuccess(res, 200, "friendship retrieved successfully", response);
+    return sendSuccess(
+      res,
+      200,
+      "Friendship retrieved successfully",
+      response,
+      false
+    );
   } catch (error) {
-    console.error("Error in getFriendshipStatus");
-
-    if (error.name === "BSONTypeError" || error.name === "BSONError") {
-      return sendError(res, 400, "Invalid ID format");
-    }
-    sendError(res, 500, "Error retrieving friendship");
+    return sendError(res, 500, "Error retrieving friendship");
   }
 };
 
@@ -673,6 +829,7 @@ export {
   getFriendRequests,
   handleFriendRequest,
   getFriends,
+  initializeFriendshipsForUser,
   getUserById,
   updateUserStatus,
   getFriendshipStatus,

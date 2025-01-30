@@ -54,7 +54,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
   );
 
   const fetchFriendsWithMessages = async (): Promise<Friend[]> => {
-    if(!isAuthenticated) {
+    if (!isAuthenticated) {
       return [];
     }
 

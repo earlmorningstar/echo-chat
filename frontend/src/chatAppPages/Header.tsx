@@ -47,7 +47,7 @@ const Header: React.FC = () => {
               <img
                 src={getAvatarUrl()}
                 alt={getInitialsAvatar() || getAvatarUrl() || "Profile"}
-                className="profile-picture"
+                className="header-profile-picture"
                 onError={(e) => {
                   console.error("Image load error:", getAvatarUrl());
                   e.currentTarget.src = "";
@@ -57,22 +57,8 @@ const Header: React.FC = () => {
                 }}
               />
             ) : (
-              <div
-                className="profile-picture"
-                style={{
-                  backgroundColor: "#208d7f",
-                  color: "#ffffff",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  borderRadius: "50%",
-                  width: "40px",
-                  height: "40px",
-                  fontSize: "1rem",
-                  fontWeight: "500",
-                }}
-              >
-                {getInitialsAvatar()}
+              <div className="profile-picture">
+                <span>{getInitialsAvatar()}</span>
               </div>
             )}
           </span>

@@ -27,7 +27,11 @@ router.post("/forgot-password", forgotPassword);
 router.post("/reset-password", resetPassword);
 router.get("/profile", authenticateUser, getUserProfile);
 router.patch("/user/profile", authenticateUser, updateUserProfile);
-router.delete("/user/profile/delete-account", authenticateUser, deleteUserAccount);
+router.delete(
+  "/user/profile/delete-account",
+  authenticateUser,
+  deleteUserAccount
+);
 
 router.post("/user/send-friend-request", authenticateUser, sendFriendRequest);
 router.get("/user/friend-requests", authenticateUser, getFriendRequests);

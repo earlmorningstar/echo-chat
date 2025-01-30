@@ -35,13 +35,37 @@
   text-decoration: none;
 }
 
-.profile-picture {
+.header-profile-picture {
   font-family: "Finlandica", serif;
+  cursor: pointer;
   width: 40px;
   height: 40px;
   border-radius: 50%;
   object-fit: cover;
+  background-color: #208d7f;
+  color: #ffffff;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 1.2rem;
+  font-weight: 600;
+}
 
+.profile-picture {
+  font-family: "Finlandica", serif;
+  cursor: pointer;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background-color: #208d7f;
+  color: #ffffff;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 1.2rem;
+  font-weight: 600;
+  text-align: center;
+  line-height: 1;
 }
 
 .header div {
@@ -84,7 +108,6 @@
 .chat-item-avatar {
   position: relative;
   margin-right: 6px;
-  
 }
 
 .profile-image {
@@ -914,7 +937,6 @@
 .settings-main-container {
   margin-top: 2rem;
 }
-
 
 /* Media Queries--- */
 @media screen and (max-width: 800px) {

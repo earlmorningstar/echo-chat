@@ -89,9 +89,7 @@ const LoginPage: React.FC = () => {
       </NavLink> */}
       <div className="auth-container">
         <h2>Log in to EchoChat</h2>
-        <p>
-          Welcome! Login using your registered email to continue with us
-        </p>
+        <p>Welcome! Login using your registered email to continue with us</p>
 
         <form onSubmit={handleLogin}>
           <Snackbar

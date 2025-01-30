@@ -12,7 +12,6 @@ const initializeWebSocket = (server, db) => {
   const wss = new WebSocketServer({ server });
 
   wss.on("connection", (ws) => {
-    console.log("Connected a new ws client");
     let userId = null;
 
     ws.on("message", async (message) => {
@@ -72,10 +71,7 @@ const initializeWebSocket = (server, db) => {
               );
             });
           } catch (error) {
-            console.error(
-              "Database operation failed during registeration:",
-              error
-            );
+            console.error("Database operation failed during registeration");
           }
           return;
         }
@@ -109,7 +105,7 @@ const initializeWebSocket = (server, db) => {
               }
             });
           } catch (error) {
-            console.error("Error updating offline status:", error);
+            console.error("Error updating offline status");
           }
         }
 
@@ -131,7 +127,6 @@ const initializeWebSocket = (server, db) => {
         if (!userId && parsedMessage.senderId) {
           userId = parsedMessage.senderId;
           connectedClients.set(userId, ws);
-          console.log(`Client ${userId} registered`);
         }
 
         switch (parsedMessage.type) {
@@ -183,10 +178,10 @@ const initializeWebSocket = (server, db) => {
             break;
 
           default:
-            console.log("Unknown message type:", parsedMessage.type);
+            console.log("Unknown message type");
         }
       } catch (error) {
-        console.error("WS parsing error:", error);
+        console.error("WS parsing error");
       }
     });
 
@@ -195,7 +190,6 @@ const initializeWebSocket = (server, db) => {
         const currentTime = new Date().toISOString();
         connectedClients.delete(userId);
         userStatuses.set(userId, "offline");
-        console.log(`Client ${userId} disconnected`);
 
         wss.clients.forEach((client) => {
           if (client.readyState === WebSocket.OPEN) {
@@ -210,11 +204,10 @@ const initializeWebSocket = (server, db) => {
           }
         });
       }
-      console.log("Disconnected WS client");
     });
 
     ws.on("error", (error) => {
-      console.error("WebSocket error:", error);
+      console.error("WebSocket error");
       if (userId) {
         connectedClients.delete(userId);
         userStatuses.set(userId, "offline");
