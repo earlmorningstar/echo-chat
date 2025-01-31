@@ -69,3 +69,49 @@ export interface AuthResponse {
   user: AuthUser;
   token: string;
 }
+
+export type CallType = "voice" | "video";
+export type CallStatus =
+  | "idle"
+  | "incoming"
+  | "outgoing"
+  | "connected"
+  | "ended";
+
+export interface CallState {
+  isInCall: boolean;
+  callType: CallType | null;
+  callStatus: CallStatus;
+  remoteUser: Friend | null;
+  roomName: string | null;
+  localStream: MediaStream | null;
+  remoteStream: MediaStream | null;
+}
+
+export interface CallQuality {
+  audio: {
+    bitrate: number;
+    packetsLost: number;
+    roundTripTime: number;
+  };
+  video?: {
+    bitrate: number;
+    packetsLost: number;
+    frameRate: number;
+    resolution: { width: number; height: number };
+  };
+}
+
+export interface CallContextType {
+  callState: CallState;
+  initiateCall: (friend: Friend, type: CallType) => Promise<void>;
+  acceptCall: () => Promise<void>;
+  rejectCall: () => Promise<void>;
+  endCall: () => Promise<void>;
+  toggleAudio: () => void;
+  toggleVideo: () => void;
+  callQuality: CallQuality | null;
+  isScreenSharing: boolean;
+  toggleScreenShare: () => Promise<void>;
+
+}

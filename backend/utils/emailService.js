@@ -21,7 +21,7 @@ const sendVerificationEmail = async (email, verificationCode) => {
   try {
     await transporter.sendMail(mailOptions);
   } catch (error) {
-    console.error("Error sending verification email:", error);
+    console.error("Error sending verification email");
     throw new Error("Failed to send verification email");
   }
 };
@@ -40,7 +40,7 @@ const sendPasswordResetCode = async (email, resetCode) => {
   try {
     await transporter.sendMail(mailOptions);
   } catch (error) {
-    console.error("Error sending reset code email:", error);
+    console.error("Error sending reset code email");
     throw new Error("Failed to send reset code email");
   }
 };
@@ -67,7 +67,7 @@ const sendFriendRequestNotificationEmail = async (
   try {
     await transporter.sendMail(mailOptions);
   } catch (error) {
-    console.error("Error sending friend request notification email:", error);
+    console.error("Error sending friend request notification email");
     throw new Error("Failed to send friend request notification");
   }
 };
@@ -94,7 +94,7 @@ const sendFriendRequestAcceptedEmail = async (
   try {
     await transporter.sendMail(mailOptions);
   } catch (error) {
-    console.error("Error sending friend request accepted email:", error);
+    console.error("Error sending friend request accepted email");
     throw new Error("Failed to send friend request accepted notification");
   }
 };

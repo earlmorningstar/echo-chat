@@ -25,6 +25,7 @@
     "multer": "^1.4.5-lts.1",
     "nodemailer": "^6.9.16",
     "socket.io-client": "^4.8.1",
+    "twilio": "^5.4.3",
     "uuid": "^11.0.5",
     "web-vitals": "^4.2.4",
     "websocket": "^1.0.35",

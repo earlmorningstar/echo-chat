@@ -48,7 +48,7 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
     };
 
     ws.current.onclose = () => {
-     setIsConnected(false);
+      setIsConnected(false);
       setTimeout(connectWebSocket, 3000);
     };
 
@@ -60,7 +60,7 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
     ws.current.onmessage = (event) => {
       try {
         const message = JSON.parse(event.data);
-      
+
         switch (message.type) {
           case "typing":
             queryClient.setQueryData(
@@ -89,10 +89,41 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
               ["userStatus", message.userId],
               message.status
             );
-            if(message.lastSeen) {
-                queryClient.setQueryData(["userLastSeen", message.userId], message.lastSeen)
+            if (message.lastSeen) {
+              queryClient.setQueryData(
+                ["userLastSeen", message.userId],
+                message.lastSeen
+              );
             }
             queryClient.invalidateQueries({ queryKey: ["friends"] });
+            break;
+
+          case "call_initiate":
+            queryClient.setQueryData(["callEvent"], {
+              type: "incoming",
+              data: message,
+            });
+            break;
+
+          case "call_accepted":
+            queryClient.setQueryData(["callEvent"], {
+              type: "accepted",
+              data: message,
+            });
+            break;
+
+          case "call_rejected":
+            queryClient.setQueryData(["callEvent"], {
+              type: "rejected",
+              data: message,
+            });
+            break;
+
+          case "call_ended":
+            queryClient.setQueryData(["callEvent"], {
+              type: "ended",
+              data: message,
+            });
             break;
         }
       } catch (error) {

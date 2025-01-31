@@ -38,7 +38,7 @@ const renewToken = async (req, res) => {
       { expiresIn: "24h" }
     );
 
-    return sendSuccess(res, 200, "Token renewed", { token: newToken });
+    return sendSuccess(res, 200, "Token renewed", { token: newToken }, false);
   } catch (error) {
     return sendError(res, 500, "Server error during token renewal");
   }

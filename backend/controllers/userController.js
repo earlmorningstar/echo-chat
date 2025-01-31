@@ -85,16 +85,23 @@ const createUser = async (req, res) => {
       "Please check your email for verification code.",
       {
         userid: user.insertedId,
-      }
+      },
+      false
     );
   } catch (error) {
     console.error("User creation error");
-    return sendError(res, 500, "Error creating user", {
-      error:
-        process.env.NODE_ENV === "development"
-          ? error.message
-          : "Internal server error",
-    });
+    return sendError(
+      res,
+      500,
+      "Error creating user",
+      {
+        error:
+          process.env.NODE_ENV === "development"
+            ? error.message
+            : "Internal server error",
+      },
+      false
+    );
   }
 };
 
@@ -171,10 +178,16 @@ const loginUser = async (req, res) => {
       avatarUrl: user.avatarUrl,
     };
 
-    sendSuccess(res, 200, "Login successful", {
-      user: sanitizedUser,
-      token: token,
-    });
+    sendSuccess(
+      res,
+      200,
+      "Login successful",
+      {
+        user: sanitizedUser,
+        token: token,
+      },
+      false
+    );
   } catch (error) {
     sendError(res, 500, "Error logging in");
   }
@@ -262,9 +275,15 @@ const getUserProfile = async (req, res) => {
       lastSeen: user.lastSeen,
       status: user.status,
     };
-    sendSuccess(res, 200, "User profile retrieved successfully", {
-      user: userData,
-    });
+    sendSuccess(
+      res,
+      200,
+      "User profile retrieved successfully",
+      {
+        user: userData,
+      },
+      false
+    );
   } catch (error) {
     sendError(res, 500, "Error retrieving user profile");
   }
@@ -702,9 +721,15 @@ const getUserById = async (req, res) => {
       _id: user._id.toString(),
     };
 
-    sendSuccess(res, 200, "User retrieved successfully", {
-      user: userResponse,
-    });
+    sendSuccess(
+      res,
+      200,
+      "User retrieved successfully",
+      {
+        user: userResponse,
+      },
+      false
+    );
   } catch (error) {
     console.error("Detailed User Retrieval Error");
 

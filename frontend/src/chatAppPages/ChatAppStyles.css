@@ -938,6 +938,180 @@
   margin-top: 2rem;
 }
 
+/* Call Style Section-- */
+
+/* [IncomingCallModal] */
+
+.incoming-call-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: #ffffff;
+  border-radius: 8px;
+  padding: 24px;
+  max-width: 400px;
+  width: 90%;
+  text-align: center;
+}
+
+.avatar-container {
+  width: 80px;
+  height: 80px;
+  margin: 0 auto 16px;
+}
+
+.avatar {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.avatar-fallback {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: #f0f0f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+}
+
+.caller-name {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.call-type {
+  color: #666;
+  margin-bottom: 24px;
+}
+
+.call-actions {
+  display: flex;
+  justify-content: center;
+  gap: 24px;
+}
+
+.call-button {
+  border: none;
+  border-radius: 50%;
+  padding: 16px;
+  cursor: pointer;
+  color: white;
+}
+
+.reject-button {
+  background: #dc2626;
+}
+
+accept-button {
+  background: #16a34a;
+}
+
+/* [CallInterface] */
+
+.call-interface {
+  position: fixed;
+  inset: 0;
+  background: #111;
+  z-index: 1000;
+}
+
+.remote-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.local-video-container {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 192px;
+}
+
+.local-video {
+  width: 100%;
+  border-radius: 8px;
+}
+
+.call-controls {
+  position: absolute;
+  bottom: 32px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.control-button {
+  padding: 16px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  color: white;
+}
+
+.control-button.active {
+  background: #4b5563;
+}
+
+.control-button.inactive {
+  background: #dc2626;
+}
+
+.end-call-button {
+  background: #dc2626;
+}
+
+/* [CallQualityIndicator] */
+
+.quality-indicator {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border-radius: 4px;
+}
+
+.quality-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.good .quality-dot {
+  background-color: #22c55e;
+}
+
+.fair .quality-dot {
+  background-color: #f59e0b;
+}
+
+.poor .quality-dot {
+  background: #dc2626;
+}
+
+.quality-text {
+  color: #ffffff;
+  font-size: 144px;
+}
+
 /* Media Queries--- */
 @media screen and (max-width: 800px) {
   .last-message {

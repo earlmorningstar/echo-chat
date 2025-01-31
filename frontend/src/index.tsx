@@ -5,6 +5,7 @@ import App from "./App";
 import reportWebVitals from "./reportWebVitals";
 import { AuthProvider } from "./contexts/AuthContext";
 import { ChatProvider } from "./contexts/ChatContext";
+import { CallProvider } from "./contexts/CallContext";
 import { WebSocketProvider } from "./contexts/WebSocketContext";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
@@ -29,7 +30,9 @@ root.render(
       <AuthProvider>
         <WebSocketProvider>
           <ChatProvider>
-            <App />
+            <CallProvider>
+              <App />
+            </CallProvider>
           </ChatProvider>
         </WebSocketProvider>
       </AuthProvider>

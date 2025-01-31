@@ -89,8 +89,6 @@ const FriendsProfile: React.FC = () => {
     }
   };
 
-  console.log("Friend data:", friend);
-
   return (
     <section className="friends-profile-main-container">
       <span
