@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { useChat } from "../contexts/ChatContext";
+import { useCall } from "../contexts/CallContext";
 import { useWebSocket } from "../contexts/WebSocketContext";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import api from "../utils/api";
@@ -96,6 +97,7 @@ const ChatWindow: React.FC = () => {
   const { user } = useAuth();
   const { sendMessage } = useWebSocket();
   const { updateTypingStatus, getUserStatus } = useChat();
+  const { initiateCall } = useCall();
   const [newMessage, setNewMessage] = useState("");
   const [typing, setTyping] = useState(false);
   const [typingTimeout, setTypingTimeout] = useState<NodeJS.Timeout | null>(
@@ -140,6 +142,18 @@ const ChatWindow: React.FC = () => {
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
   });
+
+  const handleVoiceCall = () => {
+    if (friend) {
+      initiateCall(friend, "voice");
+    }
+  };
+
+  const handleVideoCall = () => {
+    if (friend) {
+      initiateCall(friend, "video");
+    }
+  };
 
   useEffect(() => {
     const unsubscribe = queryClient.getQueryCache().subscribe(() => {
@@ -375,7 +389,6 @@ const ChatWindow: React.FC = () => {
     navigate(`/friends-profile/${friendId}`);
   };
 
- 
   return (
     <div className="chat-container">
       <div className="chat-window-header">
@@ -424,10 +437,10 @@ const ChatWindow: React.FC = () => {
             </div>
 
             <div className="profile-comm-btn-container">
-              <IconButton>
+              <IconButton onClick={handleVoiceCall}>
                 <Phone />
               </IconButton>
-              <IconButton>
+              <IconButton onClick={handleVideoCall}>
                 <Videocam />
               </IconButton>
               <IconButton>

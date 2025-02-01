@@ -18,6 +18,9 @@ import AddUser from "./chatAppPages/AddUser";
 import ChatWindow from "./chatAppPages/ChatWindow";
 import Request from "./chatAppPages/Request";
 import FriendsProfile from "./chatAppPages/FriendsProfile";
+import CallInterface from "./calls/CallInterface";
+import IncomingCallModal from "./calls/IncomingCallModal";
+import { useCall } from "./contexts/CallContext";
 
 const router = createBrowserRouter([
   {
@@ -82,10 +85,14 @@ const router = createBrowserRouter([
 ]);
 
 const App: React.FC = () => {
+  const { callState } = useCall();
+
   return (
     <>
       <RouterProvider router={router} />
       <UnauthorizedErrorHandler />
+      {callState.isInCall && <CallInterface />}
+      <IncomingCallModal />
     </>
   );
 };

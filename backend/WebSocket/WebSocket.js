@@ -11,8 +11,38 @@ const initializeWebSocket = (server, db) => {
 
   const wss = new WebSocketServer({ server });
 
+  //helper for db operations with logic to retry
+  const executeDbOperation = async (operation, maxRetries = 3) => {
+    let lastError;
+    for (let i = 0; i < maxRetries; i++) {
+      try {
+        return await operation();
+      } catch (error) {
+        lastError = error;
+        console.error(
+          `Database operation failed (attempt ${i + 1}/${maxRetries})`
+        );
+        await new Promise((resolve) =>
+          setTimeout(resolve, 1000 * Math.pow(2, i))
+        );
+      }
+    }
+    throw lastError;
+  };
+
   wss.on("connection", (ws) => {
     let userId = null;
+
+    const handleDatabaseError = (error, operation) => {
+      console.error(`Error during ${operation}`);
+      ws.send(
+        JSON.stringify({
+          type: "error",
+          message: "Database operation failed",
+          operation,
+        })
+      );
+    };
 
     ws.on("message", async (message) => {
       try {
@@ -24,54 +54,57 @@ const initializeWebSocket = (server, db) => {
           userStatuses.set(userId, "online");
 
           try {
-            await db
-              .collection("users")
-              .updateOne(
-                { _id: new ObjectId(userId) },
-                { $set: { status: "online" } }
-              );
+            await executeDbOperation(async () => {
+              await db
+                .collection("users")
+                .updateOne(
+                  { _id: new ObjectId(userId) },
+                  { $set: { status: "online" } }
+                );
 
-            const users = await db
-              .collection("users")
-              .find(
-                {
-                  _id: { $ne: new ObjectId(userId) },
-                },
-                {
-                  projection: {
-                    _id: 1,
-                    status: 1,
-                    lastSeen: 1,
+              const users = await db
+                .collection("users")
+                .find(
+                  {
+                    _id: { $ne: new ObjectId(userId) },
                   },
-                }
-              )
-              .toArray();
+                  {
+                    projection: {
+                      _id: 1,
+                      status: 1,
+                      lastSeen: 1,
+                    },
+                  }
+                )
+                .toArray();
 
-            wss.clients.forEach((client) => {
-              if (client.readyState === WebSocket.OPEN) {
-                client.send(
+              //bc status updates
+              wss.clients.forEach((client) => {
+                if (client.readyState === WebSocket.OPEN) {
+                  client.send(
+                    JSON.stringify({
+                      type: "status",
+                      userId: userId,
+                      status: "online",
+                      lastSeen: null,
+                    })
+                  );
+                }
+              });
+              //sending existing users status to new client
+              users.forEach((user) => {
+                ws.send(
                   JSON.stringify({
                     type: "status",
-                    userId: userId,
-                    status: "online",
-                    lastSeen: null,
+                    userId: user._id.toString(),
+                    status: user.status || "offline",
+                    lastSeen: user.lastSeen,
                   })
                 );
-              }
-            });
-
-            users.forEach((user) => {
-              ws.send(
-                JSON.stringify({
-                  type: "status",
-                  userId: user._id.toString(),
-                  status: user.status || "offline",
-                  lastSeen: user.lastSeen,
-                })
-              );
+              });
             });
           } catch (error) {
-            console.error("Database operation failed during registeration");
+            handleDatabaseError(error, "registeration");
           }
           return;
         }
@@ -177,11 +210,107 @@ const initializeWebSocket = (server, db) => {
             }
             break;
 
+          case "call_initiate":
+            const callReceiverWs = connectedClients.get(
+              parsedMessage.receiverId
+            );
+            if (
+              callReceiverWs &&
+              callReceiverWs.readyState === WebSocket.OPEN
+            ) {
+              callReceiverWs.send(
+                JSON.stringify({
+                  type: "call_initiate",
+                  senderId: parsedMessage.senderId,
+                  callType: parsedMessage.callType,
+                  roomName: parsedMessage.roomName,
+                })
+              );
+            }
+            break;
+
+          case "call_accepted":
+            const callerWs = connectedClients.get(parsedMessage.receiverId);
+            if (callerWs && callerWs.readyState === WebSocket.OPEN) {
+              callerWs.send(
+                JSON.stringify({
+                  type: "call_accepted",
+                  senderId: parsedMessage.senderId,
+                  roomName: parsedMessage.roomName,
+                })
+              );
+
+              await db.collection("calls").updateOne(
+                { roomName: parsedMessage.roomName },
+                {
+                  $set: {
+                    status: "completed",
+                    startTime: new Date(),
+                  },
+                }
+              );
+            }
+            break;
+
+          case "call_rejected":
+            const rejectedCallerWs = connectedClients.get(
+              parsedMessage.receiverId
+            );
+            if (
+              rejectedCallerWs &&
+              rejectedCallerWs.readyState === WebSocket.OPEN
+            ) {
+              rejectedCallerWs.send(
+                JSON.stringify({
+                  type: "call_rejected",
+                  senderId: parsedMessage.senderId,
+                  roomName: parsedMessage.roomName,
+                })
+              );
+
+              await db
+                .collection("calls")
+                .updateOne(
+                  { roomName: parsedMessage.roomName },
+                  { $set: { status: "rejected" } }
+                );
+            }
+            break;
+
+          case "call_ended":
+            const endedCallWs = connectedClients.get(parsedMessage.receiverId);
+            if (endedCallWs && endedCallWs.readyState === WebSocket.OPEN) {
+              endedCallWs.send(
+                JSON.stringify({
+                  type: "call_ended",
+                  senderId: parsedMessage.senderId,
+                  roomName: parsedMessage.roomName,
+                })
+              );
+
+              await db.collection("calls").updateOne(
+                { roomName: parsedMessage.roomName },
+                {
+                  $set: {
+                    status: "completed",
+                    endTime: new Date(),
+                  },
+                }
+              );
+            }
+            break;
+
           default:
             console.log("Unknown message type");
         }
       } catch (error) {
-        console.error("WS parsing error");
+        console.error("WebSocket message handling error");
+        ws.send(
+          JSON.stringify({
+            type: "error",
+            message: "failed to process message",
+          })
+        );
       }
     });
 
@@ -191,18 +320,34 @@ const initializeWebSocket = (server, db) => {
         connectedClients.delete(userId);
         userStatuses.set(userId, "offline");
 
-        wss.clients.forEach((client) => {
-          if (client.readyState === WebSocket.OPEN) {
-            client.send(
-              JSON.stringify({
-                type: "status",
-                userId: userId,
-                status: "offline",
-                lastSeen: currentTime,
-              })
+        try {
+          await executeDbOperation(async () => {
+            await db.collection("users").updateOne(
+              { _id: new ObjectId(userId) },
+              {
+                $set: {
+                  lastSeen: currentTime,
+                  status: "offline",
+                },
+              }
             );
-          }
-        });
+
+            wss.clients.forEach((client) => {
+              if (client.readyState === WebSocket.OPEN) {
+                client.send(
+                  JSON.stringify({
+                    type: "status",
+                    userId: userId,
+                    status: "offline",
+                    lastSeen: currentTime,
+                  })
+                );
+              }
+            });
+          });
+        } catch (error) {
+          console.error("Error updating offline status");
+        }
       }
     });
 
@@ -214,6 +359,16 @@ const initializeWebSocket = (server, db) => {
       }
     });
   });
+
+  setInterval(() => {
+    wss.clients.forEach((ws) => {
+      if (!ws.isAlive) {
+        return ws.terminate();
+      }
+      ws.isAlive = false;
+      ws.ping();
+    });
+  }, 30000);
 
   return wss;
 };

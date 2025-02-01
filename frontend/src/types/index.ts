@@ -113,5 +113,4 @@ export interface CallContextType {
   callQuality: CallQuality | null;
   isScreenSharing: boolean;
   toggleScreenShare: () => Promise<void>;
-
 }

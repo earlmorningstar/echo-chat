@@ -1,3 +1,5 @@
+import { CallQuality } from "../types";
+
 interface CallQualityIndicatorProps {
   quality: CallQuality;
 }

@@ -7,11 +7,13 @@ import {
   VideocamOff,
   CallEnd,
 } from "@mui/icons-material";
+import CallQualityIndicator from "./CallQualityIndicator";
 
 const CallInterface: React.FC = () => {
-  const { callState, endCall, toggleAudio, toggleVideo } = useCall();
+  const { callState, endCall, toggleAudio, toggleVideo, callQuality } =
+    useCall();
   const localVideoRef = useRef<HTMLVideoElement>(null);
-  const remoteVideoRef = useRef<HTMLVideoElement>(null);
+  //   const remoteVideoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
     if (localVideoRef.current && callState.localStream) {
@@ -19,11 +21,11 @@ const CallInterface: React.FC = () => {
     }
   }, [callState.localStream]);
 
-  useEffect(() => {
-    if (remoteVideoRef.current && callState.remoteStream) {
-      remoteVideoRef.current.srcObject = callState.remoteStream;
-    }
-  }, [callState.remoteStream]);
+  //   useEffect(() => {
+  //     if (remoteVideoRef.current && callState.remoteStream) {
+  //       remoteVideoRef.current.srcObject = callState.remoteStream;
+  //     }
+  //   }, [callState.remoteStream]);
 
   if (!callState.isInCall) return null;
 
@@ -32,13 +34,12 @@ const CallInterface: React.FC = () => {
 
   return (
     <div className="call-interface">
+      {callQuality && <CallQualityIndicator quality={callQuality} />}
       {callState.callType === "video" && (
-        <video
-          ref={remoteVideoRef}
-          autoPlay
-          playsInline
-          className="remote-video"
-        />
+        <>
+          <div id="remote-video-container" className="remote-video" />
+          <div id="remote-audio-container" className="remote-audio" />
+        </>
       )}
       {callState.callType === "video" && (
         <div className="local-video-container">

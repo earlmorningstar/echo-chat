@@ -41,6 +41,15 @@ interface CallQuality {
   };
 }
 
+interface CallEvent {
+  type: "incoming" | "accepted" | "rejected" | "ended";
+  data: {
+    initiatorId?: string;
+    type?: CallType;
+    roomName?: string;
+  };
+}
+
 const CallContext = createContext<CallContextType | undefined>(undefined);
 
 export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
@@ -93,38 +102,59 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
   //     };
   //   }, []);
 
-  const handleIncomingCall = async (data: any) => {
-    const { initiatorId, type, roomName } = data;
+  const cleanupCall = useCallback(() => {
+    //halt entire tracks in local stream
+    callState.localStream?.getTracks().forEach((track) => track.stop());
+    //reset state
+    setCallState(initialCallState);
+    setTwilioToken(null);
+  }, [callState.localStream]);
 
-    // Get caller details
-    const response = await api.get(`/api/user/${initiatorId}`);
-    const caller = response.data.user;
+  const handleIncomingCall = useCallback(
+    async (data: any) => {
+      const { initiatorId, type, roomName } = data;
 
-    handleCallStateChange({
-      callStatus: "incoming",
-      callType: type,
-      remoteUser: caller,
-      roomName,
-    });
-  };
+      // Get caller details
+      const response = await api.get(`/api/user/${initiatorId}`);
+      const caller = response.data.user;
 
-  const handleCallAccepted = async (data: any) => {
-    handleCallStateChange({
-      callStatus: "connected",
-    });
-  };
+      handleCallStateChange({
+        callStatus: "incoming",
+        callType: type,
+        remoteUser: caller,
+        roomName,
+      });
+    },
+    [handleCallStateChange]
+  );
 
-  const handleCallRejected = async (data: any) => {
-    cleanupCall();
-  };
+  const handleCallAccepted = useCallback(
+    async (data: any) => {
+      handleCallStateChange({
+        callStatus: "connected",
+      });
+      updateCallStatus("connected");
+    },
+    [handleCallStateChange, updateCallStatus]
+  );
 
-  const handleCallEnded = async (data: any) => {
-    cleanupCall();
-  };
+  const handleCallRejected = useCallback(
+    async (data: any) => {
+      cleanupCall();
+    },
+    [cleanupCall]
+  );
+
+  const handleCallEnded = useCallback(
+    async (data: any) => {
+      cleanupCall();
+    },
+    [cleanupCall]
+  );
 
   useEffect(() => {
     const subscription = queryClient.getQueryCache().subscribe(() => {
-      const callEvent = queryClient.getQueryData(["callEvent"]);
+      const callEvent = queryClient.getQueryData<CallEvent>(["callEvent"]);
       if (callEvent) {
         switch (callEvent.type) {
           case "incoming":
@@ -143,7 +173,13 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
       }
     });
     return () => subscription();
-  }, [queryClient]);
+  }, [
+    queryClient,
+    handleIncomingCall,
+    handleCallAccepted,
+    handleCallRejected,
+    handleCallEnded,
+  ]);
 
   const setupLocalStream = async (type: CallType) => {
     try {
@@ -181,6 +217,8 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
       const token = await getTwilioToken(roomName);
       setTwilioToken(token);
 
+      await connectToTwilioRoom(roomName);
+
       //updating call state
       setCallState((prev) => ({
         ...prev,
@@ -214,6 +252,8 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
       //getting twilio token
       const token = await getTwilioToken(callState.roomName);
       setTwilioToken(token);
+
+      await connectToTwilioRoom(callState.roomName);
 
       setCallState((prev) => ({
         ...prev,
@@ -252,7 +292,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
     cleanupCall();
   };
 
-  const endCall = async () => {
+  const endCall = useCallback(async () => {
     if (callState.remoteUser?._id) {
       sendMessage({
         type: "call_ended",
@@ -269,15 +309,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
       });
     }
     cleanupCall();
-  };
-
-  const cleanupCall = () => {
-    //halt entire tracks in local stream
-    callState.localStream?.getTracks().forEach((track) => track.stop());
-    //reset state
-    setCallState(initialCallState);
-    setTwilioToken(null);
-  };
+  }, [callState.remoteUser?._id, callState.roomName, cleanupCall, sendMessage]);
 
   const toggleAudio = () => {
     if (callState.localStream) {
@@ -294,55 +326,6 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
       setCallState((prev) => ({ ...prev }));
     }
   };
-
-  const monitorCallQuality = useCallback(
-    (peerConnection: RTCPeerConnection) => {
-      setInterval(async () => {
-        const stats = await peerConnection.getStats();
-
-        let audioStats = {
-          bitrate: 0,
-          packetsLost: 0,
-          roundTripTime: 0,
-        };
-
-        let videoStats = {
-          bitrate: 0,
-          packetsLost: 0,
-          frameRate: 0,
-          resolution: { width: 0, height: 0 },
-        };
-
-        stats.forEach((stat) => {
-          if (stat.type === "inbound-rtp") {
-            if (stat.kind === "audio") {
-              audioStats = {
-                bitrate: stat.bitrate || 0,
-                packetsLost: stat.packetsLost || 0,
-                roundTripTime: stat.roundTripTime || 0,
-              };
-            } else if (stat.kind === "video") {
-              videoStats = {
-                bitrate: stat.bitrate || 0,
-                packetsLost: stat.packetsLost || 0,
-                frameRate: stat.framesPerSecond || 0,
-                resolution: {
-                  width: stat.frameWidth || 0,
-                  height: stat.frameHeight || 0,
-                },
-              };
-            }
-          }
-        });
-
-        setCallQuality({
-          audio: audioStats,
-          video: callState.callType === "video" ? videoStats : undefined,
-        });
-      }, 1000);
-    },
-    [callState.callType]
-  );
 
   const toggleScreenShare = async () => {
     try {
@@ -390,6 +373,132 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
       console.error("Error toggling screen share:", error);
     }
   };
+
+  const monitorCallQuality = useCallback(
+    (peerConnection: RTCPeerConnection) => {
+      const interval = setInterval(async () => {
+        const stats = await peerConnection.getStats();
+
+        let audioStats = {
+          bitrate: 0,
+          packetsLost: 0,
+          roundTripTime: 0,
+        };
+
+        let videoStats = {
+          bitrate: 0,
+          packetsLost: 0,
+          frameRate: 0,
+          resolution: { width: 0, height: 0 },
+        };
+
+        stats.forEach((stat) => {
+          if (stat.type === "inbound-rtp") {
+            if (stat.kind === "audio") {
+              audioStats = {
+                bitrate: stat.bitrate || 0,
+                packetsLost: stat.packetsLost || 0,
+                roundTripTime: stat.roundTripTime || 0,
+              };
+            } else if (stat.kind === "video") {
+              videoStats = {
+                bitrate: stat.bitrate || 0,
+                packetsLost: stat.packetsLost || 0,
+                frameRate: stat.framesPerSecond || 0,
+                resolution: {
+                  width: stat.frameWidth || 0,
+                  height: stat.frameHeight || 0,
+                },
+              };
+            }
+          }
+        });
+
+        setCallQuality({
+          audio: audioStats,
+          video: callState.callType === "video" ? videoStats : undefined,
+        });
+      }, 1000);
+      return () => clearInterval(interval);
+    },
+    [callState.callType]
+  );
+
+  const handleRoomConnect = useCallback(
+    (room: any) => {
+      room.participants.forEach((participant: any) => {
+        participant.on("trackSubscribed", (track: any) => {
+          if (track.kind === "video") {
+            //handling vid track
+            const remoteVideoContainer = document.getElementById(
+              "remote-video-container"
+            );
+            if (remoteVideoContainer && track.attach) {
+              const videoElement = track.attach();
+              remoteVideoContainer.appendChild(videoElement);
+            }
+            //updating remote stream in call state
+            if (track.mediaStreamTrack) {
+              const mediaStream = new MediaStream([track.mediaStreamTrack]);
+              handleCallStateChange({
+                remoteStream: mediaStream,
+              });
+            }
+          } else if (track.kind === "audio") {
+            const remoteAudioContainer = document.getElementById(
+              "remote-audio-container"
+            );
+            if (remoteAudioContainer && track.attach) {
+              const audioElement = track.attach();
+              audioElement.style.display = "none"; //hide audio element
+              remoteAudioContainer.appendChild(audioElement);
+            }
+          }
+        });
+        participant.on("trackUnsubscribed", (track: any) => {
+          //removing track when subscribed
+          track.detach().forEach((element: HTMLElement) => element.remove());
+        });
+      });
+
+      if (room.localParticipant.connection) {
+        monitorCallQuality(room.localParticipant.connection);
+      }
+    },
+    [monitorCallQuality, handleCallStateChange]
+  );
+
+  const connectToTwilioRoom = useCallback(
+    async (roomName: string) => {
+      if (!twilioToken) return;
+
+      try {
+        //connecting to twilio room
+        const Video = require("twilio-video");
+        const room = await Video.connect(twilioToken, {
+          name: roomName,
+          audio: true,
+          video: callState.callType === "video",
+        });
+
+        //handling successful connection
+        handleRoomConnect(room);
+
+        //handling participant disconnection
+        room.on("participantDisconnected", () => {
+          endCall();
+        });
+
+        room.on("disconnected", () => {
+          endCall();
+        });
+      } catch (error) {
+        console.error("Error connecting to Twilio room:", error);
+        cleanupCall();
+      }
+    },
+    [twilioToken, callState.callType, handleRoomConnect, endCall, cleanupCall]
+  );
 
   const value: CallContextType = {
     callState,
