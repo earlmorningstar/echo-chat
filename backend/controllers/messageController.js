@@ -85,7 +85,7 @@ const sendMessage = async (req, res) => {
       ...messageData,
       senderId: senderId.toString(),
       receiverId: receiverId.toString(),
-    });
+    }, false);
   } catch (error) {
     sendError(res, 500, "Error sending message");
   }

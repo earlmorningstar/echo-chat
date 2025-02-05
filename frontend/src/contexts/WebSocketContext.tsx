@@ -59,6 +59,7 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
 
     ws.current.onmessage = (event) => {
       try {
+        // console.log("WS Message Received:", event.data);
         const message = JSON.parse(event.data);
 
         switch (message.type) {
@@ -99,9 +100,23 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
             break;
 
           case "call_initiate":
+            console.log("Received call_initiate message:", message);
+            if (
+              !message.initiatorId ||
+              !message.callType ||
+              !message.roomName
+            ) {
+              console.error("Missing required call data:", message);
+              return;
+            }
+
             queryClient.setQueryData(["callEvent"], {
               type: "incoming",
-              data: message,
+              data: {
+                initiatorId: message.initiatorId,
+                type: message.callType,
+                roomName: message.roomName,
+              },
             });
             break;
 

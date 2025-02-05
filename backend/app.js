@@ -14,9 +14,9 @@ import authRoutes from "./routes/authRoutes.js";
 import callRoutes from "./routes/callRoutes.js";
 import initializeWebSocket from "./WebSocket/WebSocket.js";
 import { setupFriendshipCollections } from "./models/friendshipSchema.js";
-import Call, {
-  ensureCollection as ensureCallCollection,
-} from "./models/callSchema.js";
+// import {
+//   ensureCollection as ensureCallCollection,
+// } from "./models/callSchema.js";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -63,7 +63,10 @@ const initializeServer = async () => {
     console.log("Current database:", db.databaseName);
 
     // Initialize collections
-    await Promise.all([setupFriendshipCollections(db), ensureCallCollection()]);
+    await Promise.all([
+      setupFriendshipCollections(db),
+      // ensureCallCollection()
+    ]);
 
     // Initialize WebSocket server
     const wss = initializeWebSocket(server, db);

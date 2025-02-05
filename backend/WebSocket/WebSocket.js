@@ -211,31 +211,60 @@ const initializeWebSocket = (server, db) => {
             break;
 
           case "call_initiate":
+            if (
+              !parsedMessage.receiverId ||
+              !parsedMessage.callType ||
+              !parsedMessage.roomName
+            ) {
+              console.error("Invalid call initiation request");
+              return;
+            }
+
+            const existingCall = await db.collection("calls").findOne({
+              roomName: parsedMessage.roomName,
+              status: { $in: ["initiated", "connected"] },
+            });
+
+            if (!existingCall) {
+              console.log("No valid call found, aborting initiation");
+              return;
+            }
+
             const callReceiverWs = connectedClients.get(
               parsedMessage.receiverId
             );
-            if (
-              callReceiverWs &&
-              callReceiverWs.readyState === WebSocket.OPEN
-            ) {
+            if (callReceiverWs?.readyState === WebSocket.OPEN) {
               callReceiverWs.send(
                 JSON.stringify({
                   type: "call_initiate",
-                  senderId: parsedMessage.senderId,
+                  initiatorId: userId,
                   callType: parsedMessage.callType,
                   roomName: parsedMessage.roomName,
                 })
               );
             }
+
+            // try {
+            //   await db.collection("calls").insertOne({
+            //     initiator: new ObjectId(userId),
+            //     receiver: new ObjectId(parsedMessage.receiverId),
+            //     type: parsedMessage.callType,
+            //     status: "initiated",
+            //     startTime: new Date(),
+            //     roomName: parsedMessage.roomName
+            //   });
+            // } catch (dbError) {
+            //   console.error("Error saving call to DB:", dbError);
+            // }
             break;
 
           case "call_accepted":
             const callerWs = connectedClients.get(parsedMessage.receiverId);
-            if (callerWs && callerWs.readyState === WebSocket.OPEN) {
+            if (callerWs?.readyState === WebSocket.OPEN) {
               callerWs.send(
                 JSON.stringify({
                   type: "call_accepted",
-                  senderId: parsedMessage.senderId,
+                  senderId: userId,
                   roomName: parsedMessage.roomName,
                 })
               );
@@ -244,8 +273,8 @@ const initializeWebSocket = (server, db) => {
                 { roomName: parsedMessage.roomName },
                 {
                   $set: {
-                    status: "completed",
-                    startTime: new Date(),
+                    status: "connected",
+                    // startTime: new Date(),
                   },
                 }
               );
@@ -254,16 +283,13 @@ const initializeWebSocket = (server, db) => {
 
           case "call_rejected":
             const rejectedCallerWs = connectedClients.get(
-              parsedMessage.receiverId
+              parsedMessage.initiatorId
             );
-            if (
-              rejectedCallerWs &&
-              rejectedCallerWs.readyState === WebSocket.OPEN
-            ) {
+            if (rejectedCallerWs?.readyState === WebSocket.OPEN) {
               rejectedCallerWs.send(
                 JSON.stringify({
                   type: "call_rejected",
-                  senderId: parsedMessage.senderId,
+                  senderId: userId,
                   roomName: parsedMessage.roomName,
                 })
               );
@@ -272,18 +298,18 @@ const initializeWebSocket = (server, db) => {
                 .collection("calls")
                 .updateOne(
                   { roomName: parsedMessage.roomName },
-                  { $set: { status: "rejected" } }
+                  { $set: { status: "rejected", endTime: new Date() } }
                 );
             }
             break;
 
           case "call_ended":
-            const endedCallWs = connectedClients.get(parsedMessage.receiverId);
-            if (endedCallWs && endedCallWs.readyState === WebSocket.OPEN) {
+            const endedCallWs = connectedClients.get(parsedMessage.initiatorId);
+            if (endedCallWs?.readyState === WebSocket.OPEN) {
               endedCallWs.send(
                 JSON.stringify({
                   type: "call_ended",
-                  senderId: parsedMessage.senderId,
+                  senderId: userId,
                   roomName: parsedMessage.roomName,
                 })
               );

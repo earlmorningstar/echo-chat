@@ -1,3 +1,16 @@
+import {
+  Room,
+  LocalParticipant,
+  RemoteParticipant,
+  RemoteTrackPublication,
+  RemoteAudioTrack,
+  RemoteVideoTrack,
+  LocalAudioTrackPublication,
+  LocalVideoTrackPublication,
+  RemoteAudioTrackPublication,
+  RemoteVideoTrackPublication,
+} from "twilio-video";
+
 export interface AuthUser {
   _id: string;
   firstName: string;
@@ -100,6 +113,8 @@ export interface CallQuality {
     frameRate: number;
     resolution: { width: number; height: number };
   };
+  networkLevel?: number;
+  timestamp?: number;
 }
 
 export interface CallContextType {
@@ -113,4 +128,28 @@ export interface CallContextType {
   callQuality: CallQuality | null;
   isScreenSharing: boolean;
   toggleScreenShare: () => Promise<void>;
+}
+
+export interface TwilioRoom extends Room {
+  name: string;
+  localParticipant: LocalParticipant;
+  participants: Map<string, RemoteParticipant>;
+  config?: {
+    peerConnection: RTCPeerConnection;
+  };
+}
+
+export type TwilioTrackPublication =
+  | LocalAudioTrackPublication
+  | LocalVideoTrackPublication
+  | RemoteAudioTrackPublication
+  | RemoteVideoTrackPublication;
+
+export type TwilioTrack = RemoteAudioTrack | RemoteVideoTrack;
+
+export interface TwilioParticipant extends RemoteParticipant {
+  identity: string;
+  tracks: Map<string, RemoteTrackPublication>;
+  videoTracks: Map<string, RemoteVideoTrackPublication>;
+  audioTracks: Map<string, RemoteAudioTrackPublication>;
 }

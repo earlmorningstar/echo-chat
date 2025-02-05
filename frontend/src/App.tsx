@@ -21,6 +21,8 @@ import FriendsProfile from "./chatAppPages/FriendsProfile";
 import CallInterface from "./calls/CallInterface";
 import IncomingCallModal from "./calls/IncomingCallModal";
 import { useCall } from "./contexts/CallContext";
+import { ErrorBoundary } from "./utils/ErrorBoundary";
+import CallErrorFallback from "./utils/CallErrorFallback";
 
 const router = createBrowserRouter([
   {
@@ -91,7 +93,11 @@ const App: React.FC = () => {
     <>
       <RouterProvider router={router} />
       <UnauthorizedErrorHandler />
-      {callState.isInCall && <CallInterface />}
+      {callState.isInCall && (
+        <ErrorBoundary fallback={<CallErrorFallback />}>
+          <CallInterface />
+        </ErrorBoundary>
+      )}
       <IncomingCallModal />
     </>
   );
