@@ -220,10 +220,24 @@ const initializeWebSocket = (server, db) => {
               return;
             }
 
-            const existingCall = await db.collection("calls").findOne({
-              roomName: parsedMessage.roomName,
-              status: { $in: ["initiated", "connected"] },
-            });
+            let existingCall;
+            let retries = 0;
+            const maxRetries = 5;
+            while (!existingCall && retries < maxRetries) {
+              existingCall = await db.collection("calls").findOne({
+                roomName: parsedMessage.roomName,
+                status: { $in: ["initiated", "connected"] },
+              });
+              if (!existingCall) {
+                await new Promise((resolve) => setTimeout(resolve, 200));
+                retries++;
+              }
+            }
+
+            // const existingCall = await db.collection("calls").findOne({
+            //   roomName: parsedMessage.roomName,
+            //   status: { $in: ["initiated", "connected"] },
+            // });
 
             if (!existingCall) {
               console.log("No valid call found, aborting initiation");
@@ -270,11 +284,11 @@ const initializeWebSocket = (server, db) => {
               );
 
               await db.collection("calls").updateOne(
-                { roomName: parsedMessage.roomName },
+                { roomName: parsedMessage.roomName, status: "initiated" },
                 {
                   $set: {
                     status: "connected",
-                    // startTime: new Date(),
+                    connectedAt: new Date(),
                   },
                 }
               );

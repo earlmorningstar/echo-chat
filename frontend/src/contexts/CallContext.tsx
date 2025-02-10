@@ -20,6 +20,9 @@ import {
   RemoteParticipant,
   RemoteTrackPublication,
   RemoteTrack,
+  LocalAudioTrack,
+  LocalVideoTrack,
+  LocalVideoTrackPublication,
 } from "twilio-video";
 import api from "../utils/api";
 
@@ -67,14 +70,35 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
   const [callQuality, setCallQuality] = useState<CallQuality | null>(null);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const roomRef = useRef<any>(null);
+  const callStateRef = useRef<CallState>(callState);
   const mediaStreamsRef = useRef<{
     local: MediaStream | null;
     remote: MediaStream | null;
   }>({ local: null, remote: null });
 
-  const handleCallStateChange = useCallback((newState: Partial<CallState>) => {
-    setCallState((prev) => ({ ...prev, ...newState }));
-  }, []);
+  useEffect(() => {
+    callStateRef.current = callState;
+  }, [callState]);
+
+  const handleCallStateChange = useCallback(
+    (newState: Partial<CallState>) => {
+      console.log("Call State Transition:", {
+        oldState: callState,
+        newState,
+      });
+
+      setCallState((prev) => {
+        const updatedState = { ...prev, ...newState };
+        console.log("Final Updated State:", updatedState);
+        return updatedState;
+      });
+    },
+    [callState]
+  );
+
+  // const handleCallStateChange = useCallback((newState: Partial<CallState>) => {
+  //   setCallState((prev) => ({ ...prev, ...newState }));
+  // }, []);
 
   const updateCallStatus = useCallback(
     (status: CallStatus) => {
@@ -94,22 +118,42 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
   }, []);
 
   const cleanupCall = useCallback(() => {
-    // cleaning up media tracks
-    mediaStreamsRef.current.local?.getTracks().forEach((track) => track.stop());
-    mediaStreamsRef.current.remote
-      ?.getTracks()
-      .forEach((track) => track.stop());
+    try {
+      // cleaning up media tracks
+      mediaStreamsRef.current.local
+        ?.getTracks()
+        .forEach((track) => track.stop());
+      mediaStreamsRef.current.remote
+        ?.getTracks()
+        .forEach((track) => track.stop());
+      // mediaStreamsRef.current = { local: null, remote: null };
 
-    // disconnecting from Twilio room
-    if (roomRef.current) {
-      roomRef.current.disconnect();
-      roomRef.current = null;
+      // disconnecting from Twilio room
+      if (roomRef.current) {
+        try {
+          roomRef.current.disconnect();
+        } catch (disconnectError) {
+          console.warn("Error during room disconnection:", disconnectError);
+        }
+        roomRef.current?.removeAllListeners?.();
+        roomRef.current = null;
+      }
+
+      // if (roomRef.current) {
+      //   roomRef.current.disconnect();
+      //   roomRef.current.removeAllListeners();
+      //   roomRef.current = null;
+      // }
+
+      mediaStreamsRef.current = { local: null, remote: null };
+
+      // reset state
+      setCallState(initialCallState);
+      setCallQuality(null);
+      setIsScreenSharing(false);
+    } catch (error) {
+      console.error("Cleanup error:", error);
     }
-
-    // reset state
-    setCallState(initialCallState);
-    setCallQuality(null);
-    setIsScreenSharing(false);
   }, []);
 
   const handleTrackPublication = useCallback(
@@ -279,26 +323,29 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const handleIncomingCall = useCallback(
     async (data: any) => {
+      const { initiatorId, type, roomName } = data;
+
+      console.log("Handling incoming call:", {
+        currentState: callStateRef.current,
+        incomingCallData: data,
+      });
+
+      //using ref to get current state to avoid staleness
+      // const currentState = callStateRef.current;
+      if (
+        callStateRef.current.callStatus === "connected" ||
+        callStateRef.current.callStatus === "ended"
+      ) {
+        console.log("Preventing incoming call due to active call");
+        return;
+      }
+
+      // Get caller details
       try {
-        const { initiatorId, type, roomName } = data;
-
-        // preventing duplicate processing
-        if (
-          callState.roomName === roomName &&
-          callState.callStatus === "incoming"
-        )
-          return;
-
-        cleanupCall();
-
-        // //clearing any existing call state
-        // setCallState(initialCallState);
-
-        // Get caller details
         const response = await api.get(`/api/user/${initiatorId}`);
         const caller = response.data.user;
 
-          setCallState({
+        setCallState({
           isInCall: false,
           callStatus: "incoming",
           callType: type,
@@ -307,14 +354,12 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
           localStream: null,
           remoteStream: null,
         });
-
-        // updateCallStatus("incoming");
       } catch (error) {
-        console.error("Error handling incoming call:", error);
+        console.error("Incoming call handling error:", error);
         cleanupCall();
       }
     },
-    [cleanupCall, callState.roomName, callState.callStatus]
+    [cleanupCall]
   );
 
   const handleCallAccepted = useCallback(
@@ -336,9 +381,54 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const handleCallEnded = useCallback(
     async (data: any) => {
-      cleanupCall();
+      console.log("Handling comprehensive call end:", {
+        receivedData: data,
+        currentCallState: callState,
+      });
+
+      // // validating room name to prevent unnecessary processing
+      // if (!data.roomName || data.roomName !== callState.roomName) {
+      //   console.warn("Mismatched room name in call end", {
+      //     receivedRoomName: data.roomName,
+      //     currentRoomName: callState.roomName,
+      //   });
+      //   return;
+      // }
+
+      try {
+        // disconnecting Twilio room if active
+        if (roomRef.current) {
+          try {
+            roomRef.current.disconnect();
+          } catch (disconnectError) {
+            console.error("Room disconnection error:", disconnectError);
+          }
+          roomRef.current = null;
+        }
+
+        // explicitly reseting the initial state
+        setCallState({
+          isInCall: false,
+          callType: null,
+          callStatus: "idle",
+          remoteUser: null,
+          roomName: null,
+          localStream: null,
+          remoteStream: null,
+        });
+
+        //clearing lingering call events
+        queryClient.removeQueries({ queryKey: ["callEvent"] });
+        queryClient.removeQueries({ queryKey: ["callStatus"] });
+
+        queryClient.setQueryData(["callEvent"], null);
+      } catch (error) {
+        console.error("Comprehensive call end error:", error);
+      } finally {
+        cleanupCall();
+      }
     },
-    [cleanupCall]
+    [callState, cleanupCall, queryClient]
   );
 
   const setupLocalStream = useCallback(
@@ -371,36 +461,57 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
     async (roomName: string, token?: string) => {
       try {
         const currentToken = token || (await getTwilioToken(roomName));
-       const { connect } = await import("twilio-video");
+        const { connect } = await import("twilio-video");
+        const localStream = mediaStreamsRef.current.local;
+
+        if (!localStream) {
+          throw new Error("Local media stream not available");
+        }
+
+        //publishing local tracks explicitly
+        const tracks = Array.from(localStream.getTracks()).map((track) =>
+          track.kind === "audio"
+            ? new LocalAudioTrack(track)
+            : new LocalVideoTrack(track)
+        );
+
+        // const room = await connect(currentToken, {
+        //   name: roomName,
+        //   audio: true,
+        //   video: callState.callType === "video",
+        //   networkQuality: {
+        //     local: 1,
+        //     remote: 1,
+        //   },
+        // });
 
         const room = await connect(currentToken, {
           name: roomName,
-          audio: true,
-          video: callState.callType === "video",
+          tracks: tracks,
           networkQuality: {
             local: 1,
             remote: 1,
           },
         });
 
-        const localStream = new MediaStream();
+        // const localStream = new MediaStream();
 
-        // handling audio tracks
-        room.localParticipant.audioTracks.forEach((publication) => {
-          if (publication.track) {
-            localStream.addTrack(publication.track.mediaStreamTrack);
-          }
-        });
+        // // handling audio tracks
+        // room.localParticipant.audioTracks.forEach((publication) => {
+        //   if (publication.track) {
+        //     localStream.addTrack(publication.track.mediaStreamTrack);
+        //   }
+        // });
 
-        // handling video tracks
-        room.localParticipant.videoTracks.forEach((publication) => {
-          if (publication.track) {
-            localStream.addTrack(publication.track.mediaStreamTrack);
-          }
-        });
+        // // handling video tracks
+        // room.localParticipant.videoTracks.forEach((publication) => {
+        //   if (publication.track) {
+        //     localStream.addTrack(publication.track.mediaStreamTrack);
+        //   }
+        // });
 
-          //updating state with combined stream
-        handleCallStateChange({ localStream });
+        // //updating state with combined stream
+        // handleCallStateChange({ localStream });
 
         handleRoomConnect(room);
         return room;
@@ -411,11 +522,11 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
       }
     },
     [
-      callState.callType,
+      // callState.callType,
       getTwilioToken,
       handleRoomConnect,
       cleanupCall,
-      handleCallStateChange,
+      // handleCallStateChange,
     ]
   );
 
@@ -455,16 +566,24 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
     if (!callState.roomName || !callState.callType) return;
 
     try {
-      const stream = await setupLocalStream(callState.callType);
-      await connectToTwilioRoom(callState.roomName);
-
       setCallState((prev) => ({
         ...prev,
         isInCall: true,
-        callStatus: "connected",
-        localStream: stream,
+        callStatus: "connecting",
       }));
 
+      // const stream = await setupLocalStream(callState.callType);
+      await setupLocalStream(callState.callType);
+      await connectToTwilioRoom(callState.roomName);
+
+      // setCallState((prev) => ({
+      //   ...prev,
+      //   isInCall: true,
+      //   callStatus: "connecting",
+      //   localStream: stream,
+      // }));
+
+      // await connectToTwilioRoom(callState.roomName);
       // notifying caller
       sendMessage({
         type: "call_accepted",
@@ -485,19 +604,18 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const rejectCall = useCallback(async () => {
     if (!callState.roomName || !callState.remoteUser?._id) return;
-  
+
     try {
       await api.post("/api/call/status", {
         roomName: callState.roomName,
-        status: "rejected"
+        status: "rejected",
       });
-  
+
       sendMessage({
         type: "call_rejected",
         receiverId: callState.remoteUser._id,
-        roomName: callState.roomName
+        roomName: callState.roomName,
       });
-  
     } catch (error) {
       console.error("Reject call error:", error);
     } finally {
@@ -506,28 +624,47 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
   }, [callState, sendMessage, cleanupCall]);
 
   const endCall = useCallback(async () => {
-    if (!callState.roomName) return;
-  
+    if (!callState.roomName || !callState.remoteUser?._id) {
+      console.warn("No active call to end");
+      return;
+    }
+
     try {
       await api.post("/api/call/status", {
         roomName: callState.roomName,
         status: "completed",
-        endTime: new Date().toISOString()
+        endTime: new Date().toISOString(),
       });
-  
-      if (callState.remoteUser?._id) {
-        sendMessage({
-          type: "call_ended",
-          receiverId: callState.remoteUser._id,
-          roomName: callState.roomName
-        });
-      }
+
+      //notifying remote user
+      sendMessage({
+        type: "call_ended",
+        receiverId: callState.remoteUser._id,
+        roomName: callState.roomName,
+        senderId: callState.remoteUser._id,
+        forceReset: true,
+      });
+
+      cleanupCall();
+
+      setCallState({
+        isInCall: false,
+        callType: null,
+        callStatus: "idle",
+        remoteUser: null,
+        roomName: null,
+        localStream: null,
+        remoteStream: null,
+      });
+
+      queryClient.removeQueries({ queryKey: ["callEvent"] });
+      queryClient.removeQueries({ queryKey: ["callStatus"] });
+      queryClient.setQueryData(["callEvent"], null);
     } catch (error) {
       console.error("End call error:", error);
-    } finally {
       cleanupCall();
     }
-  }, [callState, sendMessage, cleanupCall]);
+  }, [callState, sendMessage, cleanupCall, queryClient]);
 
   const toggleAudio = useCallback(() => {
     const room = roomRef.current;
@@ -551,44 +688,152 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   }, []);
 
+  // const toggleScreenShare = useCallback(async () => {
+  //   const room = roomRef.current;
+  //   if (!room) throw new Error("No active room connection");
+
+  //   const localParticipant = room.localParticipant;
+  //   let screenTrack: MediaStreamTrack | undefined;
+
+  //   if (!isScreenSharing) {
+  //     const screenStream = await navigator.mediaDevices.getDisplayMedia({
+  //       video: { frameRate: 15, width: 1280, height: 720 },
+  //     });
+  //     [screenTrack] = screenStream.getVideoTracks();
+  //     screenTrack.onended = () => toggleScreenShare();
+
+  //     const currentVideoTrack = [...localParticipant.videoTracks.values()][0];
+  //     if (currentVideoTrack?.track) {
+  //       await localParticipant.unpublishTrack(currentVideoTrack.track);
+  //       currentVideoTrack.track.stop();
+  //     }
+
+  //     await localParticipant.publishTrack(screenTrack);
+  //   } else {
+  //     const cameraStream = await navigator.mediaDevices.getUserMedia({
+  //       video: callState.callType === "video",
+  //     });
+  //     const [cameraTrack] = cameraStream.getVideoTracks();
+
+  //     const currentScreenTrack = [...localParticipant.videoTracks.values()][0];
+  //     if (currentScreenTrack?.track) {
+  //       await localParticipant.unpublishTrack(currentScreenTrack.track);
+  //       currentScreenTrack.track.stop();
+  //     }
+
+  //     await localParticipant.publishTrack(cameraTrack);
+  //   }
+
+  //   setIsScreenSharing((prev) => !prev);
+  // }, [isScreenSharing, callState.callType]);
+
+  // const toggleScreenShare = useCallback(async () => {
+  //   const room = roomRef.current;
+  //   if (!room) throw new Error("No active room connection");
+
+  //   try {
+  //     if (!isScreenSharing) {
+  //       const screenStream = await navigator.mediaDevices.getDisplayMedia({
+  //         video: { frameRate: 15, width: 1280, height: 720 },
+  //       });
+  //       const [screenTrack] = screenStream.getVideoTracks();
+  //       screenTrack.onended = () => toggleScreenShare();
+
+  //       // Create new local stream with screen track
+  //       const newLocalStream = new MediaStream([
+  //         ...(mediaStreamsRef.current.local?.getAudioTracks() || []),
+  //         screenTrack,
+  //       ]);
+
+  //       mediaStreamsRef.current.local = newLocalStream;
+  //       handleCallStateChange({ localStream: newLocalStream });
+
+  //       // Replace existing video track
+  //       const localParticipant = room.localParticipant;
+  //       localParticipant.videoTracks.forEach((track) => track.track?.stop());
+  //       await localParticipant.publishTrack(screenTrack);
+  //     } else {
+  //       const cameraStream = await navigator.mediaDevices.getUserMedia({
+  //         video: true,
+  //       });
+  //       const [cameraTrack] = cameraStream.getVideoTracks();
+
+  //       // Create new local stream with camera track
+  //       const newLocalStream = new MediaStream([
+  //         ...(mediaStreamsRef.current.local?.getAudioTracks() || []),
+  //         cameraTrack,
+  //       ]);
+
+  //       mediaStreamsRef.current.local = newLocalStream;
+  //       handleCallStateChange({ localStream: newLocalStream });
+
+  //       // Replace existing video track
+  //       const localParticipant = room.localParticipant;
+  //       localParticipant.videoTracks.forEach((track) => track.track?.stop());
+  //       await localParticipant.publishTrack(cameraTrack);
+  //     }
+
+  //     setIsScreenSharing((prev) => !prev);
+  //   } catch (error) {
+  //     console.error("Screen sharing failed:", error);
+  //   }
+  // }, [isScreenSharing, handleCallStateChange]);
+
   const toggleScreenShare = useCallback(async () => {
     const room = roomRef.current;
     if (!room) throw new Error("No active room connection");
 
-    const localParticipant = room.localParticipant;
-    let screenTrack: MediaStreamTrack | undefined;
+    try {
+      if (!isScreenSharing) {
+        const screenStream = await navigator.mediaDevices.getDisplayMedia({
+          video: { frameRate: 15, width: 1280, height: 720 },
+        });
+        const [screenTrack] = screenStream.getVideoTracks();
+        screenTrack.onended = () => toggleScreenShare();
 
-    if (!isScreenSharing) {
-      const screenStream = await navigator.mediaDevices.getDisplayMedia({
-        video: { frameRate: 15, width: 1280, height: 720 },
-      });
-      [screenTrack] = screenStream.getVideoTracks();
-      screenTrack.onended = () => toggleScreenShare();
+        // Create new local stream with screen track
+        const newLocalStream = new MediaStream([
+          ...(mediaStreamsRef.current.local?.getAudioTracks() || []),
+          screenTrack,
+        ]);
 
-      const currentVideoTrack = [...localParticipant.videoTracks.values()][0];
-      if (currentVideoTrack?.track) {
-        await localParticipant.unpublishTrack(currentVideoTrack.track);
-        currentVideoTrack.track.stop();
+        mediaStreamsRef.current.local = newLocalStream;
+        handleCallStateChange({ localStream: newLocalStream });
+
+        // Replace existing video track with explicit type annotation
+        const localParticipant = room.localParticipant;
+        localParticipant.videoTracks.forEach(
+          (track: LocalVideoTrackPublication) => track.track?.stop()
+        );
+        await localParticipant.publishTrack(screenTrack);
+      } else {
+        const cameraStream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+        });
+        const [cameraTrack] = cameraStream.getVideoTracks();
+
+        // Create new local stream with camera track
+        const newLocalStream = new MediaStream([
+          ...(mediaStreamsRef.current.local?.getAudioTracks() || []),
+          cameraTrack,
+        ]);
+
+        mediaStreamsRef.current.local = newLocalStream;
+        handleCallStateChange({ localStream: newLocalStream });
+
+        // Replace existing video track with explicit type annotation
+        const localParticipant = room.localParticipant;
+        localParticipant.videoTracks.forEach(
+          (track: LocalVideoTrackPublication) => track.track?.stop()
+        );
+        await localParticipant.publishTrack(cameraTrack);
       }
 
-      await localParticipant.publishTrack(screenTrack);
-    } else {
-      const cameraStream = await navigator.mediaDevices.getUserMedia({
-        video: callState.callType === "video",
-      });
-      const [cameraTrack] = cameraStream.getVideoTracks();
-
-      const currentScreenTrack = [...localParticipant.videoTracks.values()][0];
-      if (currentScreenTrack?.track) {
-        await localParticipant.unpublishTrack(currentScreenTrack.track);
-        currentScreenTrack.track.stop();
-      }
-
-      await localParticipant.publishTrack(cameraTrack);
+      setIsScreenSharing((prev) => !prev);
+    } catch (error) {
+      console.error("Screen sharing failed:", error);
     }
-
-    setIsScreenSharing((prev) => !prev);
-  }, [isScreenSharing, callState.callType]);
+  }, [isScreenSharing, handleCallStateChange]);
 
   useEffect(() => {
     const subscription = queryClient.getQueryCache().subscribe(() => {

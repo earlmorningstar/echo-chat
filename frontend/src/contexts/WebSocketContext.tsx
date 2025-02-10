@@ -100,15 +100,21 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
             break;
 
           case "call_initiate":
-            console.log("Received call_initiate message:", message);
+            // console.log("Received call_initiate message:", message);
             if (
               !message.initiatorId ||
               !message.callType ||
               !message.roomName
             ) {
-              console.error("Missing required call data:", message);
+              console.error("Incomplete call initiation data");
               return;
             }
+
+            console.log("Validating call initiation:", {
+              initiatorId: message.initiatorId,
+              callType: message.callType,
+              roomName: message.roomName,
+            });
 
             queryClient.setQueryData(["callEvent"], {
               type: "incoming",
@@ -135,9 +141,18 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
             break;
 
           case "call_ended":
+            console.log("Received call ended message:", message);
+
+            queryClient.setQueryData(["callEvent"], null);
+            queryClient.removeQueries({ queryKey: ["callStatus"] });
+            queryClient.removeQueries({ queryKey: ["callEvent"] });
+
             queryClient.setQueryData(["callEvent"], {
               type: "ended",
-              data: message,
+              data: {
+                roomName: message.roomName,
+                initiatorId: message.senderId,
+              },
             });
             break;
         }

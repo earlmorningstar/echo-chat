@@ -88,6 +88,7 @@ export type CallStatus =
   | "idle"
   | "incoming"
   | "outgoing"
+  | "connecting"
   | "connected"
   | "ended";
 
