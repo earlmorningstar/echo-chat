@@ -41,19 +41,33 @@ export class CallEventHandler {
   async handleIncomingCall(event: CallEvent): Promise<void> {
     try {
       const currentState = this.stateManager.getState();
-      if (currentState.callStatus !== "idle") {
-        // Already in a call or handling another call
-        return;
+      if (currentState.callStatus !== "idle") return;
+
+      const data = event.data;
+      if (!data || typeof data !== "object") {
+        throw new Error("Invalid callevent data");
       }
 
-      const response = await api.get(`/api/user/${event.data.initiatorId}`);
-      const caller = response.data.user;
+      //using proper evt data structure
+      // const initiatorId = event.data?.initiatorId;
+      // const roomName = event.data?.roomName;
+      // const callType = event.data?.type;
+
+      const { initiatorId, roomName, type } = data;
+      if (!initiatorId || !roomName || !type) {
+        throw new Error("Missing required call parameters");
+      }
+
+      const response = await api.get(`/api/user/${initiatorId}`);
+      if (!response.data?.user) {
+        throw new Error("Caller information not found");
+      }
 
       await this.stateManager.transition({
         callStatus: "incoming",
-        callType: event.data.type as CallType,
-        remoteUser: caller,
-        roomName: event.data.roomName,
+        callType: type as CallType,
+        remoteUser: response.data.user,
+        roomName,
         isInCall: true,
       });
     } catch (error) {

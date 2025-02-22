@@ -1,39 +1,6 @@
 import { CallState, CallStatus } from "../../types";
 import { StateTransitionMiddleware } from "./stateValidationMiddleware";
 
-// // Define valid state transitions
-// const validStateTransitions: Record<CallStatus, CallStatus[]> = {
-//   idle: ["incoming", "outgoing"],
-//   incoming: ["connecting", "ended"],
-//   outgoing: ["connecting", "ended"],
-//   connecting: ["connected", "ended"],
-//   connected: ["ended"],
-//   ended: ["idle"],
-// };
-
-// // Define required fields for each state
-// const requiredFields: Record<CallStatus, (keyof CallState)[]> = {
-//   idle: [],
-//   incoming: ["callType", "remoteUser", "roomName"],
-//   outgoing: ["callType", "remoteUser", "roomName", "localStream"],
-//   connecting: ["callType", "remoteUser", "roomName", "localStream"],
-//   connected: [
-//     "callType",
-//     "remoteUser",
-//     "roomName",
-//     "localStream",
-//     "remoteStream",
-//   ],
-//   ended: [],
-// };
-
-// class StateValidationError extends Error {
-//   constructor(message: string) {
-//     super(message);
-//     this.name = "StateValidationError";
-//   }
-// }
-
 export class CallStateManager {
   private state: CallState;
   private stateHistory: CallState[] = [];
@@ -52,35 +19,6 @@ export class CallStateManager {
       remoteStream: null,
     };
   }
-
-  //   private validateTransition(newState: Partial<CallState>): void {
-  //     const currentStatus = this.state.callStatus;
-  //     const newStatus = newState.callStatus;
-
-  //     if (
-  //       newStatus &&
-  //       !validStateTransitions[currentStatus].includes(newStatus)
-  //     ) {
-  //       throw new StateValidationError(
-  //         `Invalid state transition from ${currentStatus} to ${newStatus}`
-  //       );
-  //     }
-
-  //     if (newStatus) {
-  //       const requiredForNewState = requiredFields[newStatus];
-  //       const missingFields = requiredForNewState.filter(
-  //         (field) => !(field in newState) && !this.state[field]
-  //       );
-
-  //       if (missingFields.length > 0) {
-  //         throw new StateValidationError(
-  //           `Missing required fields for ${newStatus} state: ${missingFields.join(
-  //             ", "
-  //           )}`
-  //         );
-  //       }
-  //     }
-  //   }
 
   useMiddleware(middleware: StateTransitionMiddleware): void {
     this.middleware.push(middleware);
@@ -246,16 +184,3 @@ export class CallStateManager {
     this.middleware = [];
   }
 }
-
-// // Helper functions for state validation
-// export const validateCallState = (state: CallState): boolean => {
-//   const requiredForCurrentState = requiredFields[state.callStatus];
-//   return requiredForCurrentState.every((field) => state[field] !== null);
-// };
-
-// export const isValidStateTransition = (
-//   currentStatus: CallStatus,
-//   newStatus: CallStatus
-// ): boolean => {
-//   return validStateTransitions[currentStatus].includes(newStatus);
-// };

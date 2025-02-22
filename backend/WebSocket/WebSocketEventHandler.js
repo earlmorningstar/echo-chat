@@ -18,6 +18,11 @@ class WebSocketEventHandler {
     try {
       await this.validateMessage(message);
 
+      //message validation
+      if (message.type.startsWith("call_") && !message.data) {
+        throw new Error("Invalid call message format");
+      }
+
       const handlers = {
         typing: () => this.handleTypingIndicator(message),
         status: () => this.handleStatusUpdate(message),
@@ -43,10 +48,16 @@ class WebSocketEventHandler {
         );
       }
     } catch (error) {
-      console.error("Error handling event:", {
-        type: message.type,
-        error: error.message,
-      });
+      console.error("Error handling event:", error);
+      if (message.requireAck) {
+        ws.send(
+          JSON.stringify({
+            type: "error",
+            id: message.id,
+            message: error.message,
+          })
+        );
+      }
 
       if (ws.readyState === WebSocket.OPEN) {
         ws.send(
@@ -261,52 +272,173 @@ class WebSocketEventHandler {
     );
   }
 
+  // async handleCallInitiation(ws, event) {
+  //   try {
+  //     const { data } = event;
+  //     const { receiverId, callType, roomName, senderId } = data;
+
+  //     //validating connection state
+  //     const receiverWs = this.connectedClients.get(receiverId);
+  //     if (!receiverWs || receiverWs.readyState !== WebSocket.OPEN) {
+  //       throw new Error("Receiver not connected");
+  //     }
+
+  //     if (
+  //       !receiverId ||
+  //       !callType ||
+  //       !roomName ||
+  //       !senderId ||
+  //       !isValidObjectId(receiverId) ||
+  //       !isValidObjectId(senderId)
+  //     ) {
+  //       throw new Error("Missing or invalid call parameters");
+  //     }
+
+  //     //validating all required parameters
+  //     if (!roomName || !receiverId || !senderId || !callType) {
+  //       throw new Error("Missing required call parameters");
+  //     }
+
+  //     //covert IDs to Obj
+  //     const initiatorObjId = new ObjectId(senderId);
+  //     const receiverObjId = new ObjectId(receiverId);
+
+  //     const existingCall = await this.db.collection("calls").findOne({
+  //       roomName,
+  //       status: { $in: ["initiated", "connected"] },
+  //     });
+
+  //     if (!existingCall) {
+  //       await this.db.collection("calls").insertOne({
+  //         roomName,
+  //         initiatorId: initiatorObjId,
+  //         receiverId: receiverObjId,
+  //         callType,
+  //         status: "initiated",
+  //         startTime: new Date(),
+  //       });
+  //     }
+
+  //     await this.sendWithAcknowledgment(receiverWs, {
+  //       type: "call_initiate",
+  //       initiatorObjId,
+  //       callType,
+  //       roomName,
+  //     });
+  //   } catch (error) {
+  //     console.error("Call initiation failed:", error);
+  //     if (event.requireAck) {
+  //       ws.send(
+  //         JSON.stringify({
+  //           type: "error",
+  //           id: event.id,
+  //           message: error.message,
+  //         })
+  //       );
+  //     }
+  //     throw error;
+  //   }
+  // }
+
   async handleCallInitiation(ws, event) {
-    const { receiverId, callType, roomName, senderId } = event;
-
     try {
-      if (!roomName || !receiverId || !senderId) {
-        throw new Error("Missing required call parameters");
+      //validating event structure
+      if (!event.data || typeof event.data !== "object") {
+        throw new Error("Invalid event format");
       }
 
+      //destructuring with defaults
+      const {
+        receiverId = null,
+        callType = null,
+        roomName = null,
+        senderId = null,
+      } = event.data;
+
+      //validating parameters in a single check
+      if (
+        !roomName ||
+        !receiverId ||
+        !senderId ||
+        !callType ||
+        !isValidObjectId(receiverId) ||
+        !isValidObjectId(senderId) ||
+        !["voice", "video"].includes(callType)
+      ) {
+        throw new Error("Invalid call parameters");
+      }
+
+      //checking receiver connection state
       const receiverWs = this.connectedClients.get(receiverId);
-      if (!receiverWs || receiverWs.readyState !== WebSocket.OPEN) {
-        throw new Error("Receiver not available");
+      if (!receiverWs?.readyState === WebSocket.OPEN) {
+        throw new Error("Receiver unavailable");
       }
 
+      //db operations with error handling
       const existingCall = await this.db.collection("calls").findOne({
         roomName,
         status: { $in: ["initiated", "connected"] },
       });
 
       if (!existingCall) {
-        await this.db.collection("calls").insertOne({
-          roomName,
-          initiatorId: senderId,
-          receiverId,
-          callType,
-          status: "initiated",
-          startTime: new Date(),
-        });
+        await this.db.collection("calls").updateOne(
+          { roomName },
+          {
+            $setOnInsert: {
+              initiatorId: new ObjectId(senderId),
+              receiverId: new ObjectId(receiverId),
+              callType,
+              status: "initiated",
+              startTime: new Date(),
+            },
+          },
+          { upsert: true }
+        );
       }
 
+      // sending properly formatted message to receiver
       await this.sendWithAcknowledgment(receiverWs, {
         type: "call_initiate",
-        initiatorId: senderId,
-        callType,
-        roomName,
+        data: {
+          initiatorId: senderId, //keeping as string for client
+          callType,
+          roomName,
+          timestamp: Date.now(),
+        },
       });
+
+      //sending success ACK to initiator
+      if (event.requireAck) {
+        ws.send(
+          JSON.stringify({
+            type: "ack",
+            id: event.id,
+          })
+        );
+      }
     } catch (error) {
       console.error("Call initiation failed:", {
-        roomName,
         error: error.message,
+        event: JSON.stringify(event),
       });
+
+      //safe error ACK handling
+      if (event.requireAck && event.id) {
+        ws.send(
+          JSON.stringify({
+            type: "error",
+            id: event.id,
+            message: error.message,
+          })
+        );
+      }
+
       throw error;
     }
   }
 
   async handleCallAcceptance(ws, event) {
-    const { roomName, senderId, receiverId } = event;
+    const { roomName, senderId, receiverId } = event.data;
 
     try {
       await this.db.collection("calls").updateOne(
@@ -339,7 +471,7 @@ class WebSocketEventHandler {
   }
 
   async handleCallRejection(ws, event) {
-    const { roomName, senderId, initiatorId } = event;
+    const { roomName, senderId, initiatorId } = event.data;
 
     try {
       await this.db.collection("calls").updateOne(
@@ -372,9 +504,13 @@ class WebSocketEventHandler {
   }
 
   async handleCallEnding(ws, event) {
-    const { roomName, senderId, initiatorId } = event;
-
     try {
+      const { roomName, senderId } = event.data;
+
+      if (!roomName || !!senderId) {
+        throw new Error("Missing parameters for call ending");
+      }
+
       await this.db.collection("calls").updateOne(
         { roomName },
         {
@@ -385,38 +521,47 @@ class WebSocketEventHandler {
         }
       );
 
-      const otherParticipantWs = this.connectedClients.get(initiatorId);
+      if (event.requireAck) {
+        ws.send(
+          JSON.stringify({
+            type: "ack",
+            id: event.id,
+          })
+        );
+      }
+
+      const otherParticipantWs = this.connectedClients.get(senderId);
       if (otherParticipantWs?.readyState === WebSocket.OPEN) {
         await this.sendWithAcknowledgment(otherParticipantWs, {
           type: "call_ended",
-          senderId,
           roomName,
         });
       }
     } catch (error) {
-      console.error("Call ending failed:", {
-        roomName,
-        error: error.message,
-      });
+      console.error("Call ending failed:", error);
       throw error;
     }
   }
 
   async sendWithAcknowledgment(ws, message) {
     return new Promise((resolve, reject) => {
+      if (ws.readyState !== WebSocket.OPEN) {
+        reject(new Error("Connection closed"));
+        return;
+      }
+
+      const messageId = `${Date.now()}-${Math.random()
+        .toString(36)
+        .substr(2, 9)}`;
+      const timeout = setTimeout(() => {
+        this.pendingEvents.has(messageId);
+        this.pendingEvents.delete(messageId);
+        reject(new Error("Acknowledgment timeout"));
+      }, 3000);
+
+      this.pendingEvents.set(messageId, { resolve, timeout });
+
       try {
-        const messageId = `${Date.now()}-${Math.random()
-          .toString(36)
-          .substr(2, 9)}`;
-        const timeout = setTimeout(() => {
-          if (this.pendingEvents.has(messageId)) {
-            this.pendingEvents.delete(messageId);
-            reject(new Error("Acknowledgment timeout"));
-          }
-        }, 5000);
-
-        this.pendingEvents.set(messageId, { resolve, timeout });
-
         ws.send(
           JSON.stringify({
             ...message,
@@ -425,6 +570,7 @@ class WebSocketEventHandler {
           })
         );
       } catch (error) {
+        clearTimeout(timeout);
         reject(error);
       }
     });

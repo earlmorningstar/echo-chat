@@ -155,11 +155,16 @@ export class WebSocketEventManager {
         this.pendingAcks.delete(data.id);
         resolve(false);
         console.warn(`Ack timeout for ${data.type}`);
-      }, 3000);
+      }, 5000);
 
       try {
         if (this.ws.readyState === WebSocket.OPEN) {
-          this.ws.send(JSON.stringify(data));
+          this.ws.send(
+            JSON.stringify({
+              ...data,
+              timestamp: Date.now(),
+            })
+          );
           this.pendingAcks.set(data.id, { timeout, resolve });
         } else {
           clearTimeout(timeout);

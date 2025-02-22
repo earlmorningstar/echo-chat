@@ -40,23 +40,45 @@ const initializeWebSocket = (server, db) => {
     };
 
     const processMessage = async (rawMessage) => {
-      if (!rateLimiter.checkLimit(clientId)) {
-        ws.send(
-          JSON.stringify({
-            type: "error",
-            message: "Rate limit exceeded. Please slow down.",
-          })
-        );
-        return;
-      }
+      // if (!rateLimiter.checkLimit(clientId)) {
+      //   ws.send(
+      //     JSON.stringify({
+      //       type: "error",
+      //       message: "Rate limit exceeded. Please slow down.",
+      //     })
+      //   );
+      //   return;
+      // }
 
       try {
         const message = JSON.parse(rawMessage);
 
         if (message.type === "ping") {
-          handleClientPing();
+          ws.send(JSON.stringify({ type: "pong" }));
           return;
         }
+
+        //validaating call messages
+        if (message.type.startsWith("call_")) {
+          if (!message.data || typeof message.data !== "object") {
+            throw new Error("Invalid call message format");
+          }
+
+          const requiredFields = {
+            call_initiate: ["receiverId", "callType", "roomName", "senderId"],
+            call_ended: ["roomName", "senderId"],
+          };
+
+          const fields = requiredFields[message.type] || [];
+          if (fields.some((field) => !message.data[field])) {
+            throw new Error(`Missing fields for ${message.type}`);
+          }
+        }
+
+        // if (message.type === "ping") {
+        //   handleClientPing();
+        //   return;
+        // }
 
         if (message.type === "register") {
           await handleRegistration(message);
@@ -65,7 +87,21 @@ const initializeWebSocket = (server, db) => {
 
         await requestPool.execute(() => eventHandler.handleEvent(ws, message));
       } catch (error) {
-        handleError(error);
+        console.error("Message processing error:", {
+          error: error.message,
+          rawMessage: rawMessage.toString(),
+        });
+
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(
+            JSON.stringify({
+              type: "error",
+              message: error.message,
+              // originalMessage: rawMessage.toString(),
+            })
+          );
+        }
+        // handleError(error);
       }
     };
 

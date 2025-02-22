@@ -157,6 +157,15 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
       if (state === WebSocket.OPEN || state === WebSocket.CONNECTING) return;
     }
 
+    // Clear existing connection if needed
+    if (
+      ws.current &&
+      (ws.current.readyState === WebSocket.OPEN ||
+        ws.current.readyState === WebSocket.CONNECTING)
+    ) {
+      ws.current.close();
+    }
+
     isConnecting.current = true;
     cleanupConnection();
 
@@ -232,7 +241,23 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const sendMessage = useCallback(
     async (message: any) => {
-    
+
+      //remove
+      // if (
+      //   !isConnected ||
+      //   connectionAttempts.current >= MAX_RECONNECT_ATTEMPTS
+      // ) {
+      //   console.warn("Message queued offline:", message.type);
+      //   pendingMessages.current.push({
+      //     type: message.type,
+      //     data: message,
+      //     timestamp: Date.now(),
+      //   });
+      //   connect();
+      //   return;
+      // }
+      //remove
+
       //to maintain message queue health
       const now = Date.now();
       pendingMessages.current = pendingMessages.current.filter(
@@ -315,6 +340,22 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
       };
     }
   }, [user?._id, connect, sendMessage, cleanupConnection]);
+
+  useEffect(() => {
+    const handleConnectionChange = () => {
+      if (ws.current) {
+        setIsConnected(ws.current.readyState === WebSocket.OPEN);
+      }
+    };
+
+    window.addEventListener("online", handleConnectionChange);
+    window.addEventListener("offline", handleConnectionChange);
+
+    return () => {
+      window.removeEventListener("online", handleConnectionChange);
+      window.removeEventListener("offline", handleConnectionChange);
+    };
+  }, []);
 
   return (
     <WebSocketContext.Provider

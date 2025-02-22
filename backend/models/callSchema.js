@@ -23,7 +23,10 @@ const callSchema = new Schema(
   }
 );
 
-callSchema.index({ initiator: 1, receiver: 1 });
+// callSchema.index({ initiator: 1, receiver: 1 });
+callSchema.index({ initiator: 1, status: 1 });
+callSchema.index({ receiver: 1, status: 1 });
+callSchema.index({ startTime: -1 });
 callSchema.index({ roomName: 1 }, { unique: true, sparse: true });
 
 const Call = mongoose.model.Call || mongoose.model("Call", callSchema);

@@ -16,33 +16,6 @@ export class CallStateValidationMiddleware
   private transitionStartTimes: Map<string, number> = new Map();
   private retryAttempts: Map<string, number> = new Map();
 
-  //   async beforeTransition(
-  //     currentState: CallState,
-  //     newState: Partial<CallState>
-  //   ): Promise<void> {
-  //     // Validate state consistency
-  //     this.validateStateConsistency(currentState, newState);
-
-  //     // Track transition start time
-  //     if (newState.callStatus) {
-  //       this.transitionStartTimes.set(
-  //         this.getTransitionKey(currentState.callStatus, newState.callStatus),
-  //         Date.now()
-  //       );
-  //     }
-  //   }
-
-  //   async afterTransition(newState: CallState): Promise<void> {
-  //     // Check for stuck transitions
-  //     await this.checkStuckTransitions(newState);
-
-  //     // Validate final state
-  //     this.validateFinalState(newState);
-
-  //     // Cleanup transition tracking
-  //     this.cleanupTransitionTracking(newState.callStatus);
-  //   }
-
   async beforeTransition(
     currentState: CallState,
     newState: Partial<CallState>
@@ -69,39 +42,6 @@ export class CallStateValidationMiddleware
       this.transitionStartTimes.set(transitionKey, Date.now());
     }
   }
-
-  // private validateStateConsistency(
-  //   currentState: CallState,
-  //   newState: Partial<CallState>
-  // ): void {
-  //   // Validate isInCall consistency
-  //   if (newState.callStatus === "idle" && newState.isInCall === true) {
-  //     throw new Error("Invalid state: Cannot be in call while in idle status");
-  //   }
-
-  //   // Validate media stream consistency
-  //   if (
-  //     newState.callStatus === "connected" &&
-  //     !currentState.localStream &&
-  //     !newState.localStream
-  //   ) {
-  //     throw new Error(
-  //       "Invalid state: Connected status requires local media stream"
-  //     );
-  //   }
-
-  //   // Validate room name consistency
-  //   if (
-  //     newState.callStatus &&
-  //     ["connecting", "connected"].includes(newState.callStatus) &&
-  //     !currentState.roomName &&
-  //     !newState.roomName
-  //   ) {
-  //     throw new Error(
-  //       "Invalid state: Room name required for connecting/connected status"
-  //     );
-  //   }
-  // }
 
   private async validateStateConsistency(
     currentState: CallState,

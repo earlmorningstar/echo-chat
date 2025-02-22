@@ -7,18 +7,26 @@ export class MediaStreamManager {
   } = { local: null, remote: null };
 
   async setupLocalStream(type: CallType): Promise<MediaStream> {
+    await this.cleanupLocalStream();
+    
+    const constraints = {
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true
+      },
+      video: type === "video" ? {
+        facingMode: "user",
+        width: { ideal: 1280 },
+        height: { ideal: 720 }
+      } : false
+    };
+  
     try {
-      await this.cleanupLocalStream();
-      const constraints = {
-        audio: true,
-        video: type === "video" ? { facingMode: "user" } : false,
-      };
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
-      this.streams.local = stream;
-      return stream;
+      return await navigator.mediaDevices.getUserMedia(constraints);
     } catch (error) {
-      console.error("Error accessing media devices:", error);
-      throw error;
+      console.error("Media access error:", error);
+      throw new Error("Error accessing media devices");
     }
   }
 

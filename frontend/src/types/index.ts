@@ -92,6 +92,18 @@ export type CallStatus =
   | "connected"
   | "ended";
 
+export interface WSCallMessage {
+  type: string;
+  data: {
+    receiverId: string;
+    callType: CallType;
+    roomName: string;
+    senderId: string;
+  };
+  requireAck: boolean;
+  id: string;
+}
+
 export interface CallState {
   isInCall: boolean;
   callType: CallType | null;

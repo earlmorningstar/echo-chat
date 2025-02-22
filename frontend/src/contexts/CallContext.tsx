@@ -15,6 +15,7 @@ import {
   CallType,
   CallEvent,
 } from "../types";
+import { useAuth } from "./AuthContext";
 import { CallStateManager } from "./calls/CallStateManager";
 import { MediaStreamManager } from "./calls/MediaStreamManager";
 import { TwilioRoomManager } from "./calls/TwilioRoomManager";
@@ -26,6 +27,7 @@ const CallContext = createContext<CallContextType | undefined>(undefined);
 export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
+  const { user } = useAuth();
   const { sendMessage } = useWebSocket();
   const queryClient = useQueryClient();
   const [callState, setCallState] = useState<CallState>({
@@ -96,19 +98,35 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const initiateCall = async (friend: Friend, type: CallType) => {
     try {
-      // Setup local media stream
+      if (!user?._id) {
+        throw new Error("User not authenticated");
+      }
+      // setup local media stream
       const localStream = await mediaManager.setupLocalStream(type);
-      // Request room name from server
+      // requesting room name from server
       const response = await api.post("/api/call/initiate", {
         receiverId: friend._id,
         type,
       });
 
-      if (!response.data.roomName) {
-        throw new Error("Room name not received from server");
+      if (!response.data?.roomName) {
+        throw new Error("Invalid server response");
       }
 
-      // Update call state
+      // Send WebSocket message
+    await sendMessage({
+        type: "call_initiate",
+        data: {
+          receiverId: friend._id,
+          callType: type,
+          roomName: response.data.roomName,
+          senderId: user?._id,
+        },
+        requireAck: true,
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+      });
+
+      // updating call state
       await stateManager.transition({
         isInCall: true,
         callType: type,
@@ -116,19 +134,6 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
         remoteUser: friend,
         roomName: response.data.roomName,
         localStream,
-      });
-      // // Connect to Twilio room
-      // await roomManager.connectToRoom(
-      //   response.data.roomName,
-      //   localStream.getTracks()
-      // );
-
-      // Send WebSocket message
-      sendMessage({
-        type: "call_initiate",
-        receiverId: friend._id,
-        callType: type,
-        roomName: response.data.roomName,
       });
     } catch (error) {
       console.error("Error initiating call:", error);
@@ -248,17 +253,19 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
           console.warn("Failed to update call status on server:", apiError);
         }
 
-        try {
+        // try {
           sendMessage({
             type: "call_ended",
-            receiverId: currentState.remoteUser._id,
+            data: {
+             receiverId: currentState.remoteUser._id,
             roomName: currentState.roomName,
             forceCleanup: true,
+            }
           });
-        } catch (wsError) {
-          console.warn("Failed to send call_ended websocket message:", wsError);
-          // continue with call termination even if WS message fails
-        }
+        // } catch (wsError) {
+        //   console.warn("Failed to send call_ended websocket message:", wsError);
+        //   // continue with call termination even if WS message fails
+        // }
       }
       // attempt to clean up, even when failure occures
       await eventHandler.handleCallEnded();
