@@ -100,6 +100,7 @@ export interface CallState {
   roomName: string | null;
   localStream: MediaStream | null;
   remoteStream: MediaStream | null;
+  timestamp?: number;
 }
 
 export interface CallQuality {
@@ -116,6 +117,16 @@ export interface CallQuality {
   };
   networkLevel?: number;
   timestamp?: number;
+}
+
+export interface CallEvent {
+  type: "incoming" | "accepted" | "rejected" | "ended";
+  data: {
+    initiatorId?: string;
+    type?: CallType;
+    roomName?: string;
+    forceCleanup?: boolean;
+  };
 }
 
 export interface CallContextType {

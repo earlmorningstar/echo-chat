@@ -28,40 +28,6 @@ const IncomingCallModal: React.FC = () => {
     };
   }, []);
 
-  // useEffect(() => {
-
-  //   if (callStatus === "incoming") {
-  //     const audio = new Audio("/sounds/iphone_15_ringtone_03.mp3");
-  //     audio.loop = true;
-
-  //     const playAudio = async () => {
-  //       try {
-  //         if (userInteracted.current) {
-  //           await audio.play();
-  //         } else {
-  //           const handleUserInteraction = async () => {
-  //             userInteracted.current = true;
-  //             await audio.play();
-  //             document.removeEventListener("click", handleUserInteraction);
-  //           };
-  //           document.addEventListener("click", handleUserInteraction);
-  //         }
-  //       } catch (error) {
-  //         console.error("Audio playback error:", error);
-  //       }
-  //     };
-
-  //     audioRef.current = audio;
-  //     playAudio();
-
-  //     return () => {
-  //       audio.pause();
-  //       audio.currentTime = 0;
-  //       audioRef.current = null;
-  //     };
-  //   }
-  // }, [callStatus]);
-
   useEffect(() => {
     let audioTimeout: NodeJS.Timeout;
 

@@ -27,27 +27,7 @@ const CallInterface: React.FC = () => {
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const [isFullScreen, setIsFullScreen] = useState(false);
 
-  //  useEffect(() => {
-  //   if (localVideoRef.current && callState.localStream) {
-  //     const videoTrack = callState.localStream.getVideoTracks()[0];
-  //     if (videoTrack) {
-  //       videoTrack.enabled = true;
-  //     }
-  //     localVideoRef.current.srcObject = callState.localStream;
-  //     localVideoRef.current.muted = true;
-
-  //     const playVideo = async () => {
-  //       try {
-  //         await localVideoRef.current?.play();
-  //       } catch (error) {
-  //         console.error("Error playing local video:", error);
-  //       }
-  //     };
-  //     playVideo();
-  //   }
-  // }, [callState.localStream]);
-
-  useEffect(() => {
+ useEffect(() => {
     if (localVideoRef.current && callState.localStream) {
       // Clone stream to trigger re-render when tracks change
       const clonedStream = new MediaStream(callState.localStream.getTracks());
@@ -57,14 +37,6 @@ const CallInterface: React.FC = () => {
     }
   }, [callState.localStream]);
 
-
-  // useEffect(() => {
-  //   const remoteVideo = remoteVideoRef.current;
-  //   if (remoteVideo && callState.remoteStream) {
-  //     remoteVideo.srcObject = callState.remoteStream;
-  //     remoteVideo.play().catch(console.error);
-  //   }
-  // }, [callState.remoteStream]);
 
   useEffect(() => {
     const remoteVideo = remoteVideoRef.current;

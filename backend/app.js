@@ -14,9 +14,6 @@ import authRoutes from "./routes/authRoutes.js";
 import callRoutes from "./routes/callRoutes.js";
 import initializeWebSocket from "./WebSocket/WebSocket.js";
 import { setupFriendshipCollections } from "./models/friendshipSchema.js";
-// import {
-//   ensureCollection as ensureCallCollection,
-// } from "./models/callSchema.js";
 import dotenv from "dotenv";
 
 dotenv.config();

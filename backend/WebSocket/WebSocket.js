@@ -1,414 +1,217 @@
 import { WebSocketServer } from "ws";
+import WebSocketEventHandler from "./WebSocketEventHandler.js";
+import { RateLimiter, createRequestPool } from "../utils/networkControl.js";
 import { ObjectId } from "mongodb";
 
-const connectedClients = new Map();
-const userStatuses = new Map();
+const isValidObjectId = (id) => ObjectId.isValid(id);
+
+const HEARTBEAT_INTERVAL = 30000;
+const HEARTBEAT_TIMEOUT = 10000;
 
 const initializeWebSocket = (server, db) => {
   if (!db) {
     throw new Error("Database connection is required");
   }
 
-  const wss = new WebSocketServer({ server });
+  const wss = new WebSocketServer({
+    server,
+    clientTracking: true,
+    maxPayload: 50 * 1024,
+  });
 
-  //helper for db operations with logic to retry
-  const executeDbOperation = async (operation, maxRetries = 3) => {
-    let lastError;
-    for (let i = 0; i < maxRetries; i++) {
-      try {
-        return await operation();
-      } catch (error) {
-        lastError = error;
-        console.error(
-          `Database operation failed (attempt ${i + 1}/${maxRetries})`
-        );
-        await new Promise((resolve) =>
-          setTimeout(resolve, 1000 * Math.pow(2, i))
-        );
-      }
-    }
-    throw lastError;
-  };
+  const eventHandler = new WebSocketEventHandler(wss, db);
+  const rateLimiter = new RateLimiter();
+  const requestPool = createRequestPool(10);
+  const connectedClients = new Map();
 
-  wss.on("connection", (ws) => {
+  wss.on("connection", async (ws, req) => {
+    const clientId = `${req.socket.remoteAddress}-${Date.now()}`;
     let userId = null;
 
-    const handleDatabaseError = (error, operation) => {
-      console.error(`Error during ${operation}`);
+    const setupClient = async () => {
+      ws.isAlive = true;
+      ws.clientId = clientId;
+      rateLimiter.initializeClient(clientId);
+    };
+
+    const handleClientPing = () => {
+      ws.isAlive = true;
+      ws.send(JSON.stringify({ type: "pong" }));
+    };
+
+    const processMessage = async (rawMessage) => {
+      if (!rateLimiter.checkLimit(clientId)) {
+        ws.send(
+          JSON.stringify({
+            type: "error",
+            message: "Rate limit exceeded. Please slow down.",
+          })
+        );
+        return;
+      }
+
+      try {
+        const message = JSON.parse(rawMessage);
+
+        if (message.type === "ping") {
+          handleClientPing();
+          return;
+        }
+
+        if (message.type === "register") {
+          await handleRegistration(message);
+          return;
+        }
+
+        await requestPool.execute(() => eventHandler.handleEvent(ws, message));
+      } catch (error) {
+        handleError(error);
+      }
+    };
+
+    const handleRegistration = async (message) => {
+      try {
+        if (!isValidObjectId(message.senderId)) {
+          throw new Error("Invalid user ID format");
+        }
+
+        userId = message.senderId;
+        connectedClients.set(userId, ws);
+        await eventHandler.registerClient(userId, ws);
+
+        //sending immediate acknowledgment
+        if (message.requireAck) {
+          ws.send(
+            JSON.stringify({
+              type: "ack",
+              id: message.id,
+            })
+          );
+        }
+
+        const connectedUsers = Array.from(connectedClients.keys()).filter(
+          (id) => id !== userId
+        );
+
+        // to broadcast new user's status
+        broadcastStatus(userId, "online");
+
+        //sending existing users statuses
+        connectedUsers.forEach((connectedUserId) => {
+          ws.send(
+            JSON.stringify({
+              type: "status",
+              userId: connectedUserId,
+              status: "online",
+              lastSeen: null,
+            })
+          );
+        });
+      } catch (error) {
+        console.error("Registration failed:", error);
+        if (message.requireAck) {
+          ws.send(
+            JSON.stringify({
+              type: "error",
+              id: message.id,
+              message: "Registration failed",
+            })
+          );
+        }
+        throw error;
+      }
+    };
+
+    const broadcastStatus = (targetUserId, status) => {
+      const statusMessage = JSON.stringify({
+        type: "status",
+        userId: targetUserId,
+        status: status,
+        lastSeen: status === "offline" ? new Date() : null,
+      });
+
+      wss.clients.forEach((client) => {
+        if (client.readyState === WebSocket.OPEN) {
+          client.send(statusMessage);
+        }
+      });
+    };
+
+    const handleError = (error) => {
+      console.error("WebSocket error:", {
+        clientId,
+        userId,
+        error: error.message,
+        stack: error.stack,
+      });
+
       ws.send(
         JSON.stringify({
           type: "error",
-          message: "Database operation failed",
-          operation,
+          message: "An error occurred processing your request",
         })
       );
     };
 
-    ws.on("message", async (message) => {
-      try {
-        const parsedMessage = JSON.parse(message);
+    const cleanup = async () => {
+      clearInterval(heartbeatInterval);
+      rateLimiter.removeClient(clientId);
 
-        if (parsedMessage.type === "register") {
-          userId = parsedMessage.senderId;
-          connectedClients.set(userId, ws);
-          userStatuses.set(userId, "online");
-
-          try {
-            await executeDbOperation(async () => {
-              await db
-                .collection("users")
-                .updateOne(
-                  { _id: new ObjectId(userId) },
-                  { $set: { status: "online" } }
-                );
-
-              const users = await db
-                .collection("users")
-                .find(
-                  {
-                    _id: { $ne: new ObjectId(userId) },
-                  },
-                  {
-                    projection: {
-                      _id: 1,
-                      status: 1,
-                      lastSeen: 1,
-                    },
-                  }
-                )
-                .toArray();
-
-              //bc status updates
-              wss.clients.forEach((client) => {
-                if (client.readyState === WebSocket.OPEN) {
-                  client.send(
-                    JSON.stringify({
-                      type: "status",
-                      userId: userId,
-                      status: "online",
-                      lastSeen: null,
-                    })
-                  );
-                }
-              });
-              //sending existing users status to new client
-              users.forEach((user) => {
-                ws.send(
-                  JSON.stringify({
-                    type: "status",
-                    userId: user._id.toString(),
-                    status: user.status || "offline",
-                    lastSeen: user.lastSeen,
-                  })
-                );
-              });
-            });
-          } catch (error) {
-            handleDatabaseError(error, "registeration");
-          }
-          return;
-        }
-
-        if (
-          parsedMessage.type === "status" &&
-          parsedMessage.status === "offline"
-        ) {
-          const currentTime = new Date();
-          try {
-            await db.collection("users").updateOne(
-              { _id: new ObjectId(userId) },
-              {
-                $set: {
-                  lastSeen: currentTime,
-                  status: "offline",
-                },
-              }
-            );
-
-            wss.clients.forEach((client) => {
-              if (client.readyState === WebSocket.OPEN) {
-                client.send(
-                  JSON.stringify({
-                    type: "status",
-                    userId: userId,
-                    status: "offline",
-                    lastSeen: currentTime,
-                  })
-                );
-              }
-            });
-          } catch (error) {
-            console.error("Error updating offline status");
-          }
-        }
-
-        if (parsedMessage.type === "status") {
-          userStatuses.set(userId, parsedMessage.status);
-          wss.clients.forEach((client) => {
-            if (client.readyState === WebSocket.OPEN) {
-              client.send(
-                JSON.stringify({
-                  type: "status",
-                  userId: userId,
-                  status: parsedMessage.status,
-                })
-              );
-            }
-          });
-        }
-
-        if (!userId && parsedMessage.senderId) {
-          userId = parsedMessage.senderId;
-          connectedClients.set(userId, ws);
-        }
-
-        switch (parsedMessage.type) {
-          case "message":
-            const receiverWs = connectedClients.get(parsedMessage.receiverId);
-            if (receiverWs && receiverWs.readyState === WebSocket.OPEN) {
-              receiverWs.send(
-                JSON.stringify({
-                  type: "message",
-                  senderId: parsedMessage.senderId,
-                  content: parsedMessage.content,
-                  timestamp: parsedMessage.timestamp,
-                  status: "sent",
-                })
-              );
-            }
-            break;
-
-          case "typing":
-            const receiverTypingWs = connectedClients.get(
-              parsedMessage.receiverId
-            );
-            if (
-              receiverTypingWs &&
-              receiverTypingWs.readyState === WebSocket.OPEN
-            ) {
-              receiverTypingWs.send(
-                JSON.stringify({
-                  type: "typing",
-                  senderId: parsedMessage.senderId,
-                  isTyping: parsedMessage.isTyping,
-                })
-              );
-            }
-            break;
-
-          case "read_status":
-            const senderWs = connectedClients.get(parsedMessage.receiverId);
-            if (senderWs && senderWs.readyState === WebSocket.OPEN) {
-              senderWs.send(
-                JSON.stringify({
-                  type: "read_status",
-                  senderId: parsedMessage.senderId,
-                  receiverId: parsedMessage.receiverId,
-                  timestamp: parsedMessage.timestamp,
-                })
-              );
-            }
-            break;
-
-          case "call_initiate":
-            if (
-              !parsedMessage.receiverId ||
-              !parsedMessage.callType ||
-              !parsedMessage.roomName
-            ) {
-              console.error("Invalid call initiation request");
-              return;
-            }
-
-            let existingCall;
-            let retries = 0;
-            const maxRetries = 5;
-            while (!existingCall && retries < maxRetries) {
-              existingCall = await db.collection("calls").findOne({
-                roomName: parsedMessage.roomName,
-                status: { $in: ["initiated", "connected"] },
-              });
-              if (!existingCall) {
-                await new Promise((resolve) => setTimeout(resolve, 200));
-                retries++;
-              }
-            }
-
-            // const existingCall = await db.collection("calls").findOne({
-            //   roomName: parsedMessage.roomName,
-            //   status: { $in: ["initiated", "connected"] },
-            // });
-
-            if (!existingCall) {
-              console.log("No valid call found, aborting initiation");
-              return;
-            }
-
-            const callReceiverWs = connectedClients.get(
-              parsedMessage.receiverId
-            );
-            if (callReceiverWs?.readyState === WebSocket.OPEN) {
-              callReceiverWs.send(
-                JSON.stringify({
-                  type: "call_initiate",
-                  initiatorId: userId,
-                  callType: parsedMessage.callType,
-                  roomName: parsedMessage.roomName,
-                })
-              );
-            }
-
-            // try {
-            //   await db.collection("calls").insertOne({
-            //     initiator: new ObjectId(userId),
-            //     receiver: new ObjectId(parsedMessage.receiverId),
-            //     type: parsedMessage.callType,
-            //     status: "initiated",
-            //     startTime: new Date(),
-            //     roomName: parsedMessage.roomName
-            //   });
-            // } catch (dbError) {
-            //   console.error("Error saving call to DB:", dbError);
-            // }
-            break;
-
-          case "call_accepted":
-            const callerWs = connectedClients.get(parsedMessage.receiverId);
-            if (callerWs?.readyState === WebSocket.OPEN) {
-              callerWs.send(
-                JSON.stringify({
-                  type: "call_accepted",
-                  senderId: userId,
-                  roomName: parsedMessage.roomName,
-                })
-              );
-
-              await db.collection("calls").updateOne(
-                { roomName: parsedMessage.roomName, status: "initiated" },
-                {
-                  $set: {
-                    status: "connected",
-                    connectedAt: new Date(),
-                  },
-                }
-              );
-            }
-            break;
-
-          case "call_rejected":
-            const rejectedCallerWs = connectedClients.get(
-              parsedMessage.initiatorId
-            );
-            if (rejectedCallerWs?.readyState === WebSocket.OPEN) {
-              rejectedCallerWs.send(
-                JSON.stringify({
-                  type: "call_rejected",
-                  senderId: userId,
-                  roomName: parsedMessage.roomName,
-                })
-              );
-
-              await db
-                .collection("calls")
-                .updateOne(
-                  { roomName: parsedMessage.roomName },
-                  { $set: { status: "rejected", endTime: new Date() } }
-                );
-            }
-            break;
-
-          case "call_ended":
-            const endedCallWs = connectedClients.get(parsedMessage.initiatorId);
-            if (endedCallWs?.readyState === WebSocket.OPEN) {
-              endedCallWs.send(
-                JSON.stringify({
-                  type: "call_ended",
-                  senderId: userId,
-                  roomName: parsedMessage.roomName,
-                })
-              );
-
-              await db.collection("calls").updateOne(
-                { roomName: parsedMessage.roomName },
-                {
-                  $set: {
-                    status: "completed",
-                    endTime: new Date(),
-                  },
-                }
-              );
-            }
-            break;
-
-          default:
-            console.log("Unknown message type");
-        }
-      } catch (error) {
-        console.error("WebSocket message handling error");
-        ws.send(
-          JSON.stringify({
-            type: "error",
-            message: "failed to process message",
-          })
-        );
-      }
-    });
-
-    ws.on("close", async () => {
       if (userId) {
-        const currentTime = new Date().toISOString();
         connectedClients.delete(userId);
-        userStatuses.set(userId, "offline");
+        await eventHandler.removeClient(userId);
 
         try {
-          await executeDbOperation(async () => {
-            await db.collection("users").updateOne(
-              { _id: new ObjectId(userId) },
-              {
-                $set: {
-                  lastSeen: currentTime,
-                  status: "offline",
-                },
-              }
-            );
-
-            wss.clients.forEach((client) => {
-              if (client.readyState === WebSocket.OPEN) {
-                client.send(
-                  JSON.stringify({
-                    type: "status",
-                    userId: userId,
-                    status: "offline",
-                    lastSeen: currentTime,
-                  })
-                );
-              }
-            });
+          await eventHandler.handleStatusUpdate({
+            senderId: userId,
+            status: "offline",
           });
         } catch (error) {
-          console.error("Error updating offline status");
+          console.error("Error updating offline status:", {
+            userId,
+            error: error.message,
+          });
         }
       }
-    });
+    };
 
-    ws.on("error", (error) => {
-      console.error("WebSocket error");
-      if (userId) {
-        connectedClients.delete(userId);
-        userStatuses.set(userId, "offline");
+    await setupClient();
+
+    const heartbeatInterval = setInterval(() => {
+      if (!ws.isAlive) {
+        cleanup().finally(() => ws.terminate());
+        return;
       }
+
+      ws.isAlive = false;
+      try {
+        ws.ping();
+      } catch (error) {
+        cleanup().finally(() => ws.terminate());
+      }
+
+      const timeout = setTimeout(() => {
+        if (!ws.isAlive) {
+          cleanup().finally(() => ws.terminate());
+        }
+      }, HEARTBEAT_TIMEOUT);
+
+      ws.once("pong", () => {
+        clearTimeout(timeout);
+        ws.isAlive = true;
+      });
+    }, HEARTBEAT_INTERVAL);
+
+    ws.on("message", (message) => processMessage(message));
+    ws.on("pong", () => {
+      ws.isAlive = true;
+    });
+    ws.on("close", cleanup);
+    ws.on("error", (error) => {
+      handleError(error);
+      cleanup();
     });
   });
-
-  setInterval(() => {
-    wss.clients.forEach((ws) => {
-      if (!ws.isAlive) {
-        return ws.terminate();
-      }
-      ws.isAlive = false;
-      ws.ping();
-    });
-  }, 30000);
 
   return wss;
 };

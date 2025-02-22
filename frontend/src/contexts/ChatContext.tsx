@@ -4,12 +4,14 @@ import React, {
   useState,
   useCallback,
   useEffect,
+  useRef,
 } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import api from "../utils/api";
 import { Friend, AuthUser, UserStatus } from "../types";
 import { useWebSocket } from "./WebSocketContext";
 import { useAuth } from "./AuthContext";
+import { isValidObjectId } from "../utils/validators";
 
 interface ChatContextType {
   friends: Friend[];
@@ -30,11 +32,12 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
 }) => {
   const queryClient = useQueryClient();
   const { user, isAuthenticated } = useAuth();
-  const { sendMessage } = useWebSocket();
+  const { sendMessage, eventManager } = useWebSocket();
   const [typingStatus, setTypingStatus] = useState<Record<string, boolean>>({});
   const [friendTypingStatus, setFriendTypingStatus] = useState<
     Record<string, boolean>
   >({});
+  const typingTimeouts = useRef<Record<string, NodeJS.Timeout>>({});
 
   useEffect(() => {
     if (isAuthenticated && user?._id) {
@@ -46,6 +49,39 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   }, [isAuthenticated, user?._id, sendMessage]);
 
+  useEffect(() => {
+    if (!eventManager) return;
+
+    const handleTypingMessage = (message: any) => {
+      if (message.type === "typing") {
+        //making use of   functional update and limit state changes
+        setFriendTypingStatus((prev) => {
+          if (prev[message.senderId] === message.isTyping) return prev;
+          return { ...prev, [message.senderId]: message.isTyping };
+        });
+
+        //auto-clear typing status after 2 seconds
+        if (typingTimeouts.current[message.senderId]) {
+          clearTimeout(typingTimeouts.current[message.senderId]);
+        }
+
+        if (message.isTyping) {
+          typingTimeouts.current[message.senderId] = setTimeout(() => {
+            setFriendTypingStatus((prev) => ({
+              ...prev,
+              [message.senderId]: false,
+            }));
+          }, 2000);
+        }
+      }
+    };
+
+    eventManager.on("message", handleTypingMessage);
+    return () => {
+      eventManager.off("message", handleTypingMessage);
+    };
+  }, [eventManager]);
+
   const getUserStatus = useCallback(
     (userId: string): UserStatus => {
       return queryClient.getQueryData(["userStatus", userId]) || "offline";
@@ -53,7 +89,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
     [queryClient]
   );
 
-  const fetchFriendsWithMessages = async (): Promise<Friend[]> => {
+  const fetchFriendsWithMessages = useCallback(async (): Promise<Friend[]> => {
     if (!isAuthenticated) {
       return [];
     }
@@ -117,26 +153,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
       // Sort by most recent activity (whether it's a new friendship or new message)
       return bLatestActivity - aLatestActivity;
     });
-  };
-
-  useEffect(() => {
-    const unsubscribe = queryClient.getQueryCache().subscribe(() => {
-      // Update friendTypingStatus when WebSocket messages arrive (common mistake if ignored);
-      queryClient
-        .getQueriesData({ queryKey: ["friendTypingStatus"] })
-        .forEach(([key, value]) => {
-          if (Array.isArray(key) && key.length > 1) {
-            const friendId = key[1];
-            setFriendTypingStatus((prev) => ({
-              ...prev,
-              [friendId]: value as boolean,
-            }));
-          }
-        });
-    });
-
-    return () => unsubscribe();
-  }, [queryClient]);
+  }, [isAuthenticated, queryClient]);
 
   const {
     data: friends = [],
@@ -149,58 +166,81 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
     refetchInterval: 2000,
     staleTime: 1000,
     gcTime: 5 * 60 * 1000,
-    refetchOnWindowFocus: true,
-    refetchOnReconnect: true,
+    // refetchOnWindowFocus: true,
+    // refetchOnReconnect: true,
     enabled: isAuthenticated,
   });
 
-  const setFriendAsRead = (friendId: string) => {
-    queryClient.setQueryData(["friends"], (oldData: Friend[] | undefined) => {
-      if (!oldData) return [];
-      return oldData.map((friend) =>
-        friend._id === friendId
-          ? {
-              ...friend,
-              unreadCount: 0,
-              lastMessage: friend.lastMessage
-                ? { ...friend.lastMessage, status: "read" }
-                : null,
-            }
-          : friend
-      );
-    });
-  };
+  const setFriendAsRead = useCallback(
+    (friendId: string) => {
+      queryClient.setQueryData(["friends"], (oldData: Friend[] | undefined) => {
+        if (!oldData) return [];
+        return oldData.map((friend) =>
+          friend._id === friendId
+            ? {
+                ...friend,
+                unreadCount: 0,
+                lastMessage: friend.lastMessage
+                  ? { ...friend.lastMessage, status: "read" }
+                  : null,
+              }
+            : friend
+        );
+      });
+    },
+    [queryClient]
+  );
 
   const updateTypingStatus = useCallback(
     (friendId: string, isTyping: boolean) => {
-      if (!user?._id) return;
+      if (!user?._id || !isValidObjectId(friendId)) return;
+
+      //adding client-side validation
+      setTypingStatus((prev) => ({ ...prev, [friendId]: isTyping }));
 
       sendMessage({
         type: "typing",
         senderId: user._id,
         receiverId: friendId,
         isTyping,
+      }).catch((error) => {
+        console.warn("Typing update failed:", error);
+        setTypingStatus((prev) => ({ ...prev, [friendId]: false }));
       });
 
-      setTypingStatus((prev) => {
-        if (!isTyping && !prev[friendId]) {
-          return prev;
-        }
-
-        if (!isTyping) {
-          const newStatus = { ...prev };
-          delete newStatus[friendId];
-          return newStatus;
-        }
-
-        return {
-          ...prev,
-          [friendId]: isTyping,
-        };
-      });
+      //clear typing after 2 seconds
+      setTimeout(() => {
+        setTypingStatus((prev) => ({ ...prev, [friendId]: false }));
+      }, 2000);
     },
-    [sendMessage, user]
+    [sendMessage, user?._id]
   );
+
+  useEffect(() => {
+    const handleTypingStatus = (userId: string, isTyping: boolean) => {
+      setFriendTypingStatus((prev) => ({
+        ...prev,
+        [userId]: isTyping,
+      }));
+      if (!isTyping) {
+        setTimeout(() => {
+          setFriendTypingStatus((prev) => {
+            const newStatus = { ...prev };
+            delete newStatus[userId];
+            return newStatus;
+          });
+        }, 1000);
+      }
+    };
+
+    // subscribing to typing status updates
+    if (isAuthenticated) {
+      queryClient.setQueryData(["typingStatus"], handleTypingStatus);
+    }
+    return () => {
+      queryClient.setQueryData(["typingStatus"], null);
+    };
+  }, [isAuthenticated, queryClient]);
 
   const value = {
     friends,

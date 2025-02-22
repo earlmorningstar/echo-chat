@@ -224,7 +224,7 @@ const ChatWindow: React.FC = () => {
         timestamp: new Date(),
       });
     } catch (error) {
-      console.error("Error marking messages as read:", error);
+      console.error("Error marking messages as read");
     }
   }, [friendId, queryClient, updateMessagesAsRead, user?._id, sendMessage]);
 

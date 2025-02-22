@@ -1,233 +1,325 @@
 import React, {
   createContext,
-  useContext,
-  useRef,
-  useEffect,
   useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
 } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "./AuthContext";
 import { UserStatus } from "../types";
-import { useQueryClient } from "@tanstack/react-query";
+import { WebSocketEventManager } from "./calls/WebSocketEventManager ";
 
 interface WebSocketContextType {
-  sendMessage: (message: any) => void;
+  sendMessage: (message: any) => Promise<void>;
+  eventManager: WebSocketEventManager | null;
   isConnected: boolean;
 }
 
 const WebSocketContext = createContext<WebSocketContextType | undefined>(
   undefined
 );
+const RECONNECT_DELAY = 1000;
+const MAX_RECONNECT_ATTEMPTS = 5;
 
 export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   const ws = useRef<WebSocket | null>(null);
+  const eventManager = useRef<WebSocketEventManager | null>(null);
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const [isConnected, setIsConnected] = React.useState(false);
+  const [isConnected, setIsConnected] = useState(false);
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout>();
+  const connectionAttempts = useRef(0);
+  const lastStatusRef = useRef<UserStatus>("offline");
+  const isConnecting = useRef(false);
+  const pendingMessages = useRef<
+    Array<{ type: string; data: any; timestamp: number }>
+  >([]);
 
-  const connectWebSocket = useCallback(() => {
-    if (!user?._id || ws.current?.readyState === WebSocket.OPEN) return;
+  const cleanupConnection = useCallback(() => {
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = undefined;
+    }
 
-    ws.current = new WebSocket(
-      process.env.REACT_APP_WS_URL || "ws://localhost:5000"
-    );
+    if (eventManager.current) {
+      eventManager.current.cleanup();
+      eventManager.current = null;
+    }
 
-    ws.current.onopen = () => {
-      setIsConnected(true);
+    if (ws.current) {
+      ws.current.close();
+      ws.current = null;
+    }
 
-      if (user?._id && ws.current?.readyState === WebSocket.OPEN) {
-        ws.current.send(
-          JSON.stringify({
-            type: "register",
-            senderId: user._id,
-            status: "online",
-          })
-        );
-      }
-    };
+    setIsConnected(false);
+  }, []);
 
-    ws.current.onclose = () => {
-      setIsConnected(false);
-      setTimeout(connectWebSocket, 3000);
-    };
-
-    ws.current.onerror = (error) => {
-      console.error("WebSocket error:", error);
-      setIsConnected(false);
-    };
-
-    ws.current.onmessage = (event) => {
-      try {
-        // console.log("WS Message Received:", event.data);
-        const message = JSON.parse(event.data);
-
-        switch (message.type) {
-          case "typing":
-            queryClient.setQueryData(
-              ["typingStatus", message.senderId],
-              message.isTyping
-            );
-
-            queryClient.setQueryData(
-              ["friendTypingStatus", message.senderId],
-              message.isTyping
-            );
-            break;
-
-          case "message":
-            queryClient.invalidateQueries({ queryKey: ["message"] });
-            queryClient.invalidateQueries({ queryKey: ["friends"] });
-            break;
-
-          case "read_status":
-            queryClient.invalidateQueries({ queryKey: ["message"] });
-            queryClient.invalidateQueries({ queryKey: ["friends"] });
-            break;
-
-          case "status":
-            queryClient.setQueryData(
-              ["userStatus", message.userId],
-              message.status
-            );
-            if (message.lastSeen) {
-              queryClient.setQueryData(
-                ["userLastSeen", message.userId],
-                message.lastSeen
-              );
-            }
-            queryClient.invalidateQueries({ queryKey: ["friends"] });
-            break;
-
-          case "call_initiate":
-            // console.log("Received call_initiate message:", message);
-            if (
-              !message.initiatorId ||
-              !message.callType ||
-              !message.roomName
-            ) {
-              console.error("Incomplete call initiation data");
-              return;
-            }
-
-            console.log("Validating call initiation:", {
-              initiatorId: message.initiatorId,
-              callType: message.callType,
-              roomName: message.roomName,
-            });
-
-            queryClient.setQueryData(["callEvent"], {
-              type: "incoming",
-              data: {
-                initiatorId: message.initiatorId,
-                type: message.callType,
-                roomName: message.roomName,
-              },
-            });
-            break;
-
-          case "call_accepted":
-            queryClient.setQueryData(["callEvent"], {
-              type: "accepted",
-              data: message,
-            });
-            break;
-
-          case "call_rejected":
-            queryClient.setQueryData(["callEvent"], {
-              type: "rejected",
-              data: message,
-            });
-            break;
-
-          case "call_ended":
-            console.log("Received call ended message:", message);
-
-            queryClient.setQueryData(["callEvent"], null);
-            queryClient.removeQueries({ queryKey: ["callStatus"] });
-            queryClient.removeQueries({ queryKey: ["callEvent"] });
-
-            queryClient.setQueryData(["callEvent"], {
-              type: "ended",
-              data: {
-                roomName: message.roomName,
-                initiatorId: message.senderId,
-              },
-            });
-            break;
-        }
-      } catch (error) {
-        console.error("Error processing WebSocket message:", error);
-      }
-    };
-  }, [user?._id, queryClient]);
-
-  const sendMessage = useCallback(
+  const handleWebSocketMessage = useCallback(
     (message: any) => {
-      if (!ws.current || ws.current.readyState !== WebSocket.OPEN) {
-        console.warn("WebSocket is not connected. Attempting to reconnect....");
-        connectWebSocket();
+      if (!message || typeof message !== "object") return;
 
-        if (message.type !== "status") {
+      const handlers: Record<string, () => void> = {
+        typing: () => {
+          queryClient.setQueryData(
+            ["typingStatus", message.senderId],
+            message.isTyping
+          );
+          queryClient.setQueryData(
+            ["friendTypingStatus", message.senderId],
+            message.isTyping
+          );
+          if (!message.isTyping) return;
+
           setTimeout(() => {
-            if (ws.current?.readyState === WebSocket.OPEN) {
-              ws.current.send(JSON.stringify(message));
-            }
-          }, 1000);
+            queryClient.setQueryData(["typingStatus", message.senderId], false);
+          }, 5000);
+        },
+        message: () => {
+          queryClient.invalidateQueries({ queryKey: ["message"] });
+          queryClient.invalidateQueries({ queryKey: ["friends"] });
+        },
+        read_status: () => {
+          queryClient.invalidateQueries({ queryKey: ["message"] });
+          queryClient.invalidateQueries({ queryKey: ["friends"] });
+        },
+        status: () => {
+          if (message.userId === user?._id) {
+            lastStatusRef.current = message.status;
+          }
+          queryClient.setQueryData(
+            ["userStatus", message.userId],
+            message.status
+          );
+          if (message.lastSeen) {
+            queryClient.setQueryData(
+              ["userLastSeen", message.userId],
+              message.lastSeen
+            );
+          }
+          queryClient.invalidateQueries({ queryKey: ["friends"] });
+        },
+        call_initiate: () => {
+          queryClient.setQueryData(["callEvent"], {
+            type: "incoming",
+            data: {
+              initiatorId: message.initiatorId,
+              type: message.callType,
+              roomName: message.roomName,
+            },
+          });
+        },
+        call_accepted: () => {
+          queryClient.setQueryData(["callEvent"], {
+            type: "accepted",
+            data: message,
+          });
+        },
+        call_rejected: () => {
+          queryClient.setQueryData(["callEvent"], {
+            type: "rejected",
+            data: message,
+          });
+        },
+        call_ended: () => {
+          queryClient.setQueryData(["callEvent"], {
+            type: "ended",
+            data: {
+              roomName: message.roomName,
+              initiatorId: message.senderId,
+              forceCleanup: true,
+            },
+          });
+        },
+      };
+
+      const handler = handlers[message.type];
+      if (handler) {
+        try {
+          handler();
+        } catch (error) {
+          console.error(`Error handling ${message.type}:`, error);
         }
-        return;
       }
-      ws.current.send(JSON.stringify(message));
     },
-    [connectWebSocket]
+    [queryClient, user?._id]
   );
 
-  const updateStatus = useCallback(
-    (status: UserStatus) => {
-      if (user?._id) {
-        sendMessage({
-          type: "status",
-          senderId: user._id,
-          status: status,
+  const connect = useCallback(() => {
+    if (!user?._id || isConnecting.current) return;
+
+    //checkingg existing connection state
+    if (ws.current) {
+      const state = ws.current.readyState;
+      if (state === WebSocket.OPEN || state === WebSocket.CONNECTING) return;
+    }
+
+    isConnecting.current = true;
+    cleanupConnection();
+
+    try {
+      const wsUrl = process.env.REACT_APP_WS_URL || "ws://localhost:5000";
+      const socket = new WebSocket(wsUrl);
+      ws.current = socket;
+
+      socket.onopen = () => {
+        console.log("WebSocket connected");
+        setIsConnected(true);
+        connectionAttempts.current = 0;
+        isConnecting.current = false;
+
+        eventManager.current = new WebSocketEventManager(socket);
+        eventManager.current.on("message", handleWebSocketMessage);
+
+        if (user._id) {
+          eventManager.current.enqueueEvent(
+            "register",
+            {
+              type: "register",
+              senderId: user._id,
+              status: lastStatusRef.current,
+            },
+            2
+          );
+        }
+
+        //processing pending messages with TTL
+        const now = Date.now();
+        pendingMessages.current = pendingMessages.current.filter(
+          (msg) => now - msg.timestamp < 300000 // 5-minute TTL
+        );
+        while (pendingMessages.current.length > 0) {
+          const msg = pendingMessages.current.shift();
+          if (msg && eventManager.current) {
+            eventManager.current.enqueueEvent(
+              msg.type,
+              msg.data,
+              msg.type.startsWith("status") ? 2 : 1
+            );
+          }
+        }
+      };
+
+      socket.onclose = () => {
+        console.log("WebSocket disconnected");
+        setIsConnected(false);
+        isConnecting.current = false;
+        cleanupConnection();
+
+        if (connectionAttempts.current < MAX_RECONNECT_ATTEMPTS) {
+          const delay = Math.min(
+            RECONNECT_DELAY * Math.pow(2, connectionAttempts.current),
+            30000
+          );
+          connectionAttempts.current++;
+          reconnectTimeoutRef.current = setTimeout(connect, delay);
+        }
+      };
+
+      socket.onerror = (error) => {
+        console.error("WebSocket error");
+        isConnecting.current = false;
+      };
+    } catch (error) {
+      console.error("WebSocket initialization error");
+      isConnecting.current = false;
+      cleanupConnection();
+    }
+  }, [user?._id, cleanupConnection, handleWebSocketMessage]);
+
+  const sendMessage = useCallback(
+    async (message: any) => {
+    
+      //to maintain message queue health
+      const now = Date.now();
+      pendingMessages.current = pendingMessages.current.filter(
+        (msg) => now - msg.timestamp < 300000 // 5-minute TTL
+      );
+      if (pendingMessages.current.length >= 50) {
+        pendingMessages.current.shift();
+      }
+
+      if (
+        !eventManager.current &&
+        connectionAttempts.current < MAX_RECONNECT_ATTEMPTS
+      ) {
+        pendingMessages.current.push({
+          type: message.type,
+          data: message,
+          timestamp: Date.now(),
         });
+        connect();
+        return;
+      }
+
+      if (eventManager.current) {
+        try {
+          await eventManager.current.enqueueEvent(
+            message.type,
+            message,
+            message.type.startsWith("status") ? 2 : 1
+          );
+        } catch (error) {
+          console.error(`Failed to send message: ${message.type}`, error);
+          //store failed messages for retry
+          pendingMessages.current.push({
+            type: message.type,
+            data: message,
+            timestamp: Date.now(),
+          });
+        }
       }
     },
-    [user?._id, sendMessage]
+    [connect]
   );
 
   useEffect(() => {
     if (user?._id) {
-      connectWebSocket();
+      connect();
 
       const handleVisibilityChange = () => {
-        updateStatus(
-          document.visibilityState === "visible" ? "online" : "offline"
-        );
+        const isVisible = document.visibilityState === "visible";
+        if (isVisible && ws.current?.readyState !== WebSocket.OPEN) {
+          connect();
+        }
+        sendMessage({
+          type: "status",
+          senderId: user._id,
+          status: isVisible ? "online" : "offline",
+          timestamp: Date.now(),
+        });
       };
 
       const handleBeforeUnload = () => {
-        updateStatus("offline");
+        sendMessage({
+          type: "status",
+          senderId: user._id,
+          status: "offline",
+          timestamp: Date.now(),
+        });
       };
 
       document.addEventListener("visibilitychange", handleVisibilityChange);
       window.addEventListener("beforeunload", handleBeforeUnload);
 
       return () => {
-        updateStatus("offline");
         document.removeEventListener(
           "visibilitychange",
           handleVisibilityChange
         );
         window.removeEventListener("beforeunload", handleBeforeUnload);
-        if (ws.current) {
-          ws.current.close();
-        }
+        cleanupConnection();
       };
     }
-  }, [user?._id, connectWebSocket, updateStatus]);
+  }, [user?._id, connect, sendMessage, cleanupConnection]);
 
   return (
-    <WebSocketContext.Provider value={{ sendMessage, isConnected }}>
+    <WebSocketContext.Provider
+      value={{ sendMessage, eventManager: eventManager.current, isConnected }}
+    >
       {children}
     </WebSocketContext.Provider>
   );

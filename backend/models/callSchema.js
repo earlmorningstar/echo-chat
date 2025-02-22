@@ -8,7 +8,7 @@ const callSchema = new Schema(
     type: { type: String, enum: ["voice", "video"], required: true },
     status: {
       type: String,
-      enum: ["initiated", "missed", "completed", "rejected"],
+      enum: ["initiated", "missed", "completed", "rejected", "connected"],
       default: "initiated",
       required: true,
     },
@@ -24,7 +24,7 @@ const callSchema = new Schema(
 );
 
 callSchema.index({ initiator: 1, receiver: 1 });
-callSchema.index({ roomName: 1 }, { unique: true });
+callSchema.index({ roomName: 1 }, { unique: true, sparse: true });
 
 const Call = mongoose.model.Call || mongoose.model("Call", callSchema);
 
