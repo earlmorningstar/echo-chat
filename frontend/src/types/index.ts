@@ -92,17 +92,41 @@ export type CallStatus =
   | "connected"
   | "ended";
 
+interface BaseCallMessage {
+  roomName: string;
+  senderId: string;
+  receiverId: string;
+  callType: CallType;
+  forceCleanup?: boolean;
+}
+
 export interface WSCallMessage {
-  type: string;
-  data: {
-    receiverId: string;
-    callType: CallType;
-    roomName: string;
-    senderId: string;
-  };
+  type: "call_initiate" | "call_accepted" | "call_rejected" | "call_ended";
+  data: BaseCallMessage;
   requireAck: boolean;
   id: string;
+  timestamp?: number;
 }
+
+export const convertWSToUIEvent = (wsMessage: WSCallMessage): CallEvent => ({
+  type: mapWSTypeToUI(wsMessage.type),
+  data: {
+    initiatorId: wsMessage.data.senderId,
+    type: wsMessage.data.callType,
+    roomName: wsMessage.data.roomName,
+    forceCleanup: wsMessage.data.forceCleanup,
+  },
+});
+
+const mapWSTypeToUI = (wsType: WSCallMessage["type"]): CallEvent["type"] => {
+  const mapping: Record<string, CallEvent["type"]> = {
+    call_initiate: "incoming",
+    call_accepted: "accepted",
+    call_rejected: "rejected",
+    call_ended: "ended",
+  };
+  return mapping[wsType] || "ended";
+};
 
 export interface CallState {
   isInCall: boolean;

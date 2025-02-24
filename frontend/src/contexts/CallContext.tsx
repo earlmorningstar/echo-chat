@@ -14,6 +14,8 @@ import {
   Friend,
   CallType,
   CallEvent,
+  WSCallMessage,
+  CallQuality,
 } from "../types";
 import { useAuth } from "./AuthContext";
 import { CallStateManager } from "./calls/CallStateManager";
@@ -21,6 +23,7 @@ import { MediaStreamManager } from "./calls/MediaStreamManager";
 import { TwilioRoomManager } from "./calls/TwilioRoomManager";
 import { CallEventHandler } from "./calls/CallEventHandler";
 import api from "../utils/api";
+import { generatedMessageId } from "../utils/wsUtils";
 
 const CallContext = createContext<CallContextType | undefined>(undefined);
 
@@ -40,11 +43,14 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
     remoteStream: null,
   });
   const [isScreenSharing, setIsScreenSharing] = useState(false);
-  const [callQuality, setCallQuality] = useState(null);
+  const [callQuality, setCallQuality] = useState<CallQuality | null>(null);
 
   const stateManager = useMemo(() => new CallStateManager(), []);
   const mediaManager = useMemo(() => new MediaStreamManager(), []);
-  const roomManager = useMemo(() => new TwilioRoomManager(), []);
+  const roomManager = useMemo(
+    () => new TwilioRoomManager(stateManager),
+    [stateManager]
+  );
   const eventHandler = useMemo(
     () =>
       new CallEventHandler(
@@ -114,7 +120,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
       }
 
       // Send WebSocket message
-    await sendMessage({
+      await sendMessage({
         type: "call_initiate",
         data: {
           receiverId: friend._id,
@@ -123,8 +129,8 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
           senderId: user?._id,
         },
         requireAck: true,
-        id: `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
-      });
+        id: generatedMessageId(),
+      } as WSCallMessage);
 
       // updating call state
       await stateManager.transition({
@@ -196,7 +202,9 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
       }
 
       // Start monitoring call quality
-      roomManager.startQualityMonitoring(setCallQuality);
+      roomManager.startQualityMonitoring((quality: CallQuality | null) => {
+        setCallQuality(quality);
+      });
     } catch (error) {
       console.error("Error accepting call:", error);
       await eventHandler.handleCallEnded();
@@ -254,14 +262,14 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
         }
 
         // try {
-          sendMessage({
-            type: "call_ended",
-            data: {
-             receiverId: currentState.remoteUser._id,
+        sendMessage({
+          type: "call_ended",
+          data: {
+            receiverId: currentState.remoteUser._id,
             roomName: currentState.roomName,
             forceCleanup: true,
-            }
-          });
+          },
+        });
         // } catch (wsError) {
         //   console.warn("Failed to send call_ended websocket message:", wsError);
         //   // continue with call termination even if WS message fails

@@ -106,9 +106,9 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
           queryClient.setQueryData(["callEvent"], {
             type: "incoming",
             data: {
-              initiatorId: message.initiatorId,
-              type: message.callType,
-              roomName: message.roomName,
+              initiatorId: message.data.initiatorId,
+              type: message.data.callType,
+              roomName: message.data.roomName,
             },
           });
         },
@@ -242,23 +242,7 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
   const sendMessage = useCallback(
     async (message: any) => {
 
-      //remove
-      // if (
-      //   !isConnected ||
-      //   connectionAttempts.current >= MAX_RECONNECT_ATTEMPTS
-      // ) {
-      //   console.warn("Message queued offline:", message.type);
-      //   pendingMessages.current.push({
-      //     type: message.type,
-      //     data: message,
-      //     timestamp: Date.now(),
-      //   });
-      //   connect();
-      //   return;
-      // }
-      //remove
-
-      //to maintain message queue health
+     //to maintain message queue health
       const now = Date.now();
       pendingMessages.current = pendingMessages.current.filter(
         (msg) => now - msg.timestamp < 300000 // 5-minute TTL

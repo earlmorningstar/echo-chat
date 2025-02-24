@@ -65,7 +65,7 @@ const initiateCall = async (req, res) => {
       });
     }
 
-    const roomName = `${initiatorId}-${receiverId}-${Date.now()}`;
+    const roomName = `room-${initiatorId}-${receiverId}-${Date.now()}`;
 
     
     const call = await Call.create({

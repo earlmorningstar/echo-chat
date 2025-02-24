@@ -66,6 +66,7 @@
     "@types/istanbul-lib-coverage": "^2.0.6",
     "@types/lodash": "^4.17.15",
     "@types/parse-json": "^4.0.2",
+    "@types/twilio-video": "^2.11.0",
     "nodemon": "^3.1.7"
   }
 }

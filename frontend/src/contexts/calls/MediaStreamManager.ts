@@ -8,25 +8,29 @@ export class MediaStreamManager {
 
   async setupLocalStream(type: CallType): Promise<MediaStream> {
     await this.cleanupLocalStream();
-    
-    const constraints = {
-      audio: {
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: true
-      },
-      video: type === "video" ? {
-        facingMode: "user",
-        width: { ideal: 1280 },
-        height: { ideal: 720 }
-      } : false
-    };
-  
+
     try {
-      return await navigator.mediaDevices.getUserMedia(constraints);
+      const constraints = {
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+        video:
+          type === "video"
+            ? {
+                facingMode: "user",
+                width: { ideal: 1280 },
+                height: { ideal: 720 },
+              }
+            : false,
+      };
+
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      return stream;
     } catch (error) {
       console.error("Media access error:", error);
-      throw new Error("Error accessing media devices");
+      throw new Error("Permission denied for media access");
     }
   }
 
