@@ -9,19 +9,33 @@ import React, {
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "./AuthContext";
 import { UserStatus } from "../types";
-import { WebSocketEventManager } from "./calls/WebSocketEventManager ";
+import { WebSocketEventManager } from "./calls/WebSocketEventManager";
 
 interface WebSocketContextType {
   sendMessage: (message: any) => Promise<void>;
-  eventManager: WebSocketEventManager | null;
+  eventManager: React.RefObject<WebSocketEventManager>;
   isConnected: boolean;
+  connectionState: number;
 }
 
-const WebSocketContext = createContext<WebSocketContextType | undefined>(
-  undefined
-);
+interface pendingMessage {
+  type: string;
+  data: any;
+  priority: number;
+  timestamp: number;
+}
+
+const WebSocketContext = createContext<WebSocketContextType>({
+  sendMessage: async () => {},
+  eventManager: { current: null },
+  isConnected: false,
+  connectionState: WebSocket.CLOSED,
+});
+
 const RECONNECT_DELAY = 1000;
 const MAX_RECONNECT_ATTEMPTS = 5;
+
+type ConnectFunction = () => void;
 
 export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
@@ -35,11 +49,63 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
   const connectionAttempts = useRef(0);
   const lastStatusRef = useRef<UserStatus>("offline");
   const isConnecting = useRef(false);
-  const pendingMessages = useRef<
-    Array<{ type: string; data: any; timestamp: number }>
-  >([]);
+  const pendingMessages = useRef<pendingMessage[]>([]);
+  const connectRef = useRef<ConnectFunction>();
+  const cleanupConnectionRef = useRef<() => void>();
+
+  const sendMessage = useCallback(async (message: any) => {
+    //to maintain message queue health
+    const now = Date.now();
+    pendingMessages.current = pendingMessages.current.filter(
+      (msg) => now - msg.timestamp < 300000 // 5-minute TTL
+    );
+    if (pendingMessages.current.length >= 50) {
+      pendingMessages.current.shift();
+    }
+
+    if (
+      !eventManager.current &&
+      connectionAttempts.current < MAX_RECONNECT_ATTEMPTS
+    ) {
+      pendingMessages.current.push({
+        type: message.type,
+        data: message,
+        priority: 1,
+        timestamp: Date.now(),
+      });
+      connectRef.current?.();
+      return;
+    }
+
+    if (eventManager.current) {
+      try {
+        await eventManager.current.enqueueEvent(
+          message.type,
+          message,
+          message.type.startsWith("status") ? 2 : 1
+        );
+      } catch (error) {
+        console.error(`Failed to send message: ${message.type}`, error);
+        //store failed messages for retry
+        pendingMessages.current.push({
+          type: message.type,
+          data: message,
+          priority: 1,
+          timestamp: Date.now(),
+        });
+      }
+    }
+  }, []);
 
   const cleanupConnection = useCallback(() => {
+    if (ws.current?.readyState === WebSocket.OPEN) {
+      sendMessage({
+        type: "status",
+        senderId: user?._id,
+        status: "online",
+        timestamp: Date.now(),
+      });
+    }
     if (reconnectTimeoutRef.current) {
       clearTimeout(reconnectTimeoutRef.current);
       reconnectTimeoutRef.current = undefined;
@@ -56,7 +122,12 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
     }
 
     setIsConnected(false);
-  }, []);
+    queryClient.invalidateQueries({ queryKey: ["typingStatus"] });
+  }, [sendMessage, user?._id, queryClient]);
+
+  useEffect(() => {
+    cleanupConnectionRef.current = cleanupConnection;
+  }, [cleanupConnection]);
 
   const handleWebSocketMessage = useCallback(
     (message: any) => {
@@ -103,37 +174,90 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
           queryClient.invalidateQueries({ queryKey: ["friends"] });
         },
         call_initiate: () => {
-          queryClient.setQueryData(["callEvent"], {
-            type: "incoming",
-            data: {
-              initiatorId: message.data.initiatorId,
-              type: message.data.callType,
-              roomName: message.data.roomName,
-            },
+          eventManager.current?.emit("call", {
+            type: "call_initiate",
+            callId: message.callId,
+            callerId: message.callerId,
+            callType: message.callType,
+            timestamp: message.timestamp,
           });
         },
-        call_accepted: () => {
-          queryClient.setQueryData(["callEvent"], {
-            type: "accepted",
-            data: message,
+        call_accept: () => {
+          eventManager.current?.emit("call", {
+            type: "call_accept",
+            callId: message.callId,
+            acceptorId: message.acceptorId,
+            roomName: message.roomName,
+            token: message.token,
           });
         },
-        call_rejected: () => {
-          queryClient.setQueryData(["callEvent"], {
-            type: "rejected",
-            data: message,
-          });
+        call_reject: () => {
+          eventManager.current?.emit("call", {
+            type: "call_reject",
+            callId: message.callId,
+            rejectorId: message.rejectorId,
+            });
         },
-        call_ended: () => {
-          queryClient.setQueryData(["callEvent"], {
-            type: "ended",
-            data: {
-              roomName: message.roomName,
-              initiatorId: message.senderId,
-              forceCleanup: true,
-            },
-          });
+        call_end: () => {
+          eventManager.current?.emit("call", {
+            type: "call_end",
+            callId: message.callId,
+            endedBy: message.endedBy,
+            });
         },
+
+        // call_initiate: () => {
+        //   queryClient.setQueryData(["callEvent"], {
+        //     type: "incoming",
+        //     data: {
+        //       initiatorId: message.data.senderId,
+        //       type: message.data.callType,
+        //       roomName: message.data.roomName,
+        //     },
+        //   });
+        //   if (eventManager?.current && message.id) {
+        //     eventManager.current.enqueueEvent(
+        //       "ack",
+        //       {
+        //         id: message.id,
+        //         type: "ack",
+        //         originalType: "call_initiate",
+        //       },
+        //       2
+        //     );
+        //   }
+        // },
+        // call_accepted: () => {
+        //   queryClient.setQueryData(["callEvent"], {
+        //     type: "accepted",
+        //     data: message,
+        //   });
+        // },
+        // call_rejected: () => {
+        //   queryClient.setQueryData(["callEvent"], {
+        //     type: "rejected",
+        //     data: message,
+        //   });
+        // },
+        // call_ended: () => {
+        //   queryClient.setQueryData(["callEvent"], {
+        //     type: "ended",
+        //     data: {
+        //       roomName: message.roomName,
+        //       initiatorId: message.senderId,
+        //       forceCleanup: true,
+        //     },
+        //   });
+        // },
+        // call_ice_candidate: () => {
+        //   queryClient.setQueryData<CallEvent>(["callEvent"], {
+        //     type: "ice_candidate",
+        //     data: {
+        //       candidate: message.candidate,
+        //       roomName: message.roomName,
+        //     },
+        //   });
+        // },
       };
 
       const handler = handlers[message.type];
@@ -145,25 +269,18 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
         }
       }
     },
-    [queryClient, user?._id]
+    [queryClient, user?._id, eventManager]
   );
 
-  const connect = useCallback(() => {
+  const connect = useCallback<ConnectFunction>(() => {
     if (!user?._id || isConnecting.current) return;
 
-    //checkingg existing connection state
+    //clearing existing connection if in invalid state
     if (ws.current) {
       const state = ws.current.readyState;
-      if (state === WebSocket.OPEN || state === WebSocket.CONNECTING) return;
-    }
-
-    // Clear existing connection if needed
-    if (
-      ws.current &&
-      (ws.current.readyState === WebSocket.OPEN ||
-        ws.current.readyState === WebSocket.CONNECTING)
-    ) {
-      ws.current.close();
+      if (state === WebSocket.OPEN || state === WebSocket.CONNECTING) {
+        ws.current.close();
+      }
     }
 
     isConnecting.current = true;
@@ -174,8 +291,18 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
       const socket = new WebSocket(wsUrl);
       ws.current = socket;
 
+      const connectTimeout = setTimeout(() => {
+        if (socket.readyState === WebSocket.CONNECTING) {
+          console.warn("WebSocket connection timeout");
+          socket.close();
+          isConnecting.current = false;
+        }
+      }, 5000);
+
       socket.onopen = () => {
+        clearTimeout(connectTimeout);
         console.log("WebSocket connected");
+        console.log("WS Connected - User ID:", user?._id);
         setIsConnected(true);
         connectionAttempts.current = 0;
         isConnecting.current = false;
@@ -183,6 +310,7 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
         eventManager.current = new WebSocketEventManager(socket);
         eventManager.current.on("message", handleWebSocketMessage);
 
+        //sending registration message
         if (user._id) {
           eventManager.current.enqueueEvent(
             "register",
@@ -195,33 +323,33 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
           );
         }
 
-        //processing pending messages with TTL
+        //processing pending messages
         const now = Date.now();
         pendingMessages.current = pendingMessages.current.filter(
-          (msg) => now - msg.timestamp < 300000 // 5-minute TTL
+          (msg) => now - msg.timestamp < 300000
         );
-        while (pendingMessages.current.length > 0) {
-          const msg = pendingMessages.current.shift();
-          if (msg && eventManager.current) {
-            eventManager.current.enqueueEvent(
-              msg.type,
-              msg.data,
-              msg.type.startsWith("status") ? 2 : 1
-            );
-          }
-        }
+        pendingMessages.current.forEach((msg) => {
+          eventManager.current?.enqueueEvent(
+            msg.type,
+            msg.data,
+            msg.priority || 1
+          );
+        });
+        pendingMessages.current = [];
       };
 
       socket.onclose = () => {
+        clearTimeout(connectTimeout);
         console.log("WebSocket disconnected");
         setIsConnected(false);
         isConnecting.current = false;
         cleanupConnection();
 
+        //exponential backoff reconnect
         if (connectionAttempts.current < MAX_RECONNECT_ATTEMPTS) {
           const delay = Math.min(
             RECONNECT_DELAY * Math.pow(2, connectionAttempts.current),
-            30000
+            30000 // max 30 seconds
           );
           connectionAttempts.current++;
           reconnectTimeoutRef.current = setTimeout(connect, delay);
@@ -229,61 +357,20 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
       };
 
       socket.onerror = (error) => {
-        console.error("WebSocket error");
+        console.error("WebSocket error:", error);
         isConnecting.current = false;
+        socket.close();
       };
     } catch (error) {
-      console.error("WebSocket initialization error");
+      console.error("WebSocket initialization error:", error);
       isConnecting.current = false;
       cleanupConnection();
     }
   }, [user?._id, cleanupConnection, handleWebSocketMessage]);
 
-  const sendMessage = useCallback(
-    async (message: any) => {
-
-     //to maintain message queue health
-      const now = Date.now();
-      pendingMessages.current = pendingMessages.current.filter(
-        (msg) => now - msg.timestamp < 300000 // 5-minute TTL
-      );
-      if (pendingMessages.current.length >= 50) {
-        pendingMessages.current.shift();
-      }
-
-      if (
-        !eventManager.current &&
-        connectionAttempts.current < MAX_RECONNECT_ATTEMPTS
-      ) {
-        pendingMessages.current.push({
-          type: message.type,
-          data: message,
-          timestamp: Date.now(),
-        });
-        connect();
-        return;
-      }
-
-      if (eventManager.current) {
-        try {
-          await eventManager.current.enqueueEvent(
-            message.type,
-            message,
-            message.type.startsWith("status") ? 2 : 1
-          );
-        } catch (error) {
-          console.error(`Failed to send message: ${message.type}`, error);
-          //store failed messages for retry
-          pendingMessages.current.push({
-            type: message.type,
-            data: message,
-            timestamp: Date.now(),
-          });
-        }
-      }
-    },
-    [connect]
-  );
+  useEffect(() => {
+    connectRef.current = connect;
+  }, [connect]);
 
   useEffect(() => {
     if (user?._id) {
@@ -343,7 +430,13 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
 
   return (
     <WebSocketContext.Provider
-      value={{ sendMessage, eventManager: eventManager.current, isConnected }}
+      value={{
+        sendMessage,
+        eventManager,
+        isConnected,
+        connectionState:
+          eventManager.current?.connectionState ?? WebSocket.CLOSED,
+      }}
     >
       {children}
     </WebSocketContext.Provider>

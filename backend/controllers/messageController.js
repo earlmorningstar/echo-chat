@@ -180,7 +180,7 @@ const markMessageAsRead = async (req, res) => {
 
     sendSuccess(res, 200, "Messages marked as read");
   } catch (error) {
-    sendError(res, 500, "Error marking messages as read");
+    // sendError(res, 500, "Error marking messages as read");
   }
 };
 

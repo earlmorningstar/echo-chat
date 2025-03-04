@@ -1,218 +1,264 @@
-import { CallType, CallEvent } from "../../types";
-import { CallStateManager } from "./CallStateManager";
-import { MediaStreamManager } from "./MediaStreamManager";
-import { TwilioRoomManager } from "./TwilioRoomManager";
-import api from "../../utils/api";
+// import { CallType, CallEvent } from "../../types";
+// import { CallStateManager } from "./CallStateManager";
+// import { MediaStreamManager } from "./MediaStreamManager";
+// import { TwilioRoomManager } from "./TwilioRoomManager";
+// import api from "../../utils/api";
 
-export class CallEventHandler {
-  constructor(
-    private stateManager: CallStateManager,
-    private mediaManager: MediaStreamManager,
-    private roomManager: TwilioRoomManager,
-    private sendWebSocketMessage: (message: any) => void
-  ) {
-    this.registerCleanupHandlers();
-  }
+// export class CallEventHandler {
+//   constructor(
+//     private stateManager: CallStateManager,
+//     private mediaManager: MediaStreamManager,
+//     private roomManager: TwilioRoomManager,
+//     private sendWebSocketMessage: (message: any) => void
+//   ) {
+//     this.registerCleanupHandlers();
+//   }
 
-  private registerCleanupHandlers(): void {
-    // Register cleanup for connecting state
-    this.stateManager.registerCleanupHandler("connecting", async () => {
-      const state = this.stateManager.getState();
-      if (state.callStatus === "ended") {
-        await this.mediaManager.cleanupLocalStream();
-      }
-    });
+//   private registerCleanupHandlers(): void {
+//     //registering cleanup for connecting state
+//     this.stateManager.registerCleanupHandler("connecting", async () => {
+//       const state = this.stateManager.getState();
+//       if (state.callStatus === "ended") {
+//         await this.mediaManager.cleanupLocalStream();
+//       }
+//     });
 
-    // Register cleanup for connected state
-    this.stateManager.registerCleanupHandler("connected", async () => {
-      await this.mediaManager.cleanupLocalStream();
-      await this.mediaManager.cleanupRemoteStream();
-      this.roomManager.disconnectFromRoom();
-    });
+//     //registering cleanup for connected state
+//     this.stateManager.registerCleanupHandler("connected", async () => {
+//       await this.mediaManager.cleanupLocalStream();
+//       await this.mediaManager.cleanupRemoteStream();
+//       this.roomManager.handleDisconnect();
+//     });
 
-    // Register cleanup for ended state
-    this.stateManager.registerCleanupHandler("ended", async () => {
-      await this.mediaManager.cleanupLocalStream();
-      await this.mediaManager.cleanupRemoteStream();
-      this.roomManager.disconnectFromRoom();
-    });
-  }
+//     //registering cleanup for ended state
+//     this.stateManager.registerCleanupHandler("ended", async () => {
+//       await this.mediaManager.cleanupLocalStream();
+//       await this.mediaManager.cleanupRemoteStream();
+//       this.roomManager.handleDisconnect();
+//     });
+//   }
 
-  async handleIncomingCall(event: CallEvent): Promise<void> {
-    try {
-      const currentState = this.stateManager.getState();
-      if (currentState.callStatus !== "idle") return;
+//   async handleIncomingCall(event: CallEvent): Promise<void> {
+//     try {
+//       const currentState = this.stateManager.getState();
 
-      const data = event.data;
-      if (!data || typeof data !== "object") {
-        throw new Error("Invalid callevent data");
-      }
+//       if (
+//         currentState.callStatus !== "idle" &&
+//         currentState.callStatus !== "ended"
+//       ) {
+//         console.warn(
+//           "Cannot handle incoming call in current state:",
+//           currentState.callStatus
+//         );
+//         return;
+//       }
 
-      //using proper evt data structure
-      // const initiatorId = event.data?.initiatorId;
-      // const roomName = event.data?.roomName;
-      // const callType = event.data?.type;
+//       console.log("Processing incoming call event:", event);
 
-      const { initiatorId, roomName, type } = data;
-      if (!initiatorId || !roomName || !type) {
-        throw new Error("Missing required call parameters");
-      }
+//       if (
+//         !event.data?.roomName ||
+//         !event.data?.initiatorId ||
+//         !event.data?.type
+//       ) {
+//         throw new Error("Invalid call initiation message");
+//       }
 
-      const response = await api.get(`/api/user/${initiatorId}`);
-      if (!response.data?.user) {
-        throw new Error("Caller information not found");
-      }
+//       const { initiatorId: senderId, roomName, type: callType } = event.data;
 
-      await this.stateManager.transition({
-        callStatus: "incoming",
-        callType: type as CallType,
-        remoteUser: response.data.user,
-        roomName,
-        isInCall: true,
-      });
-    } catch (error) {
-      console.error("Error handling incoming call:", error);
-      await this.cleanup();
-    }
-  }
+//       try {
+//         const response = await api.get(`/api/user/${senderId}`);
+//         if (!response.data?.user) {
+//           throw new Error("Caller information not found");
+//         }
 
-  async handleCallAccepted(event: CallEvent): Promise<void> {
-    try {
-      const currentState = this.stateManager.getState();
+//         //setting incomimg state
+//         await this.stateManager.transition({
+//           callStatus: "incoming",
+//           callType: callType as CallType,
+//           remoteUser: response.data.user,
+//           roomName,
+//           isInCall: true,
+//         });
 
-      // handling accepted events from both outgoing and connecting states
-      if (
-        currentState.callStatus !== "outgoing" &&
-        currentState.callStatus !== "connecting"
-      ) {
-        console.warn(
-          `Received call acceptance in invalid state: ${currentState.callStatus}`
-        );
-        return;
-      }
+//         console.log("Incoming call statee set successfully");
+//       } catch (apiError: any) {
+//         console.error("Failed to fetch caller info:", apiError);
+//         throw new Error(`Caller information error: ${apiError.message}`);
+//       }
+//     } catch (error) {
+//       console.error("Error handling incoming call:", error);
+//       await this.cleanup();
+//     }
+//   }
 
-      // first transitioning to connecting state
-      await this.stateManager.transition({
-        callStatus: "connecting",
-      });
+//   // async handleCallAccepted(event: CallEvent): Promise<void> {
+//   //   try {
+//   //     const currentState = this.stateManager.getState();
 
-      // setting up media streams and room connection if not done
-      if (!currentState.localStream) {
-        const localStream = await this.mediaManager.setupLocalStream(
-          currentState.callType!
-        );
+//   //     // handling accepted events from both outgoing and connecting states
+//   //     if (
+//   //       currentState.callStatus !== "outgoing" &&
+//   //       currentState.callStatus !== "connecting"
+//   //     ) {
+//   //       console.warn(
+//   //         `Received call acceptance in invalid state: ${currentState.callStatus}`
+//   //       );
+//   //       return;
+//   //     }
 
-        if (currentState.roomName) {
-          try {
-            await this.roomManager.connectToRoom(
-              currentState.roomName,
-              localStream.getTracks()
-            );
-          } catch (roomError) {
-            console.error("Error connecting to room:", roomError);
-            throw roomError;
-          }
-        }
+//   //     // first transitioning to connecting state
+//   //     await this.stateManager.transition({
+//   //       callStatus: "connecting",
+//   //     });
 
-        await this.stateManager.transition({
-          callStatus: "connected",
-          localStream,
-        });
-      } else {
-        //if local stream is available, transition to connected
-        await this.stateManager.transition({
-          callStatus: "connected",
-        });
-      }
+//   //     // setting up media streams and room connection if not done
+//   //     if (!currentState.localStream) {
+//   //       const localStream = await this.mediaManager.setupLocalStream(
+//   //         currentState.callType!
+//   //       );
 
-      //kkick off quality monitoring after connection is established
-      this.roomManager.startQualityMonitoring((quality) => {
-        //fill out
-        // We need to pass this through to the CallContext
-        // This will be handled by the CallProvider
-      });
-    } catch (error) {
-      console.error("Error handling call acceptance:", error);
-      await this.cleanup();
-    }
-  }
+//   //       if (currentState.roomName) {
+//   //         try {
+//   //           await this.roomManager.connectToRoom(
+//   //             currentState.roomName,
+//   //             localStream.getTracks()
+//   //           );
+//   //         } catch (roomError) {
+//   //           console.error("Error connecting to room:", roomError);
+//   //           throw roomError;
+//   //         }
+//   //       }
 
-  async handleCallRejected(): Promise<void> {
-    try {
-      await this.stateManager.transition({
-        callStatus: "ended",
-        isInCall: false,
-      });
-    } catch (error) {
-      console.error("Error handling call rejection:", error);
-      await this.cleanup();
-    }
-  }
+//   //       await this.stateManager.transition({
+//   //         callStatus: "connected",
+//   //         localStream,
+//   //       });
+//   //     } else {
+//   //       //if local stream is available, transition to connected
+//   //       await this.stateManager.transition({
+//   //         callStatus: "connected",
+//   //       });
+//   //     }
 
-  async handleCallEnded(event?: CallEvent): Promise<void> {
-    const currentState = this.stateManager.getState();
+//   //     //kkick off quality monitoring after connection is established
+//   //     this.roomManager.startQualityMonitoring((quality) => {
+//   //       //fill out
+//   //       // We need to pass this through to the CallContext
+//   //       // This will be handled by the CallProvider
+//   //     });
+//   //   } catch (error) {
+//   //     console.error("Error handling call acceptance:", error);
+//   //     await this.cleanup();
+//   //   }
+//   // }
 
-    if (event?.data?.forceCleanup) {
-      console.log("Forced call termination received from remote party");
-    }
+//   async handleCallAccepted(event: CallEvent): Promise<void> {
+//     try {
+//       const currentState = this.stateManager.getState();
+//       const { roomName } = event.data;
 
-    //checking to see if we need to notify other party
-    if (
-      currentState.isInCall &&
-      currentState.remoteUser?._id &&
-      currentState.roomName &&
-      !event?.data?.forceCleanup //don't send if we're responding to a force cleanup
-    ) {
-      try {
-        this.sendWebSocketMessage({
-          type: "call_ended",
-          receiverId: currentState.remoteUser._id,
-          roomName: currentState.roomName,
-          forceCleanup: true,
-        });
-      } catch (error) {
-        console.warn(
-          "Failed to send call_ended event, proceeding with cleanup anyway",
-          error
-        );
-      }
-    }
+//       if (!roomName) throw new Error("Missing room name");
 
-    //proceeding  with cleanup
-    await this.cleanup();
-  }
+//       const token = await api.post("/api/call/token", { roomName });
+//       const localStream = await this.mediaManager.setupLocalStream(
+//         currentState.callType || "video"
+//       );
 
-  private async cleanup(): Promise<void> {
-    try {
-      const currentState = this.stateManager.getState();
+//       await this.roomManager.connectToRoom(
+//         roomName,
+//         token.data.token,
+//         currentState.callType || "video"
+//       );
 
-      //perform cleanup if only in a call state
-      if (currentState.isInCall) {
-        await this.stateManager.transition({
-          callStatus: "ended",
-          isInCall: false,
-        });
+//       await this.stateManager.transition({
+//         callStatus: "connected",
+//         localStream,
+//         isInCall: true,
+//       });
+//     } catch (error) {
+//       console.error("Call acceptance failed:", error);
+//       await this.cleanup();
+//     }
+//   }
 
-        //clean up media resources
-        await Promise.allSettled([
-          this.mediaManager.cleanupLocalStream(),
-          this.mediaManager.cleanupRemoteStream(),
-        ]);
+//   async handleCallRejected(): Promise<void> {
+//     try {
+//       await this.stateManager.transition({
+//         callStatus: "ended",
+//         isInCall: false,
+//       });
+//     } catch (error) {
+//       console.error("Error handling call rejection:", error);
+//       await this.cleanup();
+//     }
+//   }
 
-        //disconnecting from room if connected
-        this.roomManager.disconnectFromRoom();
+//   async handleCallEnded(event?: CallEvent): Promise<void> {
+//     const currentState = this.stateManager.getState();
 
-        //reset state afterwards
-        await this.stateManager.reset();
-      }
-    } catch (error) {
-      console.error("Error during cleanup:", error);
-      // Force reset in case of error
-      try {
-        await this.stateManager.reset();
-      } catch (resetError) {
-        console.error("Failed to reset state:", resetError);
-      }
-    }
-  }
-}
+//     if (event?.data?.forceCleanup) {
+//       console.log("Forced call termination received from remote party");
+//     }
+
+//     //checking to see if we need to notify other party
+//     if (
+//       currentState.isInCall &&
+//       currentState.remoteUser?._id &&
+//       currentState.roomName &&
+//       !event?.data?.forceCleanup //don't send if we're responding to a force cleanup
+//     ) {
+//       try {
+//         this.sendWebSocketMessage({
+//           type: "call_ended",
+//           receiverId: currentState.remoteUser._id,
+//           roomName: currentState.roomName,
+//           forceCleanup: true,
+//         });
+//       } catch (error) {
+//         console.warn(
+//           "Failed to send call_ended event, proceeding with cleanup anyway",
+//           error
+//         );
+//       }
+//     }
+
+//     //proceeding  with cleanup
+//     await this.cleanup();
+//   }
+
+//   private async cleanup(): Promise<void> {
+//     try {
+//       const currentState = this.stateManager.getState();
+
+//       //perform cleanup if only in a call state
+//       if (currentState.isInCall) {
+//         await this.stateManager.transition({
+//           callStatus: "ended",
+//           isInCall: false,
+//         });
+
+//         //clean up media resources
+//         await Promise.allSettled([
+//           this.mediaManager.cleanupLocalStream(),
+//           this.mediaManager.cleanupRemoteStream(),
+//         ]);
+
+//         //disconnecting from room if connected
+//         this.roomManager.handleDisconnect();
+
+//         //reset state afterwards
+//         await this.stateManager.reset();
+//       }
+//     } catch (error) {
+//       console.error("Error during cleanup:", error);
+//       // Force reset in case of error
+//       try {
+//         await this.stateManager.reset();
+//       } catch (resetError) {
+//         console.error("Failed to reset state:", resetError);
+//       }
+//     }
+//   }
+// }
+
+export {};

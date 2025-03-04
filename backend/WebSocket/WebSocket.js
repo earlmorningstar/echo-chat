@@ -5,8 +5,8 @@ import { ObjectId } from "mongodb";
 
 const isValidObjectId = (id) => ObjectId.isValid(id);
 
-const HEARTBEAT_INTERVAL = 30000;
-const HEARTBEAT_TIMEOUT = 10000;
+const HEARTBEAT_INTERVAL = 45000;
+const HEARTBEAT_TIMEOUT = 20000;
 
 const initializeWebSocket = (server, db) => {
   if (!db) {
@@ -40,15 +40,15 @@ const initializeWebSocket = (server, db) => {
     };
 
     const processMessage = async (rawMessage) => {
-      // if (!rateLimiter.checkLimit(clientId)) {
-      //   ws.send(
-      //     JSON.stringify({
-      //       type: "error",
-      //       message: "Rate limit exceeded. Please slow down.",
-      //     })
-      //   );
-      //   return;
-      // }
+      if (!rateLimiter.checkLimit(clientId)) {
+        ws.send(
+          JSON.stringify({
+            type: "error",
+            message: "Rate limit exceeded. Please slow down.",
+          })
+        );
+        return;
+      }
 
       try {
         const message = JSON.parse(rawMessage);
@@ -58,27 +58,10 @@ const initializeWebSocket = (server, db) => {
           return;
         }
 
-        //validaating call messages
-        if (message.type.startsWith("call_")) {
-          if (!message.data || typeof message.data !== "object") {
-            throw new Error("Invalid call message format");
-          }
-
-          const requiredFields = {
-            call_initiate: ["receiverId", "callType", "roomName", "senderId"],
-            call_ended: ["roomName", "senderId"],
-          };
-
-          const fields = requiredFields[message.type] || [];
-          if (fields.some((field) => !message.data[field])) {
-            throw new Error(`Missing fields for ${message.type}`);
-          }
+        if (message.type === "ping") {
+          handleClientPing();
+          return;
         }
-
-        // if (message.type === "ping") {
-        //   handleClientPing();
-        //   return;
-        // }
 
         if (message.type === "register") {
           await handleRegistration(message);
@@ -97,11 +80,10 @@ const initializeWebSocket = (server, db) => {
             JSON.stringify({
               type: "error",
               message: error.message,
-              // originalMessage: rawMessage.toString(),
             })
           );
         }
-        // handleError(error);
+        handleError(error);
       }
     };
 

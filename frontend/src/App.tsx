@@ -93,7 +93,7 @@ const App: React.FC = () => {
     <>
       <RouterProvider router={router} />
       <UnauthorizedErrorHandler />
-      {callState.isInCall && (
+      {callState.currentCall.id && (
         <ErrorBoundary fallback={<CallErrorFallback />}>
           <CallInterface />
         </ErrorBoundary>

@@ -52,6 +52,8 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
   useEffect(() => {
     if (!eventManager) return;
 
+    const currentManager = eventManager.current;
+
     const handleTypingMessage = (message: any) => {
       if (message.type === "typing") {
         //making use of   functional update and limit state changes
@@ -76,11 +78,21 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
       }
     };
 
-    eventManager.on("message", handleTypingMessage);
+    // eventManager.on("message", handleTypingMessage);
+    // return () => {
+    //   eventManager.off("message", handleTypingMessage);
+    // };
+    if (currentManager) {
+      currentManager.on("message", handleTypingMessage);
+    }
+
     return () => {
-      eventManager.off("message", handleTypingMessage);
+      if (currentManager) {
+        currentManager.off("message", handleTypingMessage);
+      }
     };
-  }, [eventManager]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eventManager.current]);
 
   const getUserStatus = useCallback(
     (userId: string): UserStatus => {
@@ -166,8 +178,8 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
     refetchInterval: 2000,
     staleTime: 1000,
     gcTime: 5 * 60 * 1000,
-    // refetchOnWindowFocus: true,
-    // refetchOnReconnect: true,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
     enabled: isAuthenticated,
   });
 

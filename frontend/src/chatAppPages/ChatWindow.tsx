@@ -7,7 +7,7 @@ import { useWebSocket } from "../contexts/WebSocketContext";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import api from "../utils/api";
 import { formatLastSeen } from "../utils/chatUtils";
-import { Message, AuthUser } from "../types";
+import { Message, AuthUser, CallType } from "../types";
 import { formatFileSize, uploadFile } from "../utils/fileUpload";
 import ImageViewer from "./ImageViewer";
 import { useCachedImage } from "../utils/imageCache";
@@ -144,14 +144,30 @@ const ChatWindow: React.FC = () => {
   });
 
   const handleVoiceCall = () => {
-    if (friend) {
-      initiateCall(friend, "voice");
+    if (friend?._id) {
+      console.log("Initiating call with friend:", friend._id);
+      initiateCall(friend._id, CallType.VOICE);
     }
   };
 
+  // const handleVoiceCall = () => {
+  //   if (friend?._id && user?._id) {
+  //     console.log("Initiating call with:", {
+  //       callerId: user._id,
+  //       recipientId: friend._id,
+  //     });
+
+  //     api.post("/api/call/start", {
+  //       callerId: user._id,
+  //       recipientId: friend._id,
+  //       callType: CallType.VOICE,
+  //     });
+  //   }
+  // };
+
   const handleVideoCall = () => {
-    if (friend) {
-      initiateCall(friend, "video");
+    if (friend?._id) {
+      initiateCall(friend._id, CallType.VIDEO);
     }
   };
 

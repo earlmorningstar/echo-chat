@@ -10,13 +10,19 @@ interface WSEvent {
 }
 
 export class WebSocketEventManager {
+  public get connectionState(): number {
+    return this.ws.readyState;
+  }
+  public get isConnected(): boolean {
+    return this.ws.readyState === WebSocket.OPEN;
+  }
+
   private eventQueue: WSEvent[] = [];
   private processingQueue: boolean = false;
   private eventEmitter = new EventEmitter();
-  private ws: WebSocket;
+  public ws: WebSocket;
   private maxRetries: number = 3;
   private retryDelay: number = 1000;
-  public isConnected: boolean = false;
   private readonly maxQueueSize = 100;
   private pendingAcks = new Map<
     string,
@@ -28,7 +34,7 @@ export class WebSocketEventManager {
     this.eventEmitter = new EventEmitter();
     this.eventEmitter.setMaxListeners(20);
 
-    this.isConnected = ws.readyState === WebSocket.OPEN;
+    // this.isConnected = ws.readyState === WebSocket.OPEN;
 
     ws.addEventListener("open", this.handleConnectionOpen.bind(this));
     ws.addEventListener("close", this.handleConnectionClose.bind(this));
@@ -36,27 +42,29 @@ export class WebSocketEventManager {
     ws.addEventListener("error", this.handleConnectionError.bind(this));
   }
 
+  public checkConnection(): boolean {
+    return this.ws.readyState === WebSocket.OPEN;
+  }
+
   private handleConnectionOpen() {
-    this.isConnected = true;
     this.processQueue().catch((error) => {
-      console.error("Error processing queue after connection");
+      console.error("Error processing queue after connection:", error);
     });
   }
 
   private handleConnectionClose() {
-    this.isConnected = false;
     this.clearPendingAcks();
   }
 
   private handleConnectionError(error: Event) {
-    console.error("WebSocket connection error");
-    this.isConnected = false;
+    console.error("WebSocket connection error:", error);
     this.clearPendingAcks();
   }
 
   private handleIncomingMessage(event: MessageEvent) {
     try {
       const message = JSON.parse(event.data);
+      // console.log("Received message:", message);
 
       //handling acknowledgments
       if (message.type === "ack") {
@@ -71,7 +79,7 @@ export class WebSocketEventManager {
 
       this.eventEmitter.emit("message", message);
     } catch (error) {
-      console.error("Error handling incoming message");
+      console.error("Error handling incoming message", event.data);
     }
   }
 
@@ -138,15 +146,28 @@ export class WebSocketEventManager {
     this.eventEmitter.removeAllListeners();
     this.eventQueue = [];
     this.processingQueue = false;
-    this.isConnected = false;
   }
 
-  on(event: string, handler: (...args: any[]) => void) {
-    this.eventEmitter.on(event, handler);
+  // on(event: string, handler: (...args: any[]) => void) {
+  //   this.eventEmitter.on(event, handler);
+  // }
+
+  // off(event: string, handler: (...args: any[]) => void) {
+  //   this.eventEmitter.off(event, handler);
+  // }
+
+  emit(event: string, ...args: any[]): boolean {
+    return this.eventEmitter.emit(event, ...args);
   }
 
-  off(event: string, handler: (...args: any[]) => void) {
-    this.eventEmitter.off(event, handler);
+  on(event: string, listerner: (...args: any[]) => void): this {
+    this.eventEmitter.on(event, listerner);
+    return this;
+  }
+
+  off(event: string, listerner: (...args: any[]) => void): this {
+    this.eventEmitter.off(event, listerner);
+    return this;
   }
 
   private async sendWithAck(data: any): Promise<boolean> {
@@ -155,16 +176,16 @@ export class WebSocketEventManager {
         this.pendingAcks.delete(data.id);
         resolve(false);
         console.warn(`Ack timeout for ${data.type}`);
-      }, 5000);
+      }, 12000);
 
       try {
         if (this.ws.readyState === WebSocket.OPEN) {
-          this.ws.send(
-            JSON.stringify({
-              ...data,
-              timestamp: Date.now(),
-            })
-          );
+          const message = JSON.stringify({
+            ...data,
+            timestamp: Date.now(),
+          });
+
+          this.ws.send(message);
           this.pendingAcks.set(data.id, { timeout, resolve });
         } else {
           clearTimeout(timeout);
@@ -178,6 +199,18 @@ export class WebSocketEventManager {
   }
 
   private async processQueue() {
+    if (!this.checkConnection()) {
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      return;
+    }
+
+    //priority based processing
+    this.eventQueue.sort((a, b) => {
+      if (a.type.startsWith("call_")) return -1;
+      if (b.type.startsWith("call_")) return -1;
+      return b.priority - a.priority;
+    });
+
     if (
       this.processingQueue ||
       this.eventQueue.length === 0 ||
