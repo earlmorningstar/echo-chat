@@ -66,4 +66,13 @@ const authenticateUser = async (req, res, next) => {
   }
 };
 
-export { renewToken, authenticateUser };
+const errorHandler = (err, req, res, next) => {
+  console.error("Global error:", err);
+  sendError(res, 500, {
+    status: "error",
+    message: "Internal server error",
+    error: process.env.NODE_ENV === "development" ? err.message : undefined,
+  });
+};
+
+export { renewToken, authenticateUser, errorHandler };

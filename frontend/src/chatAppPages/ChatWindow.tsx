@@ -145,25 +145,10 @@ const ChatWindow: React.FC = () => {
 
   const handleVoiceCall = () => {
     if (friend?._id) {
-      console.log("Initiating call with friend:", friend._id);
+      console.log("Initiate call ID:", crypto.randomUUID());
       initiateCall(friend._id, CallType.VOICE);
     }
   };
-
-  // const handleVoiceCall = () => {
-  //   if (friend?._id && user?._id) {
-  //     console.log("Initiating call with:", {
-  //       callerId: user._id,
-  //       recipientId: friend._id,
-  //     });
-
-  //     api.post("/api/call/start", {
-  //       callerId: user._id,
-  //       recipientId: friend._id,
-  //       callType: CallType.VOICE,
-  //     });
-  //   }
-  // };
 
   const handleVideoCall = () => {
     if (friend?._id) {

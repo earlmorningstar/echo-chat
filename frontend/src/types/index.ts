@@ -1,15 +1,5 @@
-// import {
-//   Room,
-//   LocalParticipant,
-//   RemoteParticipant,
-//   RemoteTrackPublication,
-//   RemoteAudioTrack,
-//   RemoteVideoTrack,
-//   LocalAudioTrackPublication,
-//   LocalVideoTrackPublication,
-//   RemoteAudioTrackPublication,
-//   RemoteVideoTrackPublication,
-// } from "twilio-video";
+import * as TwilioVideo from "twilio-video";
+import * as TwilioVoice from "@twilio/voice-sdk";
 
 export interface AuthUser {
   _id: string;
@@ -89,6 +79,7 @@ export enum CallStatus {
   COMPLETED = "completed",
   REJECTED = "rejected",
   CONNECTED = "connected",
+  FAILED = "failed",
 }
 
 export enum CallType {
@@ -105,126 +96,12 @@ export interface CallEvent {
   timestamp: number;
 }
 
-// export type CallType = "voice" | "video";
-// export type CallStatus =
-//   | "idle"
-//   | "incoming"
-//   | "outgoing"
-//   | "connecting"
-//   | "connected"
-//   | "ended";
-
-// export interface CallState {
-//   isInCall: boolean;
-//   callType: CallType | null;
-//   callStatus: CallStatus;
-//   remoteUser: Friend | null;
-//   roomName: string | null;
-//   localStream: MediaStream | null;
-//   remoteStream: MediaStream | null;
-//   localAudioEnabled: boolean;
-//   localVideoEnabled: boolean;
-//   isScreenSharing: boolean;
-//   callQuality: CallQuality | null;
-//   timestamp?: number;
-// }
-// export interface CallEvent {
-//   type: "incoming" | "accepted" | "rejected" | "ended" | "ice_candidate";
-//   data: {
-//     initiatorId?: string;
-//     receiverId?: string;
-//     type?: CallType;
-//     roomName?: string;
-//     forceCleanup?: boolean;
-//     candidate?: RTCIceCandidate;
-//   };
-// }
-
-// export interface CallContextType {
-//   callState: CallState;
-//   initiateCall: (friend: Friend, type: CallType) => Promise<void>;
-//   acceptCall: () => Promise<void>;
-//   rejectCall: () => Promise<void>;
-//   endCall: () => Promise<void>;
-//   toggleAudio: () => void;
-//   toggleVideo: () => void;
-//   toggleScreenShare: () => Promise<void>;
-//   callQuality: CallQuality | null;
-//   isScreenSharing: boolean;
-// }
-
-// export interface CallQuality {
-//   audio: {
-//     bitrate: number;
-//     packetsLost: number;
-//     roundTripTime: number;
-//   };
-//   video?: {
-//     bitrate: number;
-//     packetsLost: number;
-//     frameRate: number;
-//     resolution: { width: number; height: number };
-//   };
-//   networkLevel?: number;
-//   timestamp?: number;
-// }
-
-// interface BaseCallMessage {
-//   roomName: string;
-//   senderId: string;
-//   receiverId: string;
-//   callType: CallType;
-//   forceCleanup?: boolean;
-// }
-
-// export interface WSCallMessage {
-//   type: "call_initiate" | "call_accepted" | "call_rejected" | "call_ended";
-//   data: BaseCallMessage;
-//   requireAck: boolean;
-//   id: string;
-//   timestamp?: number;
-// }
-
-// export const convertWSToUIEvent = (wsMessage: WSCallMessage): CallEvent => ({
-//   type: mapWSTypeToUI(wsMessage.type),
-//   data: {
-//     initiatorId: wsMessage.data.senderId,
-//     type: wsMessage.data.callType,
-//     roomName: wsMessage.data.roomName,
-//     forceCleanup: wsMessage.data.forceCleanup,
-//   },
-// });
-
-// const mapWSTypeToUI = (wsType: WSCallMessage["type"]): CallEvent["type"] => {
-//   const mapping: Record<string, CallEvent["type"]> = {
-//     call_initiate: "incoming",
-//     call_accepted: "accepted",
-//     call_rejected: "rejected",
-//     call_ended: "ended",
-//   };
-//   return mapping[wsType] || "ended";
-// };
-
-// export interface TwilioRoom extends Room {
-//   name: string;
-//   localParticipant: LocalParticipant;
-//   participants: Map<string, RemoteParticipant>;
-//   config?: {
-//     peerConnection: RTCPeerConnection;
-//   };
-// }
-
-// export type TwilioTrackPublication =
-//   | LocalAudioTrackPublication
-//   | LocalVideoTrackPublication
-//   | RemoteAudioTrackPublication
-//   | RemoteVideoTrackPublication;
-
-// export type TwilioTrack = RemoteAudioTrack | RemoteVideoTrack;
-
-// export interface TwilioParticipant extends RemoteParticipant {
-//   identity: string;
-//   tracks: Map<string, RemoteTrackPublication>;
-//   videoTracks: Map<string, RemoteVideoTrackPublication>;
-//   audioTracks: Map<string, RemoteAudioTrackPublication>;
-// }
+export interface CallStateUpdate {
+  callId?: string;
+  type?: CallType;
+  status?: CallStatus;
+  participants?: string[];
+  activeCall?: TwilioVideo.Room | TwilioVoice.Call | null;
+  callQuality?: "good" | "average" | "poor";
+  error?: string;
+}

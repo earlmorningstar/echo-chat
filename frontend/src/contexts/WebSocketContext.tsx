@@ -54,6 +54,11 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
   const cleanupConnectionRef = useRef<() => void>();
 
   const sendMessage = useCallback(async (message: any) => {
+    if (!eventManager.current?.isConnected) {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      if (!eventManager.current?.isConnected) return;
+    }
+
     //to maintain message queue health
     const now = Date.now();
     pendingMessages.current = pendingMessages.current.filter(
@@ -196,68 +201,15 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
             type: "call_reject",
             callId: message.callId,
             rejectorId: message.rejectorId,
-            });
+          });
         },
         call_end: () => {
           eventManager.current?.emit("call", {
             type: "call_end",
             callId: message.callId,
             endedBy: message.endedBy,
-            });
+          });
         },
-
-        // call_initiate: () => {
-        //   queryClient.setQueryData(["callEvent"], {
-        //     type: "incoming",
-        //     data: {
-        //       initiatorId: message.data.senderId,
-        //       type: message.data.callType,
-        //       roomName: message.data.roomName,
-        //     },
-        //   });
-        //   if (eventManager?.current && message.id) {
-        //     eventManager.current.enqueueEvent(
-        //       "ack",
-        //       {
-        //         id: message.id,
-        //         type: "ack",
-        //         originalType: "call_initiate",
-        //       },
-        //       2
-        //     );
-        //   }
-        // },
-        // call_accepted: () => {
-        //   queryClient.setQueryData(["callEvent"], {
-        //     type: "accepted",
-        //     data: message,
-        //   });
-        // },
-        // call_rejected: () => {
-        //   queryClient.setQueryData(["callEvent"], {
-        //     type: "rejected",
-        //     data: message,
-        //   });
-        // },
-        // call_ended: () => {
-        //   queryClient.setQueryData(["callEvent"], {
-        //     type: "ended",
-        //     data: {
-        //       roomName: message.roomName,
-        //       initiatorId: message.senderId,
-        //       forceCleanup: true,
-        //     },
-        //   });
-        // },
-        // call_ice_candidate: () => {
-        //   queryClient.setQueryData<CallEvent>(["callEvent"], {
-        //     type: "ice_candidate",
-        //     data: {
-        //       candidate: message.candidate,
-        //       roomName: message.roomName,
-        //     },
-        //   });
-        // },
       };
 
       const handler = handlers[message.type];
@@ -273,6 +225,7 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
   );
 
   const connect = useCallback<ConnectFunction>(() => {
+    if (ws.current?.readyState === WebSocket.OPEN) return;
     if (!user?._id || isConnecting.current) return;
 
     //clearing existing connection if in invalid state
@@ -283,6 +236,7 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
       }
     }
 
+    if (isConnecting.current) return;
     isConnecting.current = true;
     cleanupConnection();
 
@@ -312,12 +266,15 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
 
         //sending registration message
         if (user._id) {
-          eventManager.current.enqueueEvent(
+          eventManager.current?.enqueueEvent(
             "register",
             {
               type: "register",
               senderId: user._id,
               status: lastStatusRef.current,
+              timestamp: Date.now(),
+              requireAck: true,
+              id: `reg-${Date.now()}`,
             },
             2
           );
@@ -338,7 +295,14 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
         pendingMessages.current = [];
       };
 
+      const pingInterval = setInterval(() => {
+        if (socket.readyState === WebSocket.OPEN) {
+          socket.send(JSON.stringify({ type: "ping" }));
+        }
+      }, 25000);
+
       socket.onclose = () => {
+        clearInterval(pingInterval);
         clearTimeout(connectTimeout);
         console.log("WebSocket disconnected");
         setIsConnected(false);
@@ -367,6 +331,13 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
       cleanupConnection();
     }
   }, [user?._id, cleanupConnection, handleWebSocketMessage]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (!isConnected) connect();
+    }, 15000);
+    return () => clearInterval(interval);
+  }, [isConnected, connect]);
 
   useEffect(() => {
     connectRef.current = connect;

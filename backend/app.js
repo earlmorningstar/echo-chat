@@ -12,6 +12,7 @@ import messageRoutes from "./routes/messageRoutes.js";
 import uploadRoutes from "./routes/uploadRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
 import callRoutes from "./routes/callRoutes.js";
+import { errorHandler } from "./middleware/authMiddleware.js";
 import initializeWebSocket from "./WebSocket/WebSocket.js";
 import { setupFriendshipCollections } from "./models/friendshipSchema.js";
 import dotenv from "dotenv";
@@ -37,6 +38,7 @@ app.use(
 
 app.use(cookieParser());
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 app.get("/api/health", (req, res) => {
   res.status(200).json({
@@ -74,6 +76,7 @@ const initializeServer = async () => {
     });
 
     // Routes
+    app.use(errorHandler);
     app.use("/api", userRoutes);
     app.use("/api/auth", authRoutes);
     app.use("/api/messages", messageRoutes);

@@ -27,6 +27,12 @@ const connectToDatabase = async () => {
     // Connect to the specific database
     const db = client.db(DB_NAME);
 
+    // Adding TTL index for automatic call cleanup
+    await db.collection("calls").createIndex(
+      { createdAt: 1 },
+      { expireAfterSeconds: 86400 } //24hr
+    );
+
     // Ensure we're connecting Mongoose to the same database
     const mongooseUri = uri.includes(DB_NAME) ? uri : `${uri}/${DB_NAME}`;
 

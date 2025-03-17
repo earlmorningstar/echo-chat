@@ -29,11 +29,11 @@ root.render(
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <WebSocketProvider>
-          <ChatProvider>
-            <CallProvider>
+          <CallProvider>
+            <ChatProvider>
               <App />
-            </CallProvider>
-          </ChatProvider>
+            </ChatProvider>
+          </CallProvider>
         </WebSocketProvider>
       </AuthProvider>
       {process.env.NODE_ENV === "development" && <ReactQueryDevtools />}

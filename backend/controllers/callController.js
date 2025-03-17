@@ -1,136 +1,9 @@
-// import Call from "../models/callSchema.js";
-// import { Types } from "mongoose";
-// const { ObjectId } = Types;
-// import twilio from "twilio";
-// import { sendError, sendSuccess } from "../utils/response.js";
-
-// const twilioClient = twilio(
-//   process.env.TWILIO_API_KEY,
-//   process.env.TWILIO_API_SECRET,
-//   { accountSid: process.env.TWILIO_ACCOUNT_SID }
-// );
-
-// const generateToken = async (req, res) => {
-//   const { roomName } = req.body;
-//   const userId = req.userId;
-
-//   try {
-//     if (!roomName || !userId) {
-//       return sendError(res, 400, "Room name and user ID are required");
-//     }
-
-//     // Create access token
-//     const token = new twilio.jwt.AccessToken(
-//       process.env.TWILIO_ACCOUNT_SID,
-//       process.env.TWILIO_API_KEY,
-//       process.env.TWILIO_API_SECRET,
-//       { identity: userId.toString() }
-//     );
-
-//     const videoGrant = new twilio.jwt.AccessToken.VideoGrant({
-//       room: roomName,
-//     });
-
-//     //adding grant to the generated token
-//     token.addGrant(videoGrant);
-//     // token.identity = userId;
-//     sendSuccess(res, 200, "Token generated successfully", {
-//       token: token.toJwt(),
-//     });
-//   } catch (error) {
-//     console.error("Token generation error:", error);
-//     sendError(res, 500, "Could not generate token", error);
-//   }
-// };
-
-// const initiateCall = async (req, res) => {
-//   const { receiverId, type } = req.body;
-//   const initiatorId = req.userId;
-
-//   try {
-//     //validate receiver exists
-//     const receiver = await User.findById(receiverId);
-//     if (!receiver) return sendError(res, 404, "Receiver not found");
-
-//     const room = await twilioClient.video.rooms.create({
-//       uniqueName: roomName,
-//       type: "peer-to-peer",
-//     });
-
-//     const call = await Call.create({
-//       initiator: new ObjectId(initiatorId),
-//       receiver: new ObjectId(receiverId),
-//       type,
-//       roomName,
-//       status: "initiated",
-//       startTime: new Date(),
-//     });
-
-//     const existingCall = await Call.findOne({
-//       initiator: initiatorId,
-//       receiver: receiverId,
-//       status: { $in: ["initiated", "connected"] },
-//     });
-
-//     if (existingCall) {
-//       return sendSuccess(res, 200, "Call already exists", {
-//         callId: existingCall._id,
-//         roomName: existingCall.roomName,
-//       });
-//     }
-
-//     const roomName = `room-${initiatorId}-${receiverId}-${Date.now()}`;
-
-//     sendSuccess(res, 201, "Call initiated successfully", {
-//       callId: call._id.toString(),
-//       roomName,
-//     });
-//   } catch (error) {
-//     console.error("Call initiation error:", error);
-//     sendError(res, 500, "Error initiating call", { error: error.message });
-//   }
-// };
-
-// const updateCallStatus = async (req, res) => {
-//   const { roomName, status, endTime } = req.body;
-
-//   try {
-//     const updateData = {
-//       status,
-//       ...(endTime && { endTime: new Date(endTime) }),
-//     };
-
-//     // first get the existing call
-//     const existingCall = await Call.findOne({ roomName });
-//     if (!existingCall) return sendError(res, 404, "Call not found");
-
-//     // calculate duration if ending call
-//     if (endTime && existingCall.startTime) {
-//       updateData.duration = Math.floor(
-//         (new Date(endTime) - existingCall.startTime) / 1000
-//       );
-//     }
-
-//     const call = await Call.findOneAndUpdate(
-//       { roomName },
-//       { $set: updateData },
-//       { new: true }
-//     ).lean();
-
-//     sendSuccess(res, 200, "Call status updated successfully", { call });
-//   } catch (error) {
-//     console.error("Update call error:", error);
-//     sendError(res, 500, "Error updating call status", { error: error.message });
-//   }
-// };
-
-// export { generateToken, initiateCall, updateCallStatus };
-
 import { Types } from "mongoose";
 const { ObjectId } = Types;
 import twilio from "twilio";
 const AccessToken = twilio.jwt.AccessToken;
 const { VideoGrant, VoiceGrant } = AccessToken;
+const { VoiceResponse } = twilio.twiml;
 import { sendError, sendSuccess } from "../utils/response.js";
 import { CallStatus, CallType } from "../utils/constants.js";
 import { validateCall } from "../utils/validateCall.js";
@@ -144,29 +17,60 @@ const generateTwilioToken = async (identity, callType, roomName) => {
     throw new Error("Twilio credentials are missing in .env file");
   }
 
+  const cleanIdentity = identity.replace(/^client:/, "");
+
   const token = new AccessToken(
     process.env.TWILIO_ACCOUNT_SID,
     process.env.TWILIO_API_KEY,
     process.env.TWILIO_API_SECRET,
-    { identity: identity.toString(), ttl: 3600 }
+    { identity: `client:${cleanIdentity}`, ttl: 3600 }
   );
 
   //adding grants based on call type
-  if (callType === CallType.VIDEO) {
-    const videoGrant = new VideoGrant({ room: roomName });
-    token.addGrant(videoGrant);
-  } else if (callType === CallType.VOICE) {
+  if (callType === CallType.VOICE) {
     const voiceGrant = new VoiceGrant({
-      outgoingCallPermissions: {
-        allowedDestinations: ["client:*"],
-      },
+      incomingAllow: true,
+      outgoingApplicationSid: process.env.TWILIO_APP_SID,
+      outgoingCallApplicationSid: process.env.TWILIO_APP_SID,
     });
     token.addGrant(voiceGrant);
+
+    console.log("Generated token for:", `client:${cleanIdentity}`);
+    console.log("Token grants:", {
+      incomingAllow: true,
+      outgoingApplicationSid: process.env.TWILIO_APP_SID,
+    });
+  } else if (callType === CallType.VIDEO) {
+    const videoGrant = new VideoGrant({ room: roomName });
+    token.addGrant(videoGrant);
   } else {
     throw new Error(`Invalid call type: ${callType}`);
   }
 
   return token.toJwt();
+};
+
+const getCallToken = async (req, res) => {
+  try {
+    const call = await req.db.collection("calls").findOne({
+      _id: new ObjectId(req.params.callId),
+      $or: [{ caller: req.user._id }, { recipient: req.user._id }],
+    });
+
+    if (!call) return sendError(res, 404, "Call not found");
+
+    const token = await generateTwilioToken(
+      req.user._id.toString(),
+      call.type,
+      call.roomName
+    );
+    sendSuccess(res, 200, "Token generated", {
+      token,
+      roomName: call.roomName,
+    });
+  } catch (error) {
+    sendError(res, 500, "Token generation failed");
+  }
 };
 
 const startCall = async (req, res) => {
@@ -188,11 +92,6 @@ const startCall = async (req, res) => {
       console.error("Invalid recipientId format:", recipientId);
       return sendError(res, 400, "Invalid recipient ID format");
     }
-
-    //validating input
-    // if (!ObjectId.isValid(callerId) || !ObjectId.isValid(recipientId)) {
-    //   return sendError(res, 400, "Invalid user ID format");
-    // }
 
     const callerObjectId = new ObjectId(callerId);
     const recipientObjectId = new ObjectId(recipientId);
@@ -241,7 +140,18 @@ const startCall = async (req, res) => {
       return sendError(res, 403, "You can only call your friends");
     }
 
-    //create call object
+    const existingCall = await req.db.collection("calls").findOne({
+      caller: callerId,
+      recipient: recipientId,
+      status: CallStatus.INITIATED,
+      createdAt: { $gt: new Date(Date.now() - 5000) },
+    });
+
+    if (existingCall) {
+      return sendError(res, 400, "Call already initiated");
+    }
+
+    //creating call object
     const newCall = {
       caller: callerId,
       recipient: recipientId,
@@ -250,16 +160,31 @@ const startCall = async (req, res) => {
       status: CallStatus.INITIATED,
       createdAt: new Date(),
       updateAt: new Date(),
-      roomName: `room-${callerId}-${Date.now()}`,
+      roomName:
+        callType === CallType.VIDEO
+          ? `room-${callerId}-${Date.now()}`
+          : `voice-${callerId}-${Date.now()}`,
     };
+
+    if (callType === CallType.VOICE && !newCall.roomName) {
+      newCall.roomName = `voice-${callerId}-${Date.now()}`;
+    }
 
     validateCall(newCall);
 
     //inserting into db
     const result = await req.db.collection("calls").insertOne(newCall);
+
+    if (!result.acknowledged) {
+      throw new error("Failed to insert call doc");
+    }
     const insertedCall = await req.db
       .collection("calls")
       .findOne({ _id: result.insertedId });
+
+    if (!insertedCall) {
+      throw new error("Failed to retrieve inserted call document");
+    }
 
     console.log("Inserted call document:", insertedCall);
 
@@ -267,7 +192,7 @@ const startCall = async (req, res) => {
     const accessToken = await generateTwilioToken(
       callerId,
       callType,
-      newCall.roomName
+      insertedCall.roomName
       // result.insertedId.toString()
     );
 
@@ -301,7 +226,47 @@ const startCall = async (req, res) => {
     if (error.message.includes("Invalid call type")) {
       return sendError(res, 400, error.message);
     }
-    sendError(res, 500, "Failed to initiate call");
+    sendError(res, 500, "Failed to initiate call", {
+      error: error.message,
+      stack: error.stack,
+    });
+  }
+};
+
+const handleVoiceRequest = async (req, res) => {
+  console.log("Raw request body:", req.body);
+  console.log("Request headers:", req.headers);
+
+  try {
+    const twiml = new VoiceResponse();
+    //getting the 'To' parameter from the request
+    const to = req.body.To;
+    const from = req.body.From;
+    const callSid = req.body.CallSid;
+
+    console.log("Processed parameters:", { to, from, callSid });
+
+    if (to && to.startsWith("client:")) {
+      //creating a Dial verb to connect to client
+      const dial = twiml.dial({
+        callerId: from,
+        record: "record-from-answer",
+      });
+      dial.client(to.replace("client:", ""));
+      console.log(`Connecting ${from} to ${to}`);
+    } else {
+      twiml.say("Invalid recipient specified");
+    }
+
+    //sending TwiMl res
+    res.type("text/xml");
+    res.send(twiml.toString());
+  } catch (error) {
+    console.error("Voice handler error:", error);
+    //even on error, a valid TwiML response should be sent
+    const twiml = new VoiceResponse();
+    twiml.say("Service error");
+    res.type("text/xml").res.send(twiml.toString());
   }
 };
 
@@ -383,4 +348,13 @@ const endCall = async (req, res) => {
     sendError(res, 500, "Error ending call");
   }
 };
-export { generateTwilioToken, startCall, acceptCall, rejectCall, endCall };
+
+export {
+  generateTwilioToken,
+  getCallToken,
+  startCall,
+  handleVoiceRequest,
+  acceptCall,
+  rejectCall,
+  endCall,
+};

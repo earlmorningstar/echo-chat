@@ -93,7 +93,9 @@ const initializeWebSocket = (server, db) => {
           throw new Error("Invalid user ID format");
         }
 
-        userId = message.senderId;
+        const stringUserId = message.senderId.toString();
+
+        userId = stringUserId;
         connectedClients.set(userId, ws);
         await eventHandler.registerClient(userId, ws);
 
@@ -106,6 +108,9 @@ const initializeWebSocket = (server, db) => {
             })
           );
         }
+
+        console.log(`Client connected: ${clientId}`);
+        console.log(`Registered user: ${stringUserId}`);
 
         const connectedUsers = Array.from(connectedClients.keys()).filter(
           (id) => id !== userId
@@ -132,7 +137,7 @@ const initializeWebSocket = (server, db) => {
             JSON.stringify({
               type: "error",
               id: message.id,
-              message: "Registration failed",
+              message: "Registration failed" + error.message,
             })
           );
         }

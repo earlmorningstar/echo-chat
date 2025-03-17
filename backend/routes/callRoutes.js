@@ -6,12 +6,17 @@ import {
   acceptCall,
   rejectCall,
   endCall,
+  getCallToken,
+  handleVoiceRequest,
 } from "../controllers/callController.js";
 
-// router.post("/token", authenticateUser, generateToken);
-// router.post("/initiate", authenticateUser, initiateCall);
-// router.post("/status", authenticateUser, updateCallStatus);
 
+router.get("/test", (req, res) => {
+  console.log("Test endpoint hit!");
+  res.send("Test endpoint working!");
+});
+router.post("/voice", handleVoiceRequest);
+router.get("/:callId/token", authenticateUser, getCallToken);
 router.post("/start", authenticateUser, startCall);
 router.patch("/:callId/accept", authenticateUser, acceptCall);
 router.patch("/:callId/reject", authenticateUser, rejectCall);

@@ -77,6 +77,16 @@ export class WebSocketEventManager {
         return;
       }
 
+      //sending ACK for messages requiring acknowledgment
+      if (message.requireAck) {
+        this.ws.send(
+          JSON.stringify({
+            type: "ack",
+            id: message.id,
+          })
+        );
+      }
+
       this.eventEmitter.emit("message", message);
     } catch (error) {
       console.error("Error handling incoming message", event.data);
@@ -148,14 +158,6 @@ export class WebSocketEventManager {
     this.processingQueue = false;
   }
 
-  // on(event: string, handler: (...args: any[]) => void) {
-  //   this.eventEmitter.on(event, handler);
-  // }
-
-  // off(event: string, handler: (...args: any[]) => void) {
-  //   this.eventEmitter.off(event, handler);
-  // }
-
   emit(event: string, ...args: any[]): boolean {
     return this.eventEmitter.emit(event, ...args);
   }
@@ -171,12 +173,16 @@ export class WebSocketEventManager {
   }
 
   private async sendWithAck(data: any): Promise<boolean> {
+    console.log("Sending message:", data.type, "to", data.recipientId);
+
+    const timeoutDuration = data.type.startsWith("call_") ? 45000 : 15000;
+
     return new Promise((resolve) => {
       const timeout = setTimeout(() => {
         this.pendingAcks.delete(data.id);
-        resolve(false);
         console.warn(`Ack timeout for ${data.type}`);
-      }, 12000);
+        resolve(false);
+      }, timeoutDuration);
 
       try {
         if (this.ws.readyState === WebSocket.OPEN) {
