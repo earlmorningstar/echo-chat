@@ -66,6 +66,23 @@ const authenticateUser = async (req, res, next) => {
   }
 };
 
+const validateTwilioToken = (req, res, next) => {
+  const token = req.headers["twilio-token"] || req.body.token;
+
+  if (!token) {
+    return sendError(res, 401, "Twilio token required");
+  }
+
+  try {
+    jwt.verify(token, process.env.TWILIO_API_SECRET, {
+      issuer: process.env.TWILIO_ACCOUNT_SID,
+    });
+    next();
+  } catch (error) {
+    return sendError(res, 401, "Invalid Twilio Token");
+  }
+};
+
 const errorHandler = (err, req, res, next) => {
   console.error("Global error:", err);
   sendError(res, 500, {
@@ -75,4 +92,4 @@ const errorHandler = (err, req, res, next) => {
   });
 };
 
-export { renewToken, authenticateUser, errorHandler };
+export { renewToken, authenticateUser, validateTwilioToken, errorHandler };

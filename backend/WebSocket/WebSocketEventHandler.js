@@ -2,7 +2,6 @@ import { ObjectId } from "mongodb";
 import { CallStatus, CallType, WsEventType } from "../utils/constants.js";
 import { generateTwilioToken } from "../controllers/callController.js";
 const isValidObjectId = (id) => ObjectId.isValid(id);
-import { v4 as uuidv4 } from "uuid";
 
 class WebSocketEventHandler {
   constructor(wss, db) {
@@ -20,6 +19,18 @@ class WebSocketEventHandler {
   async handleEvent(ws, message) {
     try {
       await this.validateMessage(message);
+      console.log("Handling message type:", message.type);
+
+      if (message.type === "ack") {
+        console.log("Received ACK for message ID:", message.id);
+        const pending = this.pendingEvents.get(message.id);
+        if (pending) {
+          clearTimeout(pending.timeout);
+          pending.resolve();
+          this.pendingEvents.delete(message.id);
+        }
+        return;
+      }
 
       const handlers = {
         typing: () => this.handleTypingIndicator(message),
@@ -79,8 +90,18 @@ class WebSocketEventHandler {
     }
 
     if (message.type.startsWith("call_")) {
-      if (!message.callId || !message.callerId || !message.recipientId) {
-        throw new Error("Missing required call fields");
+      const requiredFields = {
+        [WsEventType.CALL_INITIATE]: ["callId", "callerId", "recipientId"],
+        [WsEventType.CALL_ACCEPT]: ["callId", "acceptorId"],
+        [WsEventType.CALL_REJECT]: ["callId", "rejectorId"],
+        [WsEventType.CALL_END]: ["callId", "endedBy"],
+      };
+
+      const required = requiredFields[message.type] || [];
+      const missing = required.filter((field) => !message[field]);
+
+      if (missing.length > 0) {
+        throw new Error(`Missing required fields: ${missing.join(", ")}`);
       }
     }
 
@@ -263,41 +284,49 @@ class WebSocketEventHandler {
   }
 
   async handleCallInitiation(ws, message) {
+    console.log("=== CALL INITIATION START ===");
+    console.log("Message recipient:", message.recipientId);
+    console.log("Connected clients:", Array.from(this.connectedClients.keys()));
 
     try {
       const call = await this.db.collection("calls").findOne({
         _id: new ObjectId(message.callId),
       });
 
+      if (call?.caller?.toString() === message.recipientId) {
+        console.error("Self-call attempt blocked");
+        return;
+      }
+
       if (!call) {
-        console.error("Call doc not found");
         throw new Error("Call not found");
       }
 
-      const recipientWs = this.connectedClients.get(message.recipientId);
+      // Video-specific validation
+      if (call.type === CallType.VIDEO) {
+        const recipientWs = this.connectedClients.get(message.recipientId);
+        console.log(`Recipient WS found: ${!!recipientWs}`);
+        console.log(`Recipient WS state: ${recipientWs?.readyState || "N/A"}`);
 
-      console.log(`Sending call_initiate to ${message.recipientId}`);
+        //checking if recipient and WS is connected
+        if (!recipientWs || recipientWs.readyState !== WebSocket.OPEN) {
+          console.error("Recipient WS not connected:", message.recipientId);
+          return;
+        }
 
-      //checking if recipient and WS is connected
-      if (!recipientWs || recipientWs.readyState !== WebSocket.OPEN) {
-        console.log(`Recipient ${message.recipientId} connection state:`, 
-          recipientWs?.readyState || 'disconnected');
-        throw new Error("Recipient not connected");
-      }
+        console.log(
+          `Sending to ${message.recipientId} via WS ${recipientWs._socket.remoteAddress}`
+        );
 
-      console.log(`Sending to ${message.recipientId} via WS ${recipientWs._socket.remoteAddress}`);
+        //generating token without 'client:' prefix for video calls
+        const recipientToken = await generateTwilioToken(
+          // message.recipientId,
+          `client:${message.recipientId}`,
+          call.type,
+          call.roomName
+        );
 
-      //generating token with proper identity format
-      const recipientToken = await generateTwilioToken(
-        `client:${message.recipientId}`,
-        call.type,
-        call.roomName
-      );
-
-      //sending call invitation to recipient
-      await this.sendWithAcknowledgment(
-        recipientWs,
-        {
+        const callInitiateMessage = {
           type: WsEventType.CALL_INITIATE,
           callId: call._id.toString(),
           callerId: message.callerId,
@@ -305,14 +334,61 @@ class WebSocketEventHandler {
           callType: call.type,
           roomName: call.roomName,
           token: recipientToken,
-          timestamp: Date.now(),
+          requireAck: true,
+          // id: `call-${Date.now()}-${call._id}`,
+          id: `call-${call._id}`,
+        };
+
+        //sending call invitation to recipient
+        console.log("Sending call_initiate:", callInitiateMessage);
+        await this.sendWithAcknowledgment(recipientWs, callInitiateMessage);
+
+        console.log(
+          `Call_initiate successfully sent to ${message.recipientId}`
+        );
+      } else {
+        // Existing logic for non-video calls remains the same
+        const recipientWs = this.connectedClients.get(message.recipientId);
+        console.log(`Recipient WS found: ${!!recipientWs}`);
+        console.log(`Recipient WS state: ${recipientWs?.readyState || "N/A"}`);
+
+        //checking if recipient and WS is connected
+        if (!recipientWs || recipientWs.readyState !== WebSocket.OPEN) {
+          console.error("Recipient WS not connected:", message.recipientId);
+          return;
+        }
+
+        console.log(
+          `Sending to ${message.recipientId} via WS ${recipientWs._socket.remoteAddress}`
+        );
+
+        //generating token with proper identity format for non-video calls
+        const recipientToken = await generateTwilioToken(
+          `client:${message.recipientId}`,
+          call.type,
+          call.roomName
+        );
+
+        const callInitiateMessage = {
+          type: WsEventType.CALL_INITIATE,
+          callId: call._id.toString(),
+          callerId: message.callerId,
+          recipientId: message.recipientId,
+          callType: call.type,
+          roomName: call.roomName,
+          token: recipientToken,
           requireAck: true,
           id: `call-${Date.now()}-${call._id}`,
-        },
-        5000
-      );
+        };
 
-      console.log(`Call_initiate successfully sent to ${message.recipientId}`);
+        //sending call invitation to recipient
+        console.log("Sending call_initiate:", callInitiateMessage);
+        await this.sendWithAcknowledgment(recipientWs, callInitiateMessage);
+
+        console.log(
+          `Call_initiate successfully sent to ${message.recipientId}`
+        );
+      }
     } catch (error) {
       console.error(`Failed to send call_initiate: ${error.message}`);
 
@@ -379,50 +455,55 @@ class WebSocketEventHandler {
     const { callId, rejectorId } = message;
 
     //updating call status
-    await this.db
-      .collection("calls")
-      .updateOne(
-        { _id: new ObjectId(callId) },
-        { $set: { status: CallStatus.REJECTED, endTime: new Date() } }
-      );
+    await this.db.collection("calls").updateOne(
+      { _id: new ObjectId(callId) },
+      {
+        $set: {
+          status: CallStatus.REJECTED,
+          endTime: new Date(),
+          // endedBy: rejectorId,
+        },
+      }
+    );
 
-    //notifying caller
+    //notifying both users
     const call = await this.db
       .collection("calls")
       .findOne({ _id: new ObjectId(callId) });
-    const callerWs = this.connectedClients.get(call.caller);
-    if (callerWs?.readyState === WebSocket.OPEN) {
-      callerWs.send(
-        JSON.stringify({
-          type: WsEventType.CALL_REJECT,
-          callId,
-          rejectorId,
-        })
-      );
-    }
+    [call.caller, call.recipient].forEach((userId) => {
+      const callerWs = this.connectedClients.get(userId);
+      if (callerWs?.readyState === WebSocket.OPEN) {
+        callerWs.send(
+          JSON.stringify({
+            type: WsEventType.CALL_REJECT,
+            callId,
+            rejectorId,
+            forceDisconnect: true,
+          })
+        );
+      }
+    });
   }
 
   async handleCallEnd(ws, message) {
     const { callId, userId } = message;
 
-    const update = {
-      $set: {
-        status: CallStatus.COMPLETED,
-        endTime: new Date(),
-      },
-    };
-
-    await this.db
-      .collection("calls")
-      .updateOne({ _id: new ObjectId(callId) }, update);
+    //updating status for all participants
+    await this.db.collection("calls").updateOne(
+      { _id: new ObjectId(callId) },
+      {
+        $set: {
+          status: CallStatus.COMPLETED,
+          endTime: new Date(),
+        },
+      }
+    );
 
     //notifying both parties
     const call = await this.db
       .collection("calls")
       .findOne({ _id: new ObjectId(callId) });
-    const participants = [call.caller, call.recipient];
-
-    participants.forEach((participantId) => {
+    [call.caller, call.recipient].forEach((participantId) => {
       const participantWs = this.connectedClients.get(participantId);
       if (participantWs?.readyState === WebSocket.OPEN) {
         participantWs.send(
@@ -430,6 +511,7 @@ class WebSocketEventHandler {
             type: WsEventType.CALL_END,
             callId,
             endedBy: userId,
+            force: true,
           })
         );
       }
@@ -437,10 +519,10 @@ class WebSocketEventHandler {
   }
 
   async sendWithAcknowledgment(ws, message) {
-    const timeoutDuration = 45000;
+    const timeoutDuration = 30000;
 
     return new Promise((resolve, reject) => {
-      const messageId = uuidv4();
+      const messageId = message.id;
 
       const cleanup = () => {
         clearTimeout(timeout);
@@ -458,14 +540,14 @@ class WebSocketEventHandler {
 
       try {
         if (ws.readyState === WebSocket.OPEN) {
-        ws.send(
-          JSON.stringify({
-            ...message,
-            id: messageId,
-            // requireAck: true,
-            timestamp: Date.now(),
-          })
-        );
+          ws.send(
+            JSON.stringify({
+              ...message,
+              id: messageId,
+              // requireAck: true,
+              timestamp: Date.now(),
+            })
+          );
         } else {
           cleanup();
           reject(new Error("Connection closed"));

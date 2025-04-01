@@ -75,9 +75,11 @@ export interface AuthResponse {
 
 export enum CallStatus {
   INITIATED = "initiated",
+  RINGING = "ringing",
   MISSED = "missed",
   COMPLETED = "completed",
   REJECTED = "rejected",
+  CONNECTING = "connecting",
   CONNECTED = "connected",
   FAILED = "failed",
 }
@@ -94,6 +96,10 @@ export interface CallEvent {
   recipientId?: string;
   callType?: CallType;
   timestamp: number;
+  token?: string;
+  roomName?: string;
+  requireAck?: boolean;
+  id?: string;
 }
 
 export interface CallStateUpdate {

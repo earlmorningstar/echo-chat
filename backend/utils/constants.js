@@ -4,6 +4,8 @@ const CallStatus = {
   COMPLETED: "completed",
   REJECTED: "rejected",
   CONNECTED: "connected",
+  RINGING: "ringing",
+  FAILED: "failed",
 };
 
 const CallType = {

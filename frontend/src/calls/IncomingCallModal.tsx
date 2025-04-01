@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useCall } from "../contexts/CallContext";
+import { useWebSocket } from "../contexts/WebSocketContext";
+import { useAuth } from "../contexts/AuthContext";
 import { Call, CallEnd, Videocam } from "@mui/icons-material";
 import { motion } from "framer-motion";
 import * as FramerMotion from "framer-motion";
@@ -15,6 +17,8 @@ const AnimatePresence = FramerMotion.AnimatePresence as React.ComponentType<{
 
 const IncomingCallModal: React.FC = () => {
   const { callState, acceptCall, rejectCall } = useCall();
+  const { user } = useAuth();
+  const { sendMessage } = useWebSocket();
   const { incomingCall } = callState;
   const [caller, setCaller] = useState<AuthUser | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -23,23 +27,34 @@ const IncomingCallModal: React.FC = () => {
     if (callState.incomingCall.activeCall) {
       const connection = callState.incomingCall
         .activeCall as TwilioVoice.Connection;
-      console.log("Incoming call parameters:", connection.parameters);
 
-      // Verify Twilio connection parameters
-      if (
-        !connection.parameters.From.includes(callState.incomingCall.callerId!)
-      ) {
-        console.error("Caller ID mismatch, rejecting call");
+      const timeout = setTimeout(() => {
         rejectCall(callState.incomingCall.callId!);
-      }
+      }, 45000);
+
+      connection.on("accept", () => {
+        clearTimeout(timeout);
+      });
+
+      return () => clearTimeout(timeout);
     }
   }, [callState.incomingCall, rejectCall]);
 
   useEffect(() => {
     const fetchCaller = async () => {
-      if (incomingCall.callerId) {
-        const response = await api.get(`/api/users/${incomingCall.callerId}`);
-        setCaller(response.data.user);
+      try {
+        if (incomingCall.callerId) {
+          const strippedCallerPrefix = incomingCall.callerId.replace(
+            /^client:/g,
+            ""
+          );
+          const response = await api.get(`/api/users/${strippedCallerPrefix}`);
+          if (response.data.user) {
+            setCaller(response.data.user);
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching caller");
       }
     };
 
@@ -62,31 +77,30 @@ const IncomingCallModal: React.FC = () => {
 
   const handleAccept = async () => {
     try {
-      if (!callState.incomingCall.activeCall) {
-        console.error("No active call to accept");
-        return;
+      if (incomingCall.callId) {
+        console.log("Accepting call:", incomingCall.callId);
+        await acceptCall(incomingCall.callId);
+        audioRef.current?.pause();
       }
-
-      console.log("Accepting call:", callState.incomingCall.callId);
-
-      // Accept the stored connection
-      const connection = callState.incomingCall.activeCall as TwilioVoice.Connection;
-      if (connection) {
-        connection.accept();
-        // Update state
-        acceptCall(callState.incomingCall.callId!);
-      }
-
-      audioRef.current?.pause();
     } catch (error) {
       console.error("Call acceptance failed:", error);
     }
   };
 
   const handleReject = async () => {
-    if (incomingCall.callId) {
-      await rejectCall(incomingCall.callId);
-      audioRef.current?.pause();
+    try {
+      if (incomingCall.callId && user?._id) {
+        await rejectCall(incomingCall.callId);
+        audioRef.current?.pause();
+
+        sendMessage({
+          type: "call_reject",
+          callId: incomingCall.callId,
+          rejectorId: user._id,
+        });
+      }
+    } catch (error) {
+      console.error("Rejection failed:", error);
     }
   };
 

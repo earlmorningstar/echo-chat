@@ -1023,12 +1023,12 @@
 
 .call-button.accept-button {
   background-color: #4caf50;
-  color: white;
+  color: #ffffff;
 }
 
 .call-button.reject-button {
   background-color: #f44336;
-  color: white;
+  color: #ffffff;
 }
 
 .hidden {
@@ -1046,6 +1046,8 @@
   z-index: 1000;
   display: flex;
   flex-direction: column;
+  width: 100vw;
+  height: 100vh;
 }
 
 .call-header {
@@ -1054,53 +1056,57 @@
   justify-content: space-between;
   align-items: center;
   background-color: rgba(0, 0, 0, 0.5);
-  color: white;
+  color: #ffffff;
 }
 
-.video-container {
+/* .video-container {
   flex: 1;
   position: relative;
   background-color: #2a2a2a;
-}
+} */
 
 .remote-video-wrapper {
   position: absolute;
   top: 0;
   left: 0;
   width: 100%;
-  height: 100%;
+  height: 85vh;
 }
 
-.remote-video {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
 
 .local-video-wrapper {
-  position: absolute;
-  right: 1rem;
-  bottom: 5rem;
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
   width: 240px;
   height: 180px;
+  border: 2px solid white;
   border-radius: 8px;
   overflow: hidden;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-}
-
-.local-video {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transform: scaleX(-1);
+  z-index: 1000;
 }
 
 .call-controls {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
   padding: 1rem;
   display: flex;
   justify-content: center;
   gap: 1rem;
   background-color: rgba(0, 0, 0, 0.5);
+}
+
+.media-track video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.media-track.local video {
+  transform: scaleX(-1);
 }
 
 .control-button {
@@ -1109,7 +1115,7 @@
   border-radius: 50%;
   border: none;
   background-color: #404040;
-  color: white;
+  color: #ffffff;
   cursor: pointer;
   transition: all 0.2s ease;
   display: flex;
@@ -1138,7 +1144,7 @@
 }
 
 /* [CallQualityIndicator] */
-.call-quality-indicator {
+/* .call-quality-indicator {
   display: inline-flex;
   align-items: center;
   padding: 4px;
@@ -1162,44 +1168,6 @@
 }
 .quality-level-0 {
   color: #f44336;
-}
-/* .quality-indicator {
-  position: absolute;
-  top: 16px;
-  left: 16px;
-  background: rgba(0, 0, 0, 0.6);
-  color: #ffffff;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  border-radius: 12px;
-  z-index: 2;
-}
-
-.quality-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  margin-right: 8px;
-}
-
-.good .quality-dot {
-  background-color: #22c55e;
-}
-
-.fair .quality-dot {
-  background-color: #f59e0b;
-}
-
-.poor .quality-dot {
-  background: #dc2626;
-}
-
-.quality-text {
-  color: #ffffff;
-  font-size: 14px;
-  text-transform: capitalize;
 } */
 
 /* Media Queries--- */

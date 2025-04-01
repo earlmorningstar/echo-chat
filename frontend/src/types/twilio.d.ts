@@ -1,4 +1,5 @@
 import "@twilio/voice-sdk";
+import * as TwilioVideoLib from "twilio-video";
 
 declare module "@twilio/voice-sdk" {
   export enum Codec {
@@ -35,6 +36,7 @@ declare module "@twilio/voice-sdk" {
         | "ready"
         | "reconnecting"
         | "reconnected"
+        | "disconnect"
         | "error"
         | "cancel",
       handler: (...args: any[]) => void
@@ -69,7 +71,131 @@ declare module "@twilio/voice-sdk" {
 }
 
 declare module "twilio-video" {
-  export * from "twilio-video";
+  // Base Track interface
+  export interface Track {
+    isEnabled: boolean;
+    enable(): void;
+    disable(): void;
+    name: string;
+    attach(): HTMLMediaElement;
+    detach(): HTMLMediaElement[];
+    kind: string;
+  }
+
+  // Base LocalTrack interface that extends Track
+  export interface LocalTrack extends Track {
+    stop(): void;
+    mediaStreamTrack: MediaStreamTrack;
+    isEnabled: boolean;
+  }
+
+  // Specialized track types that extend LocalTrack
+  export interface LocalVideoTrack extends LocalTrack {
+    dimensions?: { width: number; height: number };
+    kind: "video";
+  }
+
+  export interface LocalAudioTrack extends LocalTrack {
+    kind: "audio";
+  }
+
+  export interface LocalDataTrack extends LocalTrack {
+    kind: "data";
+  }
+
+  export interface RemoteDataTrack
+    extends Omit<RemoteTrack, "mediaStreamTrack"> {
+    kind: "data";
+  }
+
+  // Remote track interfaces
+  export interface RemoteTrack extends Track {
+    mediaStreamTrack: MediaStreamTrack;
+  }
+
+  export interface RemoteVideoTrack extends RemoteTrack {
+    kind: "video";
+  }
+
+  export interface RemoteAudioTrack extends RemoteTrack {
+    kind: "audio";
+  }
+
+  export interface TrackPublication {
+    track:
+      | LocalVideoTrack
+      | RemoteVideoTrack
+      | LocalAudioTrack
+      | RemoteAudioTrack
+      | null;
+    trackName: string;
+    trackSid: string;
+    kind: string;
+  }
+
+  // Add function signatures for createLocalTracks
+  export function createLocalTracks(
+    options?: MediaStreamConstraints
+  ): Promise<LocalTrack[]>;
+
+  // Add Room definitions if you need them
+  export interface Room {
+    sid: string;
+    localParticipant: LocalParticipant;
+    participants: Map<string, RemoteParticipant>;
+    disconnect(): void;
+    on(event: string, listener: Function): void;
+  }
+
+  export interface LocalParticipant {
+    identity: string;
+    videoTracks: Map<string, LocalTrackPublication>;
+    audioTracks: Map<string, LocalTrackPublication>;
+  }
+
+  export interface RemoteParticipant {
+    identity: string;
+    sid: string;
+    videoTracks: Map<string, RemoteVideoTrackPublication>;
+    audioTracks: Map<string, RemoteAudioTrackPublication>;
+    on(event: string, listener: Function): void;
+  }
+
+  export interface LocalTrackPublication {
+    track: LocalVideoTrack | LocalAudioTrack | null;
+    trackSid: string;
+  }
+
+  export interface RemoteVideoTrackPublication {
+    track: RemoteVideoTrack | null;
+    trackSid: string;
+    kind: 'video';
+  }
+
+  export interface RemoteAudioTrackPublication {
+    track: RemoteAudioTrack | null;
+    trackSid: string;
+    kind: 'video';
+  }
+
+  // export interface RemoteTrackPublication {
+  //   track: RemoteVideoTrack | RemoteAudioTrack | null;
+  //   trackSid: string;
+  // }
+
+  // Connect function signature
+  export function connect(token: string, options: any): Promise<Room>;
 }
+
+// Export types for use in your application
+export type VideoTrack =
+  | TwilioVideoLib.LocalVideoTrack
+  | TwilioVideoLib.RemoteVideoTrack;
+export type AudioTrack =
+  | TwilioVideoLib.LocalAudioTrack
+  | TwilioVideoLib.RemoteAudioTrack;
+export type Track = TwilioVideoLib.Track;
+export type LocalTrack = TwilioVideoLib.LocalTrack;
+export type TrackPublication = TwilioVideoLib.TrackPublication;
 
 export type VoiceCallEntity = TwilioVoice.Connection | TwilioVoice.Call;

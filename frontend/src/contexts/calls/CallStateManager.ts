@@ -8,14 +8,17 @@ export interface CallState {
     status: CallStatus;
     participants: string[];
     initiator: string | null;
+    recipientId: string | null;
     roomName: string | null;
   };
   incomingCall: {
     callId: string | null;
     callerId: string | null;
     type: CallType | null;
-    token?: string;
+    token?: string | null;
+    roomName?: string | null;
     activeCall?: unknown;
+    status?: CallStatus;
   };
   activeCall?: ActiveCall;
 
@@ -49,6 +52,8 @@ export type CallAction =
         callerId: string;
         type: CallType;
         token: string;
+        roomName?: string;
+        activeCall?: any;
       };
     }
   | { type: "CLEAR_INCOMING_CALL" }
@@ -58,7 +63,18 @@ export type CallAction =
   | { type: "SET_ERROR"; payload: string | null }
   | { type: "ADD_PARTICIPANT"; payload: string }
   | { type: "REMOVE_PARTICIPANT"; payload: string }
-  | { type: "UPDATE_CALL"; payload: Partial<CallState> };
+  | { type: "UPDATE_CALL"; payload: Partial<CallState> }
+  | {
+      type: "UPDATE_INCOMING_CALL";
+      payload: {
+        callId?: string;
+        callerId?: string;
+        type?: CallType;
+        token?: string;
+        activeCall?: unknown;
+        status?: CallStatus;
+      };
+    };
 
 export const initialState: CallState = {
   currentCall: {
@@ -67,6 +83,7 @@ export const initialState: CallState = {
     status: CallStatus.INITIATED,
     participants: [],
     initiator: null,
+    recipientId: null,
     roomName: null,
   },
   incomingCall: {
@@ -93,6 +110,7 @@ export function callReducer(state: CallState, action: CallAction): CallState {
           ...state.currentCall,
           id: action.payload.callId,
           type: action.payload.type,
+          recipientId: action.payload.recipientId,
           status: CallStatus.INITIATED,
           initiator: action.payload.initiator,
         },
@@ -109,12 +127,14 @@ export function callReducer(state: CallState, action: CallAction): CallState {
       return {
         ...state,
         currentCall: initialState.currentCall,
+        incomingCall: initialState.incomingCall,
         error: "Call rejected",
       };
     case "END_CALL":
       return {
         ...state,
         currentCall: initialState.currentCall,
+        incomingCall: initialState.incomingCall,
         localMedia: initialState.localMedia,
       };
     case "UPDATE_MEDIA":
@@ -171,6 +191,10 @@ export function callReducer(state: CallState, action: CallAction): CallState {
         incomingCall: action.payload.incomingCall ?? state.incomingCall,
       };
     case "SHOW_INCOMING_CALL":
+      if (!Object.values(CallType).includes(action.payload.type!)) {
+        return state;
+      }
+
       return {
         ...state,
         incomingCall: {
@@ -178,6 +202,8 @@ export function callReducer(state: CallState, action: CallAction): CallState {
           callerId: action.payload.callerId,
           type: action.payload.type,
           token: action.payload.token,
+          status: CallStatus.RINGING,
+          activeCall: action.payload.activeCall,
         },
       };
     case "CLEAR_INCOMING_CALL":
@@ -187,6 +213,15 @@ export function callReducer(state: CallState, action: CallAction): CallState {
           callId: null,
           callerId: null,
           type: null,
+        },
+      };
+    case "UPDATE_INCOMING_CALL":
+      return {
+        ...state,
+        incomingCall: {
+          ...state.incomingCall,
+          ...action.payload,
+          status: action.payload.status ?? state.incomingCall.status,
         },
       };
     default:

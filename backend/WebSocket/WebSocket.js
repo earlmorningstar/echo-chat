@@ -88,6 +88,11 @@ const initializeWebSocket = (server, db) => {
     };
 
     const handleRegistration = async (message) => {
+      console.log(`=== WS REGISTRATION ATTEMPT ===`);
+      console.log(`User ID: ${message.senderId}`);
+      console.log(
+        `Existing connections: ${Array.from(connectedClients.keys())}`
+      );
       try {
         if (!isValidObjectId(message.senderId)) {
           throw new Error("Invalid user ID format");

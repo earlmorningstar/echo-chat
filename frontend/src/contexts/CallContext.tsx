@@ -10,12 +10,16 @@ import React, {
 import { useWebSocket } from "./WebSocketContext";
 import { useAuth } from "./AuthContext";
 import api from "../utils/api";
-import { callReducer, initialState, CallState } from "./calls/CallStateManager";
+import {
+  callReducer,
+  initialState,
+  CallState,
+  CallAction,
+} from "./calls/CallStateManager";
 import { RemoteParticipant, Room } from "twilio-video";
 import { useMediaStreamManager } from "./calls/MediaStreamManager";
 import { useTwilioRoomManager } from "./calls/TwilioRoomManager";
-import { CallStatus, CallType } from "../types";
-import { CallAction } from "./calls/CallStateManager";
+import { CallEvent, CallStatus, CallType } from "../types";
 import isEqual from "lodash.isequal";
 
 import type { ActiveCall, TwilioVideo, TwilioVoice } from "../types/calls";
@@ -30,6 +34,11 @@ interface CallStateUpdate {
 
 type CallContextType = {
   initiateCall: (recipientId: string, type: CallType) => Promise<void>;
+  initializeVoiceDevice: (
+    token: string,
+    callId: string,
+    recipientId: string
+  ) => TwilioVoice.Device;
   acceptCall: (callId: string) => Promise<void>;
   rejectCall: (callId: string) => Promise<void>;
   endCall: () => Promise<void>;
@@ -44,6 +53,7 @@ type CallContextType = {
     voiceDevice?: TwilioVoice.Device;
   };
   dispatch: React.Dispatch<CallAction>;
+  mediaControls: ReturnType<typeof useMediaStreamManager>;
 };
 
 const CallContext = createContext<CallContextType | undefined>(undefined);
@@ -57,33 +67,26 @@ const adaptCallStateUpdate = (
     activeCall?: ActiveCall;
   }>
 ): Partial<CallState> => {
+  const currentCallUpdate: Partial<CallState["currentCall"]> = {};
+
+  if (update.callId !== undefined) {
+    currentCallUpdate.id = update.callId ?? null;
+  }
+  if (update.type !== undefined) {
+    currentCallUpdate.type = update.type ?? null;
+  }
+  if (update.status !== undefined) {
+    currentCallUpdate.status = update.status;
+  }
+  if (update.participants !== undefined) {
+    currentCallUpdate.participants = update.participants ?? [];
+  }
+
   const adaptedUpdate: Partial<CallState> = {};
-
-  if (update.callId) {
-    adaptedUpdate.currentCall = {
-      ...initialState.currentCall,
-      id: update.callId,
-    };
-  }
-  if (update.type) {
-    adaptedUpdate.currentCall = {
-      ...initialState.currentCall,
-      type: update.type,
-    };
-  }
-  if (update.status) {
-    adaptedUpdate.currentCall = {
-      ...initialState.currentCall,
-      status: update.status,
-    };
+  if (Object.keys(currentCallUpdate).length > 0) {
+    adaptedUpdate.currentCall = currentCallUpdate as CallState["currentCall"];
   }
 
-  if (update.participants) {
-    adaptedUpdate.currentCall = {
-      ...initialState.currentCall,
-      participants: update.participants,
-    };
-  }
   return adaptedUpdate;
 };
 
@@ -92,17 +95,24 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
 }) => {
   const [state, dispatch] = useReducer(callReducer, initialState);
   const { user } = useAuth();
-  const { sendMessage, eventManager } = useWebSocket();
+  const { sendMessage, eventManager, isConnected } = useWebSocket();
   const lastUpdate = useRef<CallStateUpdate | null>(null);
-
-  const mediaControls = useMediaStreamManager((payload) =>
-    dispatch({ type: "UPDATE_MEDIA", payload })
+  const updateMedia = useCallback(
+    (payload: Partial<{ audioEnabled: boolean; videoEnabled: boolean }>) => {
+      dispatch({ type: "UPDATE_MEDIA", payload });
+    },
+    [dispatch]
   );
+  const mediaControls = useMediaStreamManager(updateMedia);
+  const { toggleAudio, toggleVideo } = mediaControls;
   const updateCallback = useCallback(
     (update: CallStateUpdate) => {
       if (isEqual(update, lastUpdate.current)) return;
       lastUpdate.current = update;
-      dispatch({ type: "UPDATE_CALL", payload: adaptCallStateUpdate(update) });
+      dispatch({
+        type: "UPDATE_CALL",
+        payload: adaptCallStateUpdate(update),
+      });
     },
     [dispatch]
   );
@@ -115,7 +125,8 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
     callManager,
   } = useTwilioRoomManager(
     mediaControls.localTracks,
-    useCallback(updateCallback, [updateCallback])
+    useCallback(updateCallback, [updateCallback]),
+    state.currentCall.recipientId || undefined
   );
 
   const callManagerRef = useRef({
@@ -132,7 +143,19 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
           throw new Error("User not authenticated");
         }
 
-        console.log("Initiating call to:", recipientId);
+        dispatch({ type: "END_CALL" });
+        await mediaControls.stopAllTracks();
+        const {success, tracks} = await mediaControls.getMediaPermissions(CallType.VIDEO);
+        if (!success) throw new Error("Permissions denied");
+
+        //reseting twilio device
+        if (callManager.voiceDevice) {
+          callManager.voiceDevice.destroy();
+        }
+
+        if (callManager.videoDevice) {
+          callManager.videoDevice.disconnect();
+        }
 
         const response = await api.post("/api/call/start", {
           callerId: user._id,
@@ -141,7 +164,6 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
         });
 
         const { call, token, roomName } = response.data;
-        console.log("Call initiation response:", response.data);
 
         dispatch({
           type: "INITIATE_CALL",
@@ -165,55 +187,52 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
         });
 
         if (type === CallType.VIDEO) {
-          await connectToVideoRoom(token, roomName, call._id);
+          await connectToVideoRoom(token, roomName, call._id, tracks);
         } else if (type === CallType.VOICE) {
-          console.log("Initializing voice device with token");
-          const device = initializeVoiceDevice(token, call._id);
+          const device = initializeVoiceDevice(token, call._id, recipientId);
 
-          await new Promise((resolve, reject) => {
-            device.once("ready", () => resolve("ready"));
-            device.once("error", (error) => reject(error));
-
-            setTimeout(
-              () => reject(new Error("Device never became ready")),
-              30000
-            );
-          });
-
-          console.log("Twilio device ready - making call");
-          console.log("Making voice call with params:", {
-            To: `client:${recipientId}`,
-            From: `client:${user._id}`,
-            CallSid: call._id,
-          });
-
-          //after device is ready, makee the call
-          const voiceCall = await makeVoiceCall(
-            recipientId,
-            call._id,
-            user?._id
-          );
-
-          if (!voiceCall) {
-            throw new Error("Voice connection failed");
-          }
-
-          voiceCall.on("accept", () => {
-            console.log("Call accepted by recipient");
-            dispatch({
-              type: "UPDATE_CALL",
-              payload: {
-                currentCall: {
-                  id: call._id,
-                  type: CallType.VOICE,
-                  status: CallStatus.CONNECTED,
-                  participants: [],
-                  initiator: user._id,
-                  roomName: call.roomName,
-                },
-              },
+          try {
+            //waiting for device to be ready
+            await new Promise((resolve, reject) => {
+              if (device.state === "registered") {
+                resolve("ready");
+              } else {
+                device.once("registered", () => resolve("ready"));
+                device.once("error", (error) => reject(error));
+                setTimeout(
+                  () => reject(new Error("Device never became registered")),
+                  30000
+                );
+              }
             });
-          });
+            //after device is ready, makee the call
+            const voiceCall = await makeVoiceCall(
+              recipientId,
+              call._id,
+              user?._id
+            );
+            if (!voiceCall) {
+              throw new Error("Voice connection failed");
+            }
+            voiceCall.on("accept", () => {
+              dispatch({
+                type: "UPDATE_CALL",
+                payload: {
+                  currentCall: {
+                    id: call._id,
+                    type: CallType.VOICE,
+                    status: CallStatus.CONNECTED,
+                    participants: [],
+                    initiator: user._id,
+                    recipientId: recipientId,
+                    roomName: call.roomName,
+                  },
+                },
+              });
+            });
+          } catch (error) {
+            throw error;
+          }
         }
       } catch (error) {
         console.error("Call failed:", error);
@@ -236,24 +255,23 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
       connectToVideoRoom,
       initializeVoiceDevice,
       makeVoiceCall,
+      callManager,
+      mediaControls,
     ]
   );
-
-  useEffect(() => {
-    return () => {
-      if (callManager.voiceDevice) {
-        callManager.voiceDevice.destroy();
-      }
-    };
-  }, [callManager.voiceDevice]);
 
   const acceptCall = useCallback(
     async (callId: string) => {
       try {
-        await api.patch(`/api/call/${callId}/accept`, { userId: user?._id });
-        const response = await api.get(`/api/call/${callId}/token`);
+        const response = await api.patch(`/api/call/${callId}/accept`, {
+          userId: user?._id,
+        });
 
         const { token, roomName, type } = response.data;
+
+        //initializing media befoee accepting
+        const {success, tracks} = await mediaControls.getMediaPermissions(CallType.VIDEO);
+        if (!success) throw new Error("Permissions denied");
 
         dispatch({
           type: "ACCEPT_CALL",
@@ -261,21 +279,49 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
         });
 
         if (type === CallType.VIDEO) {
-          await connectToVideoRoom(token, roomName, callId);
+          //disconnecting any existing video device
+          if (callManager.videoDevice) {
+            callManager.videoDevice.disconnect();
+          }
+          await connectToVideoRoom(token, roomName, callId, tracks);
+          dispatch({ type: "CLEAR_INCOMING_CALL" });
+          // return;
         } else if (type === CallType.VOICE) {
-          initializeVoiceDevice(token, callId);
-          makeVoiceCall(state.incomingCall.callerId!, callId, user?._id || "");
+          dispatch({
+            type: "UPDATE_CALL",
+            payload: {
+              currentCall: {
+                id: callId,
+                type,
+                status: CallStatus.CONNECTED,
+                participants: [],
+                initiator: state.incomingCall.callerId!,
+                recipientId: user?._id!,
+                roomName: state.incomingCall.roomName!,
+              },
+            },
+          });
+
+          const connection = state.incomingCall
+            .activeCall as TwilioVoice.Connection;
+          if (connection) {
+            connection.accept();
+            // console.log("Call accepted by recipient");
+          }
         }
+
+        dispatch({ type: "CLEAR_INCOMING_CALL" });
       } catch (error) {
+        console.error("Call acceptance failed:", error);
         dispatch({ type: "SET_ERROR", payload: "Failed to accept call" });
       }
     },
     [
       user?._id,
       connectToVideoRoom,
-      initializeVoiceDevice,
-      makeVoiceCall,
-      state.incomingCall.callerId,
+      state.incomingCall,
+      mediaControls,
+      callManager,
     ]
   );
 
@@ -283,13 +329,19 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
     async (callId: string) => {
       try {
         await api.patch(`/api/call/${callId}/reject`, { userId: user?._id });
-        dispatch({ type: "REJECT_CALL", payload: { callId } });
-        disconnectCall();
+        dispatch({ type: "CLEAR_INCOMING_CALL" });
+
+        sendMessage({
+          type: "call_reject",
+          callId,
+          rejectorId: user?._id,
+          recipientId: state.incomingCall.callerId,
+        });
       } catch (error) {
         dispatch({ type: "SET_ERROR", payload: "Failed to reject call" });
       }
     },
-    [user?._id, disconnectCall]
+    [user?._id, sendMessage, state.incomingCall]
   );
 
   const endCall = useCallback(async () => {
@@ -299,76 +351,216 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
       await api.patch(`/api/call/${state.currentCall.id}/end`, {
         userId: user?._id,
       });
+
+      sendMessage({
+        type: "call_end",
+        callId: state.currentCall.id,
+        endedBy: user?._id,
+        recipientId: state.currentCall.recipientId,
+      });
+
       dispatch({ type: "END_CALL" });
       disconnectCall();
     } catch (error) {
+      console.error("Failed to end call:", error);
       dispatch({ type: "SET_ERROR", payload: "Failed to end call" });
     }
-  }, [state.currentCall.id, user?._id, disconnectCall]);
+  }, [state.currentCall, user?._id, sendMessage, disconnectCall]);
+
+  const handleAudioToggle = useCallback(
+    (enabled: boolean) => {
+      toggleAudio(enabled);
+    },
+    [toggleAudio]
+  );
+
+  const handleVideoToggle = useCallback(
+    (enabled: boolean) => {
+      toggleVideo(enabled);
+    },
+    [toggleVideo]
+  );
 
   const handleCallEvent = useCallback(
     async (message: any) => {
       console.log("Call event received:", message);
 
-      switch (message.type) {
-        case "call_initiate":
-          console.log("Processing call_initiate:", message);
-          if (!state.currentCall.id) {
+      // Universal ACK handling
+      if (message.requireAck && message.id) {
+        sendMessage({
+          type: "ack",
+          originalId: message.id,
+          timestamp: Date.now(),
+        });
+      }
+
+      try {
+        switch (message.type) {
+          case "call_initiate":
+            if (state.incomingCall.callId === message.callId) return;
+            if (message.callType === "video") {
+              dispatch({
+                type: "SHOW_INCOMING_CALL",
+                payload: {
+                  callId: message.callId,
+                  callerId: message.callerId,
+                  type: CallType.VIDEO,
+                  token: message.token,
+                  roomName: message.roomName,
+                },
+              });
+              return; //skipping voice device initializtation for vvideo calls
+            }
+
+            // Always show incoming call UI, even if another call exists
             dispatch({
               type: "SHOW_INCOMING_CALL",
               payload: {
                 callId: message.callId,
                 callerId: message.callerId,
-                type: message.callType,
-                token: message.token,
+                type: CallType.VOICE,
+                token: message.token!,
+                roomName: message.roomName,
               },
             });
 
-            initializeVoiceDevice(message.token, message.callId);
-          }
-          break;
+            // Initialize device only if not already initialized
+            if (!callManager.voiceDevice) {
+              const device = initializeVoiceDevice(
+                message.token!,
+                message.callId,
+                message.callerId
+              );
 
-        case "call_accept":
-          if (state.currentCall.id === message.callId) {
-            dispatch({
-              type: "ACCEPT_CALL",
-              payload: { callId: message.callId },
-            });
-            dispatch({ type: "CLEAR_INCOMING_CALL" });
-          }
-          break;
+              // Handle device registration status
+              await new Promise((resolve, reject) => {
+                const timeout = setTimeout(
+                  () => reject(new Error("Device registration timeout")),
+                  10000
+                );
 
-        case "call_reject":
-          dispatch({ type: "CLEAR_INCOMING_CALL" });
-          if (state.currentCall.id === message.callId) {
+                device.once("registered", () => {
+                  clearTimeout(timeout);
+                  resolve(true);
+                });
+
+                device.once("error", (error) => {
+                  clearTimeout(timeout);
+                  reject(error);
+                });
+              });
+
+              // Set up incoming call handler
+              device.on("incoming", (connection) => {
+                dispatch({
+                  type: "UPDATE_INCOMING_CALL",
+                  payload: {
+                    activeCall: connection,
+                    status: CallStatus.RINGING,
+                  },
+                });
+              });
+            }
+            break;
+
+          case "call_accept":
+            console.log("Call accepted by recipient:", message);
+            if (state.currentCall.id === message.callId) {
+              dispatch({
+                type: "UPDATE_CALL",
+                payload: {
+                  currentCall: {
+                    ...state.currentCall,
+                    status: CallStatus.CONNECTED,
+                    roomName: message.roomName,
+                  },
+                },
+              });
+
+              if (message.token && message.roomName) {
+                await connectToVideoRoom(
+                  message.token,
+                  message.roomName,
+                  message.callId,
+                  message.tracks
+                );
+              }
+            }
+            break;
+
+          case "call_reject":
+            console.log("Call rejected:", message);
             dispatch({
               type: "REJECT_CALL",
               payload: { callId: message.callId },
             });
             disconnectCall();
-          }
-          break;
+            if (callManager.videoDevice) {
+              callManager.videoDevice.disconnect();
+            }
+            if (callManager.voiceDevice) {
+              callManager.voiceDevice.destroy();
+            }
+            break;
 
-        case "call_end":
-          if (state.currentCall.id === message.callId) {
+          case "call_end":
+            console.log("Call ended remotely:", message);
+            if (message.force) {
+              disconnectCall();
+            }
             dispatch({ type: "END_CALL" });
-            disconnectCall();
-          }
-          break;
+            break;
 
-        default:
-          break;
+          default:
+            break;
+        }
+      } catch (error) {
+        console.error("Error handling call event:", error);
+        dispatch({
+          type: "SET_ERROR",
+          payload:
+            error instanceof Error ? error.message : "Call processing failed",
+        });
+
+        if (message.type === "call_initiate") {
+          sendMessage({
+            type: "call_reject",
+            callId: message.callId,
+            rejectorId: user?._id,
+          });
+        }
       }
     },
-    [state.currentCall.id, disconnectCall, initializeVoiceDevice]
+    [
+      callManager,
+      initializeVoiceDevice,
+      connectToVideoRoom,
+      disconnectCall,
+      sendMessage,
+      user?._id,
+      state.currentCall,
+      dispatch,
+      state.incomingCall,
+    ]
   );
 
   useEffect(() => {
-    const manager = eventManager.current;
-    if (!manager) return;
+    return () => {
+      if (callManager.voiceDevice) {
+        callManager.voiceDevice.destroy();
+      }
+      if (callManager.videoDevice) {
+        callManager.videoDevice.disconnect();
+      }
+    };
+  }, [callManager]);
 
-    const handler = (msg: any) => {
-      if (msg.type === "call_initiate" && state.incomingCall.callId) return;
+  useEffect(() => {
+    const manager = eventManager.current;
+    if (!manager || !isConnected) return;
+
+    const handler = (msg: CallEvent) => {
+      console.log("Call event received in CallContext:", msg.type);
       handleCallEvent(msg);
     };
 
@@ -376,17 +568,18 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
     return () => {
       manager.off("call", handler);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.incomingCall.callId]);
+  }, [handleCallEvent, eventManager, isConnected, state.currentCall.id]);
 
   const value = useMemo(
     () => ({
       initiateCall,
+      initializeVoiceDevice,
       acceptCall,
       rejectCall,
       endCall,
-      toggleAudio: mediaControls.toggleAudio,
-      toggleVideo: mediaControls.toggleVideo,
+      mediaControls,
+      toggleAudio: handleAudioToggle,
+      toggleVideo: handleVideoToggle,
       toggleScreenShare: mediaControls.toggleScreenShare,
       callState: state,
       participants: callManager.videoDevice
@@ -401,13 +594,14 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
     }),
     [
       initiateCall,
+      initializeVoiceDevice,
       acceptCall,
       rejectCall,
       endCall,
       state,
-      mediaControls.toggleAudio,
-      mediaControls.toggleVideo,
-      mediaControls.toggleScreenShare,
+      handleAudioToggle,
+      handleVideoToggle,
+      mediaControls,
       callManager.videoDevice,
       callManager.voiceDevice,
     ]

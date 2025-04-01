@@ -145,12 +145,12 @@ const ChatWindow: React.FC = () => {
 
   const handleVoiceCall = () => {
     if (friend?._id) {
-      console.log("Initiate call ID:", crypto.randomUUID());
       initiateCall(friend._id, CallType.VOICE);
     }
   };
 
   const handleVideoCall = () => {
+    console.log("Initiate call ID:", crypto.randomUUID());
     if (friend?._id) {
       initiateCall(friend._id, CallType.VIDEO);
     }

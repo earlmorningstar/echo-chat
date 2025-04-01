@@ -136,6 +136,16 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const handleWebSocketMessage = useCallback(
     (message: any) => {
+      if (message.type === "call_initiate") {
+        console.log("CallInitiate message contents:", {
+          callId: message.callId,
+          callerId: message.callerId,
+          callType: message.callType,
+          hasToken: !!message.token,
+          roomName: message.roomName,
+        });
+      }
+
       if (!message || typeof message !== "object") return;
 
       const handlers: Record<string, () => void> = {
@@ -179,11 +189,14 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
           queryClient.invalidateQueries({ queryKey: ["friends"] });
         },
         call_initiate: () => {
+          console.log("Emitting call event for call_initiate");
           eventManager.current?.emit("call", {
             type: "call_initiate",
             callId: message.callId,
             callerId: message.callerId,
             callType: message.callType,
+            token: message.token,
+            roomName: message.roomName,
             timestamp: message.timestamp,
           });
         },
@@ -208,6 +221,7 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
             type: "call_end",
             callId: message.callId,
             endedBy: message.endedBy,
+            force: true,
           });
         },
       };
@@ -321,7 +335,7 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
       };
 
       socket.onerror = (error) => {
-        console.error("WebSocket error:", error);
+        console.error("WebSocket error");
         isConnecting.current = false;
         socket.close();
       };
@@ -348,6 +362,7 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
       connect();
 
       const handleVisibilityChange = () => {
+        console.log("WS connection state:", ws.current?.readyState);
         const isVisible = document.visibilityState === "visible";
         if (isVisible && ws.current?.readyState !== WebSocket.OPEN) {
           connect();

@@ -69,9 +69,11 @@ const initializeServer = async () => {
 
     // Initialize WebSocket server
     const wss = initializeWebSocket(server, db);
+    app.set("wss", wss);
 
     app.use((req, res, next) => {
       req.db = db;
+      req.wss = wss;
       next();
     });
 

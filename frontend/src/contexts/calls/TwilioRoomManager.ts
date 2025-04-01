@@ -1,12 +1,15 @@
 import { useEffect, useCallback, useRef } from "react";
 import { CallStatus, CallType } from "../../types";
 import isEqual from "lodash.isequal";
+import { ActiveCall, TwilioVideo, TwilioVoice } from "../../types/calls";
 import {
-  ActiveCall,
-  VoiceCallEntity,
-  TwilioVideo,
-  TwilioVoice,
-} from "../../types/calls";
+  LocalTrack,
+  Room,
+  LocalVideoTrack,
+  LocalAudioTrack,
+  RemoteVideoTrack,
+  RemoteAudioTrack,
+} from "twilio-video";
 
 interface CallStateUpdate {
   callId?: string;
@@ -19,11 +22,34 @@ interface CallStateUpdate {
 }
 
 export function useTwilioRoomManager(
-  localTracks: TwilioVideo.LocalTrack[] = [],
-  updateCallState: (update: CallStateUpdate) => void
-) {
+  localTracks: LocalTrack[] = [],
+  updateCallState: (update: CallStateUpdate) => void,
+  recipientId?: string | null
+): {
+  connectToVideoRoom: (
+    token: string,
+    roomName: string,
+    callId: string,
+    tracks: LocalTrack[]
+  ) => Promise<Room>;
+  initializeVoiceDevice: (
+    token: string,
+    callId: string,
+    recipientId: string
+  ) => TwilioVoice.Device;
+  makeVoiceCall: (
+    identity: string,
+    currentCallId: string,
+    userId: string
+  ) => Promise<TwilioVoice.Connection>;
+  disconnectCall: () => void;
+  callManager: {
+    videoDevice?: Room;
+    voiceDevice?: TwilioVoice.Device;
+  };
+} {
   const deviceRef = useRef<{
-    videoDevice?: TwilioVideo.Room;
+    videoDevice?: Room;
     voiceDevice?: TwilioVoice.Device;
   }>({});
   const lastUpdate = useRef<CallStateUpdate | null>(null);
@@ -33,72 +59,300 @@ export function useTwilioRoomManager(
     (update: CallStateUpdate) => {
       if (isEqual(update, lastUpdate.current)) return;
       lastUpdate.current = update;
-      updateCallState(update);
+      updateCallState({
+        ...update,
+        status: update.status || CallStatus.COMPLETED,
+      });
     },
     [updateCallState]
   );
 
-  const connectToVideoRoom = useCallback(
-    async (token: string, roomName: string, callId: string) => {
-      try {
-        const room = await TwilioVideo.connect(token, {
-          name: roomName,
-          tracks: localTracks,
-        });
+  const attachTrack = useCallback(
+    (
+      track:
+        | LocalVideoTrack
+        | RemoteVideoTrack
+        | RemoteAudioTrack
+        | LocalAudioTrack,
+      isLocal: boolean
+    ) => {
+      const containerId = isLocal
+        ? "local-media-container"
+        : "remote-media-container";
 
-        deviceRef.current.videoDevice = room;
+      let container = document.getElementById(containerId);
+
+      if (!container) {
+        console.warn(`Container ${containerId} not found, retrying...`);
+        setTimeout(() => attachTrack(track, isLocal), 500);
+        return;
+      }
+
+      //removing existing elements for this track
+      const trackId = track.name;
+      const existing = container.querySelector(`[data-track-id="${trackId}"]`);
+      if (existing) {
+        console.log(
+          `Removing existing ${track.kind} element for track ${trackId}`
+        );
+        existing.remove();
+      }
+
+      try {
+        const element = track.attach() as HTMLMediaElement;
+        element.setAttribute("data-track-id", trackId);
+        element.classList.add(isLocal ? "local-media" : "remote-media");
+
+        //muting to prevent echo, for local videos or audios
+        if (isLocal) {
+          element.muted = true;
+          if (element.tagName.toLowerCase() === "video") {
+            element.style.transform = "scaleX(-1)"; //mirroring for self view
+          }
+          console.log(`Local ${track.kind} track muted to prevent echo`);
+        }
+
+        //adding the element to the container
+        container.appendChild(element);
+
+        //verifying element was added
+        const attached = container.contains(element);
+        console.log(
+          `${track.kind} track ${trackId} attached successfully: ${attached}`,
+          element
+        );
+
+        //verifying video tracks are displaying properly
+        if (track.kind === "video") {
+          //event listeners to monitor video
+          const videoElement = element as HTMLVideoElement;
+          videoElement.addEventListener("playing", () => {
+            console.log(`Video track ${trackId} is playing`, {
+              width: videoElement.videoWidth,
+              height: videoElement.videoHeight,
+              duration: videoElement.duration,
+            });
+          });
+
+          element.addEventListener("error", (e) => {
+            console.error(`Video track ${trackId} error:`, element.error, e);
+          });
+        }
+        return element;
+      } catch (error) {
+        console.error(`Failed to attach ${track.kind} track:`, error);
+        return null;
+      }
+    },
+    []
+  );
+
+  const connectToVideoRoom = useCallback(
+    async (token: string, roomName: string, callId: string, tracks: LocalTrack[]) => {
+      try {
+        // Update call state to connecting
         stableUpdateCallState({
           callId,
           type: CallType.VIDEO,
+          status: CallStatus.CONNECTING,
+        });
+
+        console.log(
+          "Connecting to room with tracks:",
+          localTracks
+            .map(
+              (t) =>
+                `${t.kind}:${t.name || "unnamed"} (enabled:${
+                  "isEnabled" in t ? t.isEnabled : "N/A"
+                })`
+            )
+            .join(", ")
+        );
+
+        // Before connecting, make sure containers exist
+        const localContainer = document.getElementById("local-media-container");
+        const remoteContainer = document.getElementById(
+          "remote-media-container"
+        );
+
+        if (!localContainer) {
+          console.error("Local media container not found");
+        }
+
+        if (!remoteContainer) {
+          console.error("Remote media container not found");
+        }
+
+        // Connect to the room with appropriate options
+        const room = await TwilioVideo.connect(token, {
+          name: roomName,
+          tracks: tracks,
+          dominantSpeaker: true,
+          preferredVideoCodecs: ["VP8", "H264"],
+          bandwidthProfile: {
+            video: {
+              mode: "grid",
+              clientTrackSwitchOffControl: "auto",
+              dominantSpeakerPriority: "standard",
+              contentPreferencesMode: "auto",
+              maxSubscriptionBitrate: 2500000,
+            },
+          },
+          maxAudioBitrate: 16000,
+          networkQuality: { local: 1, remote: 1 },
+        });
+
+        console.log("Room connected:", room.sid);
+        console.log("Local participant:", room.localParticipant.identity);
+
+        // Store reference to the room
+        deviceRef.current.videoDevice = room;
+
+        // Attach local tracks
+        console.log("Attaching local tracks...");
+        const localVideoTracks = Array.from(
+          room.localParticipant.videoTracks.values()
+        );
+
+        const localAudioTracks = Array.from(
+          room.localParticipant.audioTracks.values()
+        );
+
+        console.log(`Local video tracks: ${localVideoTracks.length}`);
+        console.log(`Local audio tracks: ${localAudioTracks.length}`);
+
+        localVideoTracks.forEach((publication) => {
+          if (publication.track) {
+            console.log("Attaching local video track:", publication.trackSid);
+            // attachTrack(publication.track, true);
+          } else {
+            console.warn("Local video publication has no track:", publication);
+          }
+        });
+
+        localAudioTracks.forEach((publication) => {
+          if (publication.track) {
+            console.log("Attaching local audio track:", publication.trackSid);
+            // attachTrack(publication.track, true);
+          } else {
+            console.warn("Local audio publication has no track:", publication);
+          }
+        });
+
+        // Process already connected remote participants
+        room.participants.forEach((participant) => {
+          console.log("Processing existing participant:", participant.identity);
+
+          // Handle existing video tracks
+          participant.videoTracks.forEach((publication) => {
+            if (publication.track) {
+              console.log(
+                `Attaching existing remote video: ${publication.trackSid}`
+              );
+              attachTrack(publication.track, false);
+            }
+          });
+
+          // Handle existing audio tracks
+          participant.audioTracks.forEach((publication) => {
+            if (publication.track) {
+              console.log(
+                `Attaching existing remote audio: ${publication.trackSid}`
+              );
+              attachTrack(publication.track, false);
+            }
+          });
+
+          // Set up listeners for this participant
+          participant.on("trackSubscribed", (track) => {
+            console.log(
+              `Track subscribed from ${participant.identity}:`,
+              track.kind,
+              track.name
+            );
+            if (track.kind === "video" || track.kind === "audio") {
+              attachTrack(track as RemoteVideoTrack | RemoteAudioTrack, false);
+            }
+          });
+
+          participant.on("trackUnsubscribed", (track) => {
+            console.log(
+              `Track unsubscribed from ${participant.identity}:`,
+              track.kind,
+              track.name
+            );
+            track.detach().forEach((element) => element.remove());
+          });
+        });
+
+        // Set up event handlers for future participants
+        room.on("participantConnected", (participant) => {
+          console.log("Participant connected:", participant.identity);
+
+          participant.on("trackSubscribed", (track) => {
+            console.log(
+              `New track subscribed from ${participant.identity}:`,
+              track.kind,
+              track.name
+            );
+            if (track.kind === "video" || track.kind === "audio") {
+              attachTrack(track as RemoteVideoTrack | RemoteAudioTrack, false);
+            }
+          });
+
+          
+
+          participant.on("trackUnsubscribed", (track) => {
+            console.log(
+              `Track unsubscribed from ${participant.identity}:`,
+              track.kind,
+              track.name
+            );
+            track.detach().forEach((element) => element.remove());
+          });
+        });
+
+        // After setup, update call state
+        stableUpdateCallState({
           status: CallStatus.CONNECTED,
           activeCall: room,
-          participants: Array.from(room.participants.keys()).map((p) => p),
-        });
-
-        // Event handlers
-        room.on("participantConnected", (participant) => {
-          stableUpdateCallState({
-            participants: Array.from(room.participants.keys()).map((p) => p),
-          });
-        });
-
-        room.on("participantDisconnected", (participant) => {
-          stableUpdateCallState({
-            participants: Array.from(room.participants.keys()).map((p) => p),
-            status:
-              room.participants.size > 0
-                ? CallStatus.CONNECTED
-                : CallStatus.COMPLETED,
-          });
+          participants: Array.from(room.participants.values()).map(
+            (p) => p.identity
+          ),
         });
 
         return room;
-      } catch (error) {
+      } catch (error: any) {
+        console.error("Video connection failed:", error);
         stableUpdateCallState({
-          status: CallStatus.REJECTED,
-          activeCall: null,
+          status: CallStatus.FAILED,
+          error: error.message || "Failed to connect to video room",
         });
         throw error;
       }
     },
-    [localTracks, stableUpdateCallState]
+    [localTracks, stableUpdateCallState, attachTrack]
   );
 
   const initializeVoiceDevice = useCallback(
-    (token: string, currentCallId: string) => {
-      console.log(
-        "Initializing device with token:",
-        token.substring(0, 50) + "..."
-      );
-
-      let connectionTimeout: NodeJS.Timeout;
-
-      //cleaning up existing device
-      if (deviceRef.current.voiceDevice) {
-        deviceRef.current.voiceDevice.destroy();
+    (
+      token: string,
+      currentCallId: string,
+      actualRecipientId: string
+    ): TwilioVoice.Device => {
+      if (!actualRecipientId) {
+        throw new Error("Recipient ID is missing in call state");
       }
 
+      // let connectionTimeout: NodeJS.Timeout;
+
       try {
+        //cleaning up existing device
+        if (deviceRef.current.voiceDevice) {
+          deviceRef.current.voiceDevice.destroy();
+        }
+
+        // console.log("[Device Init] Creating new device");
         const device = new TwilioVoice.Device(token, {
           logLevel: "debug",
           codecPreferences: ["opus", "pcmu"],
@@ -106,8 +360,6 @@ export function useTwilioRoomManager(
           enableRingingState: true,
           appName: "EchoChat",
           appVersion: "1.0.0",
-          allowIncomingWhileBusy: true,
-          maxCallSignalingTimeoutMs: 30000,
         } as TwilioVoice.Device.Options);
 
         deviceRef.current.voiceDevice = device;
@@ -115,17 +367,12 @@ export function useTwilioRoomManager(
         // Add connection state tracking
         let connectionAttempts = 0;
         const connectionInterval = setInterval(() => {
-          console.log(
-            `Device state: ${device.state}, Connection: ${device.connectionState}`
-          );
           if (++connectionAttempts > 10) {
             clearInterval(connectionInterval);
           }
         }, 3000);
 
         device.on("ready", () => {
-          console.log("Twilio device ready");
-          clearTimeout(connectionTimeout);
           stableUpdateCallState({
             callId: currentCallId,
             type: CallType.VOICE,
@@ -133,31 +380,20 @@ export function useTwilioRoomManager(
           });
         });
 
-        connectionTimeout = setTimeout(() => {
-          if (device.connectionState !== "connected") {
-            console.error("Device initialization timeout");
-            device.destroy();
-            stableUpdateCallState({
-              status: CallStatus.FAILED,
-              error: "Connection timeout",
-            });
-          }
-        }, 45000);
-
-        device.on("incoming", (connection) => {
-          console.log("Incoming call from:", connection);
-          //updating UI to show incoming call
-          stableUpdateCallState({
-            callId: currentCallId,
-            // type: CallType.VOICE,
-            status: CallStatus.INITIATED,
-            activeCall: connection,
-          });
-          // connection.accept();
+        device.on("registered", () => {
+          console.log("[Device Status] Registered successfully");
+          // console.log("Current device state:", device.state);
+          // console.log("Connection state:", device.connectionState);
+        
         });
 
-        device.on("registered", () => {
-          console.log("Device successfully registered with Twilio");
+        device.on("incoming", (conn) => {
+          console.log("Incoming call from:", conn);
+          //updating UI to show incoming call
+          stableUpdateCallState({
+            status: CallStatus.RINGING,
+            activeCall: conn,
+          });
         });
 
         device.on("connect", () => {
@@ -169,12 +405,17 @@ export function useTwilioRoomManager(
         });
 
         device.on("connectionStateChanged", (state) => {
-          console.log(`Twilio Device State: ${state}`);
-          if (state === "connected") {
-            stableUpdateCallState({
-              status: CallStatus.CONNECTED,
-              callId: currentCallId,
-            });
+          console.log(`Connection state: ${state}`);
+          switch (state) {
+            case "connecting":
+              stableUpdateCallState({ status: CallStatus.INITIATED });
+              break;
+            case "connected":
+              stableUpdateCallState({ status: CallStatus.CONNECTED });
+              break;
+            case "disconnected":
+              stableUpdateCallState({ status: CallStatus.COMPLETED });
+              break;
           }
         });
 
@@ -193,11 +434,15 @@ export function useTwilioRoomManager(
         });
 
         device.on("error", (error) => {
-          stableUpdateCallState({ status: CallStatus.FAILED });
-          console.error("Twilio Device Error:", error);
+          console.error("Twilio Device Error", error);
+          if (error.code === 31208) {
+            alert("Please upgrade your Twilio account");
+          }
         });
 
+        console.log("Device created, registering...");
         device.register();
+        console.log("Registration requested");
         return device;
       } catch (error) {
         console.log("Twilio Room Error:", error);
@@ -205,6 +450,7 @@ export function useTwilioRoomManager(
           status: CallStatus.FAILED,
           activeCall: null,
         });
+        console.error("[Device Init Error]", error);
         throw error;
       }
     },
@@ -212,33 +458,50 @@ export function useTwilioRoomManager(
   );
 
   const makeVoiceCall = useCallback(
-    async (identity: string, currentCallId: string, userId: string) => {
+    async (
+      identity: string,
+      currentCallId: string,
+      userId: string
+    ): Promise<TwilioVoice.Connection> => {
       const device = deviceRef.current.voiceDevice;
       if (!device) {
         throw new Error("Voice device not initialized");
       }
 
+      if (device.state !== "registered") {
+        throw new Error(
+          "Device not registered. Current state: " + device.state
+        );
+      }
+
+      const formattedTo = identity.startsWith("client:")
+        ? identity
+        : `client:${identity}`;
+
+      const formattedFrom = userId.startsWith("client:")
+        ? userId
+        : `client:${userId}`;
+
       try {
         const call = (await device.connect({
           params: {
-            To: `client:${identity}`,
-            From: `client:${userId}`,
+            To: formattedTo,
+            From: formattedFrom,
             CallSid: currentCallId,
           },
-        })) as unknown as VoiceCallEntity;
+        })) as TwilioVoice.Connection;
 
         console.log("Call parameters:", {
-          To: `client:${identity}`,
-          From: `client:${userId}`,
+          To: formattedTo,
+          From: formattedFrom,
           CallSid: currentCallId,
         });
 
-        (call as any)("accept", () => {
+        call.on("accept", () => {
+          // console.log("Call accepted by recipient");
           stableUpdateCallState({
-            callId: currentCallId,
-            type: CallType.VOICE,
             status: CallStatus.CONNECTED,
-            activeCall: call,
+            callId: currentCallId,
           });
         });
 
@@ -255,6 +518,7 @@ export function useTwilioRoomManager(
   );
 
   const disconnectCall = useCallback(() => {
+    deviceRef.current.voiceDevice?.disconnectAll();
     deviceRef.current.voiceDevice?.destroy();
     deviceRef.current.videoDevice?.disconnect();
     deviceRef.current = {};

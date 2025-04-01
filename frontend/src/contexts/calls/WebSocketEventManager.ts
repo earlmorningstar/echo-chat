@@ -64,7 +64,7 @@ export class WebSocketEventManager {
   private handleIncomingMessage(event: MessageEvent) {
     try {
       const message = JSON.parse(event.data);
-      // console.log("Received message:", message);
+      // console.log("Received message:", message.type, "id:", message.id);
 
       //handling acknowledgments
       if (message.type === "ack") {
@@ -79,10 +79,12 @@ export class WebSocketEventManager {
 
       //sending ACK for messages requiring acknowledgment
       if (message.requireAck) {
+        console.log("Sending ACK for message ID:", message.id);
         this.ws.send(
           JSON.stringify({
             type: "ack",
             id: message.id,
+            timestamp: Date.now(),
           })
         );
       }
@@ -173,19 +175,33 @@ export class WebSocketEventManager {
   }
 
   private async sendWithAck(data: any): Promise<boolean> {
-    console.log("Sending message:", data.type, "to", data.recipientId);
+    // console.log("Sending message:", data.type, "to", data.recipientId);
 
-    const timeoutDuration = data.type.startsWith("call_") ? 45000 : 15000;
+    const timeoutDuration = data.type.startsWith("call_")
+      ? data.callType === "video"
+        ? 60000
+        : 45000
+      : 15000;
 
-    return new Promise((resolve) => {
-      const timeout = setTimeout(() => {
-        this.pendingAcks.delete(data.id);
-        console.warn(`Ack timeout for ${data.type}`);
-        resolve(false);
-      }, timeoutDuration);
+    const maxRetries = 2;
 
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        if (this.ws.readyState === WebSocket.OPEN) {
+        if (this.ws.readyState !== WebSocket.OPEN) {
+          console.warn("WebSocket not open, waiting before retry");
+          await new Promise((res) => setTimeout(res, 2000));
+          continue;
+        }
+
+        return new Promise((resolve) => {
+          const timeout = setTimeout(() => {
+            this.pendingAcks.delete(data.id);
+            console.warn(
+              `Ack timeout for ${data.type} (attempt ${attempt}/${maxRetries})`
+            );
+            resolve(false);
+          }, timeoutDuration);
+
           const message = JSON.stringify({
             ...data,
             timestamp: Date.now(),
@@ -193,15 +209,17 @@ export class WebSocketEventManager {
 
           this.ws.send(message);
           this.pendingAcks.set(data.id, { timeout, resolve });
-        } else {
-          clearTimeout(timeout);
-          resolve(false);
-        }
+        });
       } catch (error) {
-        clearTimeout(timeout);
-        resolve(false);
+        console.error(
+          `Error sending message (attempt ${attempt}/${maxRetries}):`,
+          error
+        );
+        if (attempt === maxRetries) return false;
+        await new Promise((res) => setTimeout(res, 2000));
       }
-    });
+    }
+    return false;
   }
 
   private async processQueue() {
