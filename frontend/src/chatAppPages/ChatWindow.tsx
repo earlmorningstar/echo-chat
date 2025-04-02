@@ -56,7 +56,7 @@ const MessageContent: React.FC<{ message: ChatMessage }> = ({ message }) => {
               loading="lazy"
               onClick={() => setShowImageViewer(true)}
               onError={(e) => {
-                console.error("Image load error:", message.content);
+                console.error("Image load error");
                 e.currentTarget.src = "";
               }}
             />
@@ -150,7 +150,6 @@ const ChatWindow: React.FC = () => {
   };
 
   const handleVideoCall = () => {
-    console.log("Initiate call ID:", crypto.randomUUID());
     if (friend?._id) {
       initiateCall(friend._id, CallType.VIDEO);
     }
@@ -276,7 +275,7 @@ const ChatWindow: React.FC = () => {
       await api.post("/api/messages/send", messageToSend);
       queryClient.invalidateQueries({ queryKey: ["messages", friendId] });
     } catch (error) {
-      console.error("Error sending message:", error);
+      console.error("Error sending message");
     }
   };
 
@@ -378,7 +377,7 @@ const ChatWindow: React.FC = () => {
       await api.post("/api/messages/send", messageToSend);
       queryClient.invalidateQueries({ queryKey: ["messages", friendId] });
     } catch (error) {
-      console.error("Error sending file:", error);
+      console.error("Error sending file");
     }
   };
 

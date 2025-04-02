@@ -83,7 +83,6 @@ export function useTwilioRoomManager(
       let container = document.getElementById(containerId);
 
       if (!container) {
-        console.warn(`Container ${containerId} not found, retrying...`);
         setTimeout(() => attachTrack(track, isLocal), 500);
         return;
       }
@@ -92,9 +91,6 @@ export function useTwilioRoomManager(
       const trackId = track.name;
       const existing = container.querySelector(`[data-track-id="${trackId}"]`);
       if (existing) {
-        console.log(
-          `Removing existing ${track.kind} element for track ${trackId}`
-        );
         existing.remove();
       }
 
@@ -109,18 +105,13 @@ export function useTwilioRoomManager(
           if (element.tagName.toLowerCase() === "video") {
             element.style.transform = "scaleX(-1)"; //mirroring for self view
           }
-          console.log(`Local ${track.kind} track muted to prevent echo`);
         }
 
         //adding the element to the container
         container.appendChild(element);
 
         //verifying element was added
-        const attached = container.contains(element);
-        console.log(
-          `${track.kind} track ${trackId} attached successfully: ${attached}`,
-          element
-        );
+        container.contains(element);
 
         //verifying video tracks are displaying properly
         if (track.kind === "video") {
@@ -140,7 +131,7 @@ export function useTwilioRoomManager(
         }
         return element;
       } catch (error) {
-        console.error(`Failed to attach ${track.kind} track:`, error);
+        console.error(`Failed to attach ${track.kind} track`);
         return null;
       }
     },
@@ -148,7 +139,12 @@ export function useTwilioRoomManager(
   );
 
   const connectToVideoRoom = useCallback(
-    async (token: string, roomName: string, callId: string, tracks: LocalTrack[]) => {
+    async (
+      token: string,
+      roomName: string,
+      callId: string,
+      tracks: LocalTrack[]
+    ) => {
       try {
         // Update call state to connecting
         stableUpdateCallState({
@@ -156,32 +152,6 @@ export function useTwilioRoomManager(
           type: CallType.VIDEO,
           status: CallStatus.CONNECTING,
         });
-
-        console.log(
-          "Connecting to room with tracks:",
-          localTracks
-            .map(
-              (t) =>
-                `${t.kind}:${t.name || "unnamed"} (enabled:${
-                  "isEnabled" in t ? t.isEnabled : "N/A"
-                })`
-            )
-            .join(", ")
-        );
-
-        // Before connecting, make sure containers exist
-        const localContainer = document.getElementById("local-media-container");
-        const remoteContainer = document.getElementById(
-          "remote-media-container"
-        );
-
-        if (!localContainer) {
-          console.error("Local media container not found");
-        }
-
-        if (!remoteContainer) {
-          console.error("Remote media container not found");
-        }
 
         // Connect to the room with appropriate options
         const room = await TwilioVideo.connect(token, {
@@ -202,14 +172,10 @@ export function useTwilioRoomManager(
           networkQuality: { local: 1, remote: 1 },
         });
 
-        console.log("Room connected:", room.sid);
-        console.log("Local participant:", room.localParticipant.identity);
-
         // Store reference to the room
         deviceRef.current.videoDevice = room;
 
         // Attach local tracks
-        console.log("Attaching local tracks...");
         const localVideoTracks = Array.from(
           room.localParticipant.videoTracks.values()
         );
@@ -218,37 +184,29 @@ export function useTwilioRoomManager(
           room.localParticipant.audioTracks.values()
         );
 
-        console.log(`Local video tracks: ${localVideoTracks.length}`);
-        console.log(`Local audio tracks: ${localAudioTracks.length}`);
-
         localVideoTracks.forEach((publication) => {
           if (publication.track) {
-            console.log("Attaching local video track:", publication.trackSid);
-            // attachTrack(publication.track, true);
+            console.log("Attaching local video track");
+            attachTrack(publication.track, true); //check
           } else {
-            console.warn("Local video publication has no track:", publication);
+            console.warn("Local video publication has no track");
           }
         });
 
         localAudioTracks.forEach((publication) => {
           if (publication.track) {
-            console.log("Attaching local audio track:", publication.trackSid);
-            // attachTrack(publication.track, true);
+            console.log("Attaching local audio track");
+            attachTrack(publication.track, true); //check
           } else {
-            console.warn("Local audio publication has no track:", publication);
+            console.warn("Local audio publication has no track");
           }
         });
 
         // Process already connected remote participants
         room.participants.forEach((participant) => {
-          console.log("Processing existing participant:", participant.identity);
-
           // Handle existing video tracks
           participant.videoTracks.forEach((publication) => {
             if (publication.track) {
-              console.log(
-                `Attaching existing remote video: ${publication.trackSid}`
-              );
               attachTrack(publication.track, false);
             }
           });
@@ -256,58 +214,31 @@ export function useTwilioRoomManager(
           // Handle existing audio tracks
           participant.audioTracks.forEach((publication) => {
             if (publication.track) {
-              console.log(
-                `Attaching existing remote audio: ${publication.trackSid}`
-              );
               attachTrack(publication.track, false);
             }
           });
 
           // Set up listeners for this participant
           participant.on("trackSubscribed", (track) => {
-            console.log(
-              `Track subscribed from ${participant.identity}:`,
-              track.kind,
-              track.name
-            );
             if (track.kind === "video" || track.kind === "audio") {
               attachTrack(track as RemoteVideoTrack | RemoteAudioTrack, false);
             }
           });
 
           participant.on("trackUnsubscribed", (track) => {
-            console.log(
-              `Track unsubscribed from ${participant.identity}:`,
-              track.kind,
-              track.name
-            );
             track.detach().forEach((element) => element.remove());
           });
         });
 
         // Set up event handlers for future participants
         room.on("participantConnected", (participant) => {
-          console.log("Participant connected:", participant.identity);
-
           participant.on("trackSubscribed", (track) => {
-            console.log(
-              `New track subscribed from ${participant.identity}:`,
-              track.kind,
-              track.name
-            );
             if (track.kind === "video" || track.kind === "audio") {
               attachTrack(track as RemoteVideoTrack | RemoteAudioTrack, false);
             }
           });
 
-          
-
           participant.on("trackUnsubscribed", (track) => {
-            console.log(
-              `Track unsubscribed from ${participant.identity}:`,
-              track.kind,
-              track.name
-            );
             track.detach().forEach((element) => element.remove());
           });
         });
@@ -323,15 +254,15 @@ export function useTwilioRoomManager(
 
         return room;
       } catch (error: any) {
-        console.error("Video connection failed:", error);
+        console.error("Video connection failed");
         stableUpdateCallState({
           status: CallStatus.FAILED,
-          error: error.message || "Failed to connect to video room",
+          error: "Failed to connect to video room",
         });
         throw error;
       }
     },
-    [localTracks, stableUpdateCallState, attachTrack]
+    [stableUpdateCallState, attachTrack]
   );
 
   const initializeVoiceDevice = useCallback(
@@ -344,15 +275,12 @@ export function useTwilioRoomManager(
         throw new Error("Recipient ID is missing in call state");
       }
 
-      // let connectionTimeout: NodeJS.Timeout;
-
       try {
         //cleaning up existing device
         if (deviceRef.current.voiceDevice) {
           deviceRef.current.voiceDevice.destroy();
         }
 
-        // console.log("[Device Init] Creating new device");
         const device = new TwilioVoice.Device(token, {
           logLevel: "debug",
           codecPreferences: ["opus", "pcmu"],
@@ -380,15 +308,11 @@ export function useTwilioRoomManager(
           });
         });
 
-        device.on("registered", () => {
-          console.log("[Device Status] Registered successfully");
-          // console.log("Current device state:", device.state);
-          // console.log("Connection state:", device.connectionState);
-        
-        });
+        // device.on("registered", () => {
+        //   console.log("[Device Status] Registered successfully");
+        // });
 
         device.on("incoming", (conn) => {
-          console.log("Incoming call from:", conn);
           //updating UI to show incoming call
           stableUpdateCallState({
             status: CallStatus.RINGING,
@@ -397,7 +321,6 @@ export function useTwilioRoomManager(
         });
 
         device.on("connect", () => {
-          console.log("Call connected successfully");
           stableUpdateCallState({
             status: CallStatus.CONNECTED,
             callId: currentCallId,
@@ -405,7 +328,6 @@ export function useTwilioRoomManager(
         });
 
         device.on("connectionStateChanged", (state) => {
-          console.log(`Connection state: ${state}`);
           switch (state) {
             case "connecting":
               stableUpdateCallState({ status: CallStatus.INITIATED });
@@ -433,24 +355,14 @@ export function useTwilioRoomManager(
           });
         });
 
-        device.on("error", (error) => {
-          console.error("Twilio Device Error", error);
-          if (error.code === 31208) {
-            alert("Please upgrade your Twilio account");
-          }
-        });
-
-        console.log("Device created, registering...");
         device.register();
-        console.log("Registration requested");
         return device;
       } catch (error) {
-        console.log("Twilio Room Error:", error);
         stableUpdateCallState({
           status: CallStatus.FAILED,
           activeCall: null,
         });
-        console.error("[Device Init Error]", error);
+        console.error("Device Error");
         throw error;
       }
     },
@@ -491,12 +403,6 @@ export function useTwilioRoomManager(
           },
         })) as TwilioVoice.Connection;
 
-        console.log("Call parameters:", {
-          To: formattedTo,
-          From: formattedFrom,
-          CallSid: currentCallId,
-        });
-
         call.on("accept", () => {
           // console.log("Call accepted by recipient");
           stableUpdateCallState({
@@ -507,7 +413,7 @@ export function useTwilioRoomManager(
 
         return call;
       } catch (error) {
-        console.error("Voice call failed:", error);
+        console.error("Voice call failed");
         stableUpdateCallState({
           status: CallStatus.FAILED,
         });

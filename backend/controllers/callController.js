@@ -17,14 +17,10 @@ const generateTwilioToken = async (identity, callType, roomName) => {
     throw new Error("Twilio credentials are missing in .env file");
   }
 
-  // const cleanIdentity = identity.replace(/^client:/g, "");
-  // const formattedIdentity = `client:${cleanIdentity}`;
-
   const token = new AccessToken(
     process.env.TWILIO_ACCOUNT_SID,
     process.env.TWILIO_API_KEY,
     process.env.TWILIO_API_SECRET,
-    // { identity: formattedIdentity, ttl: 3600 }
     { identity, ttl: 3600 }
   );
 
@@ -92,10 +88,9 @@ const createTwilioVideoRoom = async (roomName) => {
       statusCallbackMethod: "POST",
     });
 
-    console.log(`Twilio video room created: ${room.sid}`);
     return room;
   } catch (error) {
-    console.error("Error creating Twilio video room:", error);
+    console.error("Error creating Twilio video room");
     throw error;
   }
 };
@@ -150,12 +145,6 @@ const startCall = async (req, res) => {
     }
 
     const recentCallWindow = new Date(Date.now() - 60000);
-    // const existingCall = await req.db.collection("calls").findOne({
-    //   caller: callerId,
-    //   recipient: recipientId,
-    //   status: CallStatus.INITIATED,
-    //   createdAt: { $gt: new Date(Date.now() - 5000) },
-    // });
 
     const existingCall = await req.db.collection("calls").findOne({
       $or: [
@@ -176,16 +165,7 @@ const startCall = async (req, res) => {
       ],
     });
 
-    // if (existingCall) {
-    //   return sendError(res, 400, "Call already initiated");
-    // }
-
     if (existingCall) {
-      console.log("Duplicate call prevention:", {
-        existingCallId: existingCall._id,
-        status: existingCall.status,
-        type: existingCall.type,
-      });
       return sendError(res, 409, "An active call already exists", {
         existingCallId: existingCall._id.toString(),
       });
@@ -194,10 +174,6 @@ const startCall = async (req, res) => {
     //cleaning up of previous calls
     await req.db.collection("calls").updateMany(
       {
-        // $or: [
-        //   { caller: callerId, status: CallStatus.INITIATED },
-        //   { recipient: callerId, status: CallStatus.INITIATED },
-        // ],
         $or: [
           {
             caller: callerId,
@@ -227,15 +203,8 @@ const startCall = async (req, res) => {
         callType === CallType.VIDEO
           ? `video-${callerId}-${recipientId}-${Date.now()}`
           : `voice-${callerId}-${recipientId}-${Date.now()}`,
-      // roomName: `${callType.toLowerCase()}-${callerId}-${recipientId}-${Date.now()}`,
       twilioCallSid: null,
     };
-
-    console.log("Created room:", {
-      name: newCall.roomName,
-      type: newCall.type,
-      participants: [callerId, recipientId],
-    });
 
     validateCall(newCall);
 
@@ -258,7 +227,6 @@ const startCall = async (req, res) => {
         const twilioRoom = await createTwilioVideoRoom(newCall.roomName);
         newCall.twilioCallSid = twilioRoom.sid;
       } catch (error) {
-        console.error("Failed to create Twilio video room:", error);
         throw new Error(`Video room creation failed: ${error.message}`);
       }
     }
@@ -268,7 +236,6 @@ const startCall = async (req, res) => {
       callerId,
       callType,
       insertedCall.roomName
-      // result.insertedId.toString()
     );
 
     sendSuccess(
@@ -286,15 +253,12 @@ const startCall = async (req, res) => {
       false
     );
   } catch (error) {
-    console.error("Call initiation error:", error);
+    console.error("Call initiation error");
 
     if (error.message.includes("Invalid call type")) {
       return sendError(res, 400, error.message);
     }
-    sendError(res, 500, "Call initiation failed", {
-      error: error.message,
-      stack: error.stack,
-    });
+    sendError(res, 500, "Call initiation failed");
   }
 };
 
@@ -329,7 +293,7 @@ const handleVoiceRequest = async (req, res) => {
     res.type("text/xml");
     res.send(twiml.toString());
   } catch (error) {
-    console.error("Voice handler error:", error);
+    console.error("Voice handler error");
     //even on error, a valid TwiML response should be sent
     const twiml = new VoiceResponse();
     twiml.say("Service error");
@@ -341,12 +305,6 @@ const handleVoiceRequest = async (req, res) => {
 const handleTwilioCallStatus = async (req, res) => {
   try {
     const { CallStatus, CallSid, From, To, RecordingUrl } = req.body;
-    console.log("Twilio Call Status Update:", {
-      status: CallStatus,
-      callSid: CallSid,
-      from: From,
-      to: To,
-    });
     const twiml = new VoiceResponse();
 
     const call = await req.db.collection("calls").findOne({
@@ -359,7 +317,6 @@ const handleTwilioCallStatus = async (req, res) => {
     });
 
     if (!call) {
-      console.warn(`No call found for twilio CallSid: ${CallSid}`);
       return res.status(200).type("text/xml").send(twiml.toString());
     }
 
@@ -394,7 +351,6 @@ const handleTwilioCallStatus = async (req, res) => {
         twiml.say("Call ringing");
         break;
       default:
-        console.warn(`Unhandled Twilio call status: ${CallStatus}`);
         return res.status(200).type("text/xml").send(twiml.toString());
     }
 
@@ -413,7 +369,7 @@ const handleTwilioCallStatus = async (req, res) => {
 
     res.status(200).type("text/xml").send(twiml.toString());
   } catch (error) {
-    console.error("Error processing Twilio call status:", error);
+    console.error("Error processing Twilio call status");
     const twiml = new VoiceResponse();
     twiml.say("Service error");
     res.status(500).type("text/xml").send(twiml.toString());
@@ -431,20 +387,12 @@ const handleVideoStatus = async (req, res) => {
       ParticipantDuration,
     } = req.body;
 
-    console.log("Twilio Video Status Update:", {
-      roomSid: RoomSid,
-      roomName: RoomName,
-      roomStatus: RoomStatus,
-      participantIdentity: ParticipantIdentity,
-      participantStatus: ParticipantStatus,
-    });
-
     const call = await req.db.collection("calls").findOne({
       $or: [{ roomName: RoomName }, { twilioRoomSid: RoomSid }],
     });
 
     if (!call) {
-      console.warn(`No call found for Twilio video room: ${RoomName}`);
+      // console.warn(`No call found for Twilio video room: ${RoomName}`);
       return res.status(200).send("OK");
     }
 
@@ -477,10 +425,6 @@ const handleVideoStatus = async (req, res) => {
     }
 
     if (ParticipantIdentity && ParticipantStatus) {
-      console.log(
-        `Participant ${ParticipantIdentity} status: ${ParticipantStatus}`
-      );
-
       if (ParticipantStatus === "connected") {
         await req.db.collection("calls").updateOne(
           { _id: call._id },
@@ -493,7 +437,7 @@ const handleVideoStatus = async (req, res) => {
     }
     res.status(200).send("OK");
   } catch (error) {
-    console.error("Error processing Twilio video status:", error);
+    console.error("Error processing Twilio video status");
     res.status(500).send("Error");
   }
 };
@@ -510,7 +454,7 @@ const closeTwilioVideoRoom = async (roomSid) => {
     await twilioClient.video.v1.rooms(roomSid).update({ status: "completed" });
     console.log(`Closed Twilio video room: ${roomSid}`);
   } catch (error) {
-    console.error(`Error closing Twilio video room ${roomSid}:`, error);
+    console.error(`Error closing Twilio video room ${roomSid}`);
   }
 };
 
@@ -568,10 +512,8 @@ const restartVideoCall = async (req, res) => {
       twilioRoomSid: twilioRoom.sid,
     });
   } catch (error) {
-    console.error("Error restarting video call:", error);
-    sendError(res, 500, "Failed to restart video call", {
-      error: error.message,
-    });
+    console.error("Error restarting video call");
+    sendError(res, 500, "Failed to restart video call");
   }
 };
 
@@ -623,11 +565,8 @@ const acceptCall = async (req, res) => {
       false
     );
   } catch (error) {
-    console.error("Error accepting call:", error);
-    sendError(res, 500, "Error accepting call", {
-      errorMessage: error.message,
-      errorStack: error.stack,
-    });
+    console.error("Error accepting call");
+    sendError(res, 500, "Error accepting call");
   }
 };
 

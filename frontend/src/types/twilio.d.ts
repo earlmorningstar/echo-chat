@@ -133,12 +133,10 @@ declare module "twilio-video" {
     kind: string;
   }
 
-  // Add function signatures for createLocalTracks
   export function createLocalTracks(
     options?: MediaStreamConstraints
   ): Promise<LocalTrack[]>;
 
-  // Add Room definitions if you need them
   export interface Room {
     sid: string;
     localParticipant: LocalParticipant;
@@ -178,16 +176,10 @@ declare module "twilio-video" {
     kind: 'video';
   }
 
-  // export interface RemoteTrackPublication {
-  //   track: RemoteVideoTrack | RemoteAudioTrack | null;
-  //   trackSid: string;
-  // }
-
   // Connect function signature
   export function connect(token: string, options: any): Promise<Room>;
 }
 
-// Export types for use in your application
 export type VideoTrack =
   | TwilioVideoLib.LocalVideoTrack
   | TwilioVideoLib.RemoteVideoTrack;

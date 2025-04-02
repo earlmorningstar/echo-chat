@@ -90,7 +90,7 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
           message.type.startsWith("status") ? 2 : 1
         );
       } catch (error) {
-        console.error(`Failed to send message: ${message.type}`, error);
+        console.error(`Failed to send message: ${message.type}`);
         //store failed messages for retry
         pendingMessages.current.push({
           type: message.type,
@@ -136,15 +136,6 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const handleWebSocketMessage = useCallback(
     (message: any) => {
-      if (message.type === "call_initiate") {
-        console.log("CallInitiate message contents:", {
-          callId: message.callId,
-          callerId: message.callerId,
-          callType: message.callType,
-          hasToken: !!message.token,
-          roomName: message.roomName,
-        });
-      }
 
       if (!message || typeof message !== "object") return;
 
@@ -189,7 +180,6 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
           queryClient.invalidateQueries({ queryKey: ["friends"] });
         },
         call_initiate: () => {
-          console.log("Emitting call event for call_initiate");
           eventManager.current?.emit("call", {
             type: "call_initiate",
             callId: message.callId,
@@ -231,7 +221,7 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
         try {
           handler();
         } catch (error) {
-          console.error(`Error handling ${message.type}:`, error);
+          console.error(`Error handling ${message.type}`);
         }
       }
     },
@@ -261,7 +251,6 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
 
       const connectTimeout = setTimeout(() => {
         if (socket.readyState === WebSocket.CONNECTING) {
-          console.warn("WebSocket connection timeout");
           socket.close();
           isConnecting.current = false;
         }
@@ -269,8 +258,8 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
 
       socket.onopen = () => {
         clearTimeout(connectTimeout);
-        console.log("WebSocket connected");
-        console.log("WS Connected - User ID:", user?._id);
+        // console.log("WebSocket connected");
+        // console.log("WS Connected - User ID:", user?._id);
         setIsConnected(true);
         connectionAttempts.current = 0;
         isConnecting.current = false;
@@ -318,7 +307,7 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
       socket.onclose = () => {
         clearInterval(pingInterval);
         clearTimeout(connectTimeout);
-        console.log("WebSocket disconnected");
+        // console.log("WebSocket disconnected");
         setIsConnected(false);
         isConnecting.current = false;
         cleanupConnection();
@@ -335,12 +324,12 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
       };
 
       socket.onerror = (error) => {
-        console.error("WebSocket error");
+        // console.error("WebSocket error");
         isConnecting.current = false;
         socket.close();
       };
     } catch (error) {
-      console.error("WebSocket initialization error:", error);
+      // console.error("WebSocket initialization error:", error);
       isConnecting.current = false;
       cleanupConnection();
     }
@@ -362,7 +351,7 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
       connect();
 
       const handleVisibilityChange = () => {
-        console.log("WS connection state:", ws.current?.readyState);
+        // console.log("WS connection state:", ws.current?.readyState);
         const isVisible = document.visibilityState === "visible";
         if (isVisible && ws.current?.readyState !== WebSocket.OPEN) {
           connect();

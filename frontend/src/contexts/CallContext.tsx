@@ -235,7 +235,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
           }
         }
       } catch (error) {
-        console.error("Call failed:", error);
+        console.error("Call failed");
         //cleanup on any error
         if (call?._id) {
           await api.patch(`/api/call/${call._id}/end`, {
@@ -285,8 +285,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
           }
           await connectToVideoRoom(token, roomName, callId, tracks);
           dispatch({ type: "CLEAR_INCOMING_CALL" });
-          // return;
-        } else if (type === CallType.VOICE) {
+          } else if (type === CallType.VOICE) {
           dispatch({
             type: "UPDATE_CALL",
             payload: {
@@ -312,7 +311,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
 
         dispatch({ type: "CLEAR_INCOMING_CALL" });
       } catch (error) {
-        console.error("Call acceptance failed:", error);
+        console.error("Call acceptance failed");
         dispatch({ type: "SET_ERROR", payload: "Failed to accept call" });
       }
     },
@@ -362,7 +361,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
       dispatch({ type: "END_CALL" });
       disconnectCall();
     } catch (error) {
-      console.error("Failed to end call:", error);
+      console.error("Failed to end call");
       dispatch({ type: "SET_ERROR", payload: "Failed to end call" });
     }
   }, [state.currentCall, user?._id, sendMessage, disconnectCall]);
@@ -383,8 +382,6 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const handleCallEvent = useCallback(
     async (message: any) => {
-      console.log("Call event received:", message);
-
       // Universal ACK handling
       if (message.requireAck && message.id) {
         sendMessage({
@@ -412,7 +409,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
               return; //skipping voice device initializtation for vvideo calls
             }
 
-            // Always show incoming call UI, even if another call exists
+            //showing incoming call UI, even if another call exists
             dispatch({
               type: "SHOW_INCOMING_CALL",
               payload: {
@@ -464,7 +461,6 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
             break;
 
           case "call_accept":
-            console.log("Call accepted by recipient:", message);
             if (state.currentCall.id === message.callId) {
               dispatch({
                 type: "UPDATE_CALL",
@@ -489,7 +485,6 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
             break;
 
           case "call_reject":
-            console.log("Call rejected:", message);
             dispatch({
               type: "REJECT_CALL",
               payload: { callId: message.callId },
@@ -504,7 +499,6 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
             break;
 
           case "call_end":
-            console.log("Call ended remotely:", message);
             if (message.force) {
               disconnectCall();
             }
@@ -515,7 +509,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
             break;
         }
       } catch (error) {
-        console.error("Error handling call event:", error);
+        console.error("Error handling call event");
         dispatch({
           type: "SET_ERROR",
           payload:
@@ -560,7 +554,6 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
     if (!manager || !isConnected) return;
 
     const handler = (msg: CallEvent) => {
-      console.log("Call event received in CallContext:", msg.type);
       handleCallEvent(msg);
     };
 

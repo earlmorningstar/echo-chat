@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { useCall } from "../contexts/CallContext";
 import { useWebSocket } from "../contexts/WebSocketContext";
 import { useAuth } from "../contexts/AuthContext";
+import { useQuery } from "@tanstack/react-query";
 import { Call, CallEnd, Videocam } from "@mui/icons-material";
 import { motion } from "framer-motion";
 import * as FramerMotion from "framer-motion";
@@ -23,6 +24,22 @@ const IncomingCallModal: React.FC = () => {
   const [caller, setCaller] = useState<AuthUser | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
+  const { data: callerData } = useQuery({
+    queryKey: ["user", incomingCall.callerId],
+    queryFn: async () => {
+      if (!incomingCall.callerId) throw new Error("No caller ID provided");
+      const response = await api.get(`/api/user/${incomingCall.callerId}`);
+      return response.data.user;
+    },
+    enabled: !!incomingCall.callerId,
+  });
+
+  useEffect(() => {
+    if (callerData) {
+      setCaller(callerData);
+    }
+  }, [callerData]);
+
   useEffect(() => {
     if (callState.incomingCall.activeCall) {
       const connection = callState.incomingCall
@@ -30,7 +47,7 @@ const IncomingCallModal: React.FC = () => {
 
       const timeout = setTimeout(() => {
         rejectCall(callState.incomingCall.callId!);
-      }, 45000);
+      }, 90000000);
 
       connection.on("accept", () => {
         clearTimeout(timeout);
@@ -39,27 +56,6 @@ const IncomingCallModal: React.FC = () => {
       return () => clearTimeout(timeout);
     }
   }, [callState.incomingCall, rejectCall]);
-
-  useEffect(() => {
-    const fetchCaller = async () => {
-      try {
-        if (incomingCall.callerId) {
-          const strippedCallerPrefix = incomingCall.callerId.replace(
-            /^client:/g,
-            ""
-          );
-          const response = await api.get(`/api/users/${strippedCallerPrefix}`);
-          if (response.data.user) {
-            setCaller(response.data.user);
-          }
-        }
-      } catch (error) {
-        console.error("Error fetching caller");
-      }
-    };
-
-    if (incomingCall.callId) fetchCaller();
-  }, [incomingCall.callId, incomingCall.callerId]);
 
   useEffect(() => {
     const audio = new Audio("/sounds/iphone_15_ringtone_03.mp3");
@@ -77,13 +73,12 @@ const IncomingCallModal: React.FC = () => {
 
   const handleAccept = async () => {
     try {
-      if (incomingCall.callId) {
-        console.log("Accepting call:", incomingCall.callId);
-        await acceptCall(incomingCall.callId);
-        audioRef.current?.pause();
-      }
+    if (incomingCall.callId) {
+      await acceptCall(incomingCall.callId);
+      audioRef.current?.pause();
+    }
     } catch (error) {
-      console.error("Call acceptance failed:", error);
+      console.error("Call acceptance failed");
     }
   };
 
@@ -100,7 +95,7 @@ const IncomingCallModal: React.FC = () => {
         });
       }
     } catch (error) {
-      console.error("Rejection failed:", error);
+      console.error("Rejection failed");
     }
   };
 
@@ -130,12 +125,17 @@ const IncomingCallModal: React.FC = () => {
                   />
                 ) : (
                   <div className="avatar-fallback">
-                    <span>{caller?.firstName?.[0]}</span>
+                    <span>
+                      {caller?.firstName?.[0]}
+                      {caller?.lastName?.[0]}
+                    </span>
                   </div>
                 )}
               </div>
               <h3 className="caller-name">
-                {caller?.firstName} {caller?.lastName}
+                {caller?.firstName
+                  ? `${caller.firstName} ${caller.lastName}`
+                  : "Loading caller..."}
               </h3>
               <p className="call-type">Incoming {incomingCall.type} call...</p>
             </div>

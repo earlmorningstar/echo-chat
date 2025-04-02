@@ -48,7 +48,7 @@ export class WebSocketEventManager {
 
   private handleConnectionOpen() {
     this.processQueue().catch((error) => {
-      console.error("Error processing queue after connection:", error);
+      console.error("Error processing queue after connection");
     });
   }
 
@@ -57,14 +57,13 @@ export class WebSocketEventManager {
   }
 
   private handleConnectionError(error: Event) {
-    console.error("WebSocket connection error:", error);
+    console.error("WebSocket connection error");
     this.clearPendingAcks();
   }
 
   private handleIncomingMessage(event: MessageEvent) {
     try {
       const message = JSON.parse(event.data);
-      // console.log("Received message:", message.type, "id:", message.id);
 
       //handling acknowledgments
       if (message.type === "ack") {
@@ -79,7 +78,6 @@ export class WebSocketEventManager {
 
       //sending ACK for messages requiring acknowledgment
       if (message.requireAck) {
-        console.log("Sending ACK for message ID:", message.id);
         this.ws.send(
           JSON.stringify({
             type: "ack",
@@ -91,7 +89,7 @@ export class WebSocketEventManager {
 
       this.eventEmitter.emit("message", message);
     } catch (error) {
-      console.error("Error handling incoming message", event.data);
+      console.error("Error handling incoming message");
     }
   }
 
@@ -148,7 +146,6 @@ export class WebSocketEventManager {
         await this.processQueue();
       }
     } catch (error) {
-      console.error("Error enqueueing event");
       throw error;
     }
   }
@@ -188,7 +185,6 @@ export class WebSocketEventManager {
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         if (this.ws.readyState !== WebSocket.OPEN) {
-          console.warn("WebSocket not open, waiting before retry");
           await new Promise((res) => setTimeout(res, 2000));
           continue;
         }
@@ -212,8 +208,7 @@ export class WebSocketEventManager {
         });
       } catch (error) {
         console.error(
-          `Error sending message (attempt ${attempt}/${maxRetries}):`,
-          error
+          `Error sending message (attempt ${attempt}/${maxRetries})`
         );
         if (attempt === maxRetries) return false;
         await new Promise((res) => setTimeout(res, 2000));
@@ -275,7 +270,7 @@ export class WebSocketEventManager {
           break;
         }
       } catch (error) {
-        console.error("Error processing event:", error);
+        console.error("Error processing event");
 
         if (this.ws.readyState !== WebSocket.OPEN) {
           await new Promise((resolve) => setTimeout(resolve, 1000));

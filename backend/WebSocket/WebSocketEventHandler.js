@@ -19,10 +19,8 @@ class WebSocketEventHandler {
   async handleEvent(ws, message) {
     try {
       await this.validateMessage(message);
-      console.log("Handling message type:", message.type);
 
       if (message.type === "ack") {
-        console.log("Received ACK for message ID:", message.id);
         const pending = this.pendingEvents.get(message.id);
         if (pending) {
           clearTimeout(pending.timeout);
@@ -57,7 +55,6 @@ class WebSocketEventHandler {
         );
       }
     } catch (error) {
-      console.error("Error handling event:", error);
       if (message.requireAck) {
         ws.send(
           JSON.stringify({
@@ -153,7 +150,6 @@ class WebSocketEventHandler {
         status === "offline" ? currentTime : null
       );
     } catch (error) {
-      console.error("Status update failed:", error);
       throw error;
     }
   }
@@ -224,10 +220,6 @@ class WebSocketEventHandler {
 
       this.broadcastStatus(userId, "offline", currentTime);
     } catch (error) {
-      console.error("Client removal failed:", {
-        userId,
-        error: error.message,
-      });
       throw error;
     }
   }
@@ -269,7 +261,7 @@ class WebSocketEventHandler {
         );
       }
     } catch (error) {
-      console.error("Typing indicator failed:", error);
+      // console.error("Typing indicator failed:", error);
       throw error;
     }
   }
@@ -284,17 +276,13 @@ class WebSocketEventHandler {
   }
 
   async handleCallInitiation(ws, message) {
-    console.log("=== CALL INITIATION START ===");
-    console.log("Message recipient:", message.recipientId);
-    console.log("Connected clients:", Array.from(this.connectedClients.keys()));
-
     try {
       const call = await this.db.collection("calls").findOne({
         _id: new ObjectId(message.callId),
       });
 
       if (call?.caller?.toString() === message.recipientId) {
-        console.error("Self-call attempt blocked");
+        // console.error("Self-call attempt blocked");
         return;
       }
 
@@ -305,18 +293,12 @@ class WebSocketEventHandler {
       // Video-specific validation
       if (call.type === CallType.VIDEO) {
         const recipientWs = this.connectedClients.get(message.recipientId);
-        console.log(`Recipient WS found: ${!!recipientWs}`);
-        console.log(`Recipient WS state: ${recipientWs?.readyState || "N/A"}`);
 
         //checking if recipient and WS is connected
         if (!recipientWs || recipientWs.readyState !== WebSocket.OPEN) {
-          console.error("Recipient WS not connected:", message.recipientId);
+          // console.error("Recipient WS not connected:", message.recipientId);
           return;
         }
-
-        console.log(
-          `Sending to ${message.recipientId} via WS ${recipientWs._socket.remoteAddress}`
-        );
 
         //generating token without 'client:' prefix for video calls
         const recipientToken = await generateTwilioToken(
@@ -335,32 +317,21 @@ class WebSocketEventHandler {
           roomName: call.roomName,
           token: recipientToken,
           requireAck: true,
-          // id: `call-${Date.now()}-${call._id}`,
           id: `call-${call._id}`,
         };
 
         //sending call invitation to recipient
-        console.log("Sending call_initiate:", callInitiateMessage);
-        await this.sendWithAcknowledgment(recipientWs, callInitiateMessage);
 
-        console.log(
-          `Call_initiate successfully sent to ${message.recipientId}`
-        );
+        await this.sendWithAcknowledgment(recipientWs, callInitiateMessage);
       } else {
         // Existing logic for non-video calls remains the same
         const recipientWs = this.connectedClients.get(message.recipientId);
-        console.log(`Recipient WS found: ${!!recipientWs}`);
-        console.log(`Recipient WS state: ${recipientWs?.readyState || "N/A"}`);
 
         //checking if recipient and WS is connected
         if (!recipientWs || recipientWs.readyState !== WebSocket.OPEN) {
-          console.error("Recipient WS not connected:", message.recipientId);
+          // console.error("Recipient WS not connected:", message.recipientId);
           return;
         }
-
-        console.log(
-          `Sending to ${message.recipientId} via WS ${recipientWs._socket.remoteAddress}`
-        );
 
         //generating token with proper identity format for non-video calls
         const recipientToken = await generateTwilioToken(
@@ -382,15 +353,11 @@ class WebSocketEventHandler {
         };
 
         //sending call invitation to recipient
-        console.log("Sending call_initiate:", callInitiateMessage);
-        await this.sendWithAcknowledgment(recipientWs, callInitiateMessage);
 
-        console.log(
-          `Call_initiate successfully sent to ${message.recipientId}`
-        );
+        await this.sendWithAcknowledgment(recipientWs, callInitiateMessage);
       }
     } catch (error) {
-      console.error(`Failed to send call_initiate: ${error.message}`);
+      // console.error(`Failed to send call_initiate: ${error.message}`);
 
       const callerId = message.callerId;
       try {
@@ -400,7 +367,6 @@ class WebSocketEventHandler {
             { _id: new ObjectId(message.callId) },
             { $set: { status: CallStatus.MISSED } }
           );
-        console.log(`Updated call ${message.callId} status to MISSED`);
 
         //notifying caller about the failed calls
         const callerWs = this.connectedClients.get(callerId);
@@ -415,8 +381,7 @@ class WebSocketEventHandler {
           );
         }
       } catch (dbError) {
-        console.log(`Updated call ${message.callId} status to MISSED`);
-        console.error(`Failed to notify caller: ${dbError.message}`);
+        console.error("Failed to notify caller");
       }
     }
   }
@@ -461,7 +426,6 @@ class WebSocketEventHandler {
         $set: {
           status: CallStatus.REJECTED,
           endTime: new Date(),
-          // endedBy: rejectorId,
         },
       }
     );
@@ -532,7 +496,6 @@ class WebSocketEventHandler {
       const timeout = setTimeout(() => {
         // this.pendingEvents.has(messageId);
         cleanup();
-        console.log(`ACK timeout for ${message.type}`);
         reject(new Error(`No response after ${timeoutDuration}ms`));
       }, timeoutDuration);
 

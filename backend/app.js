@@ -58,8 +58,6 @@ const initializeServer = async () => {
   try {
     // Connect to database
     const db = await connectToDatabase();
-    console.log("Database connected and ready to use.");
-    console.log("Current database:", db.databaseName);
 
     // Initialize collections
     await Promise.all([

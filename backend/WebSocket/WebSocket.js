@@ -70,10 +70,10 @@ const initializeWebSocket = (server, db) => {
 
         await requestPool.execute(() => eventHandler.handleEvent(ws, message));
       } catch (error) {
-        console.error("Message processing error:", {
-          error: error.message,
-          rawMessage: rawMessage.toString(),
-        });
+        // console.error("Message processing error:", {
+        //   error: error.message,
+        //   rawMessage: rawMessage.toString(),
+        // });
 
         if (ws.readyState === WebSocket.OPEN) {
           ws.send(
@@ -88,11 +88,6 @@ const initializeWebSocket = (server, db) => {
     };
 
     const handleRegistration = async (message) => {
-      console.log(`=== WS REGISTRATION ATTEMPT ===`);
-      console.log(`User ID: ${message.senderId}`);
-      console.log(
-        `Existing connections: ${Array.from(connectedClients.keys())}`
-      );
       try {
         if (!isValidObjectId(message.senderId)) {
           throw new Error("Invalid user ID format");
@@ -114,9 +109,6 @@ const initializeWebSocket = (server, db) => {
           );
         }
 
-        console.log(`Client connected: ${clientId}`);
-        console.log(`Registered user: ${stringUserId}`);
-
         const connectedUsers = Array.from(connectedClients.keys()).filter(
           (id) => id !== userId
         );
@@ -136,13 +128,13 @@ const initializeWebSocket = (server, db) => {
           );
         });
       } catch (error) {
-        console.error("Registration failed:", error);
+        console.error("Registration failed");
         if (message.requireAck) {
           ws.send(
             JSON.stringify({
               type: "error",
               id: message.id,
-              message: "Registration failed" + error.message,
+              message: "Registration failed",
             })
           );
         }
@@ -166,13 +158,6 @@ const initializeWebSocket = (server, db) => {
     };
 
     const handleError = (error) => {
-      console.error("WebSocket error:", {
-        clientId,
-        userId,
-        error: error.message,
-        stack: error.stack,
-      });
-
       ws.send(
         JSON.stringify({
           type: "error",
@@ -195,10 +180,7 @@ const initializeWebSocket = (server, db) => {
             status: "offline",
           });
         } catch (error) {
-          console.error("Error updating offline status:", {
-            userId,
-            error: error.message,
-          });
+          console.error("Error updating offline status");
         }
       }
     };

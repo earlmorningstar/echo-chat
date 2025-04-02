@@ -836,7 +836,7 @@ const logoutUser = async (req, res) => {
       .collection("users")
       .updateOne({ _id: userId }, { $unset: { activeTokens: 1 } });
 
-    sendSuccess(res, 200, "Logout successful");
+    sendSuccess(res, 200, "Logout successful", false);
   } catch (error) {
     sendError(res, 500, "Error during logout");
   }

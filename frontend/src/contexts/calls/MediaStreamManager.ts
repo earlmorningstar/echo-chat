@@ -36,8 +36,7 @@ export function useMediaStreamManager(
 
   const getMediaPermissions = async (callType?: CallType) => {
     try {
-      const devices = await navigator.mediaDevices.enumerateDevices();
-      console.log("Available devices before track creation:", devices);
+      await navigator.mediaDevices.enumerateDevices();
 
       const constraints: MediaStreamConstraints = {
         audio: {
@@ -46,7 +45,6 @@ export function useMediaStreamManager(
             : undefined,
           echoCancellation: true,
           noiseSuppression: true,
-          // sampleRate: 16000,
         },
         video:
           callType === CallType.VIDEO
@@ -61,58 +59,54 @@ export function useMediaStreamManager(
             : false,
       };
 
-      console.log("Using constraints:", constraints);
-
       let tracks;
       try {
         tracks = await createLocalTracks(constraints);
-        tracks.forEach(track => track.enable());
-        console.log("Created local tracks with seleceted devices:", tracks);
+        tracks.forEach((track) => track.enable());
       } catch (error) {
-        console.error("Initial track creation failed, trying fallback:", error);
+        console.error("Initial track creation failed, trying fallback");
         //fallback to default devices
         tracks = await createLocalTracks({
           audio: true,
           video: callType === CallType.VIDEO,
         });
-        console.log("Created local tracks with default devices:", tracks);
       }
 
-      //validating that tracks were created and are functional
-      const isLocalAudioTrack = (track: LocalTrack): track is LocalAudioTrack =>
-        track.kind === "audio";
+      //validating tracks were created and are functional
+      // const isLocalAudioTrack = (track: LocalTrack): track is LocalAudioTrack =>
+      //   track.kind === "audio";
 
-      const isLocalVideoTrack = (track: LocalTrack): track is LocalVideoTrack =>
-        track.kind === "video";
+      // const isLocalVideoTrack = (track: LocalTrack): track is LocalVideoTrack =>
+      //   track.kind === "video";
 
-      const audioTrack = tracks.find(isLocalAudioTrack);
-      const videoTrack = tracks.find(isLocalVideoTrack);
+      // const audioTrack = tracks.find(isLocalAudioTrack);
+      // const videoTrack = tracks.find(isLocalVideoTrack);
 
       //testing audio track by checking readyState
-      if (audioTrack) {
-        console.log(
-          "Audio track created successfully:",
-          audioTrack.isEnabled,
-          audioTrack.mediaStreamTrack?.readyState
-        );
-      } else {
-        console.warn("No audio track was created");
-      }
+      // if (audioTrack) {
+      //   console.log(
+      //     "Audio track created successfully:",
+      //     audioTrack.isEnabled,
+      //     audioTrack.mediaStreamTrack?.readyState
+      //   );
+      // } else {
+      //   console.warn("No audio track was created");
+      // }
 
       //testing video track by checking dimensions
-      if (videoTrack && videoTrack.dimensions) {
-        console.log(
-          "Video track created successfully:",
-          videoTrack.isEnabled,
-          videoTrack.dimensions,
-          videoTrack.mediaStreamTrack?.readyState
-        );
-      } else if (callType === CallType.VIDEO) {
-        console.warn("Video track missing or has no dimensions");
-      }
-
+      // if (videoTrack && videoTrack.dimensions) {
+      //   console.log(
+      //     "Video track created successfully:",
+      //     videoTrack.isEnabled,
+      //     videoTrack.dimensions,
+      //     videoTrack.mediaStreamTrack?.readyState
+      //   );
+      // } else if (callType === CallType.VIDEO) {
+      //   console.warn("Video track missing or has no dimensions");
+      // }
 
       //updating state based on track availability
+      
       updateMediaState({
         audioEnabled: tracks.some(
           (track) => track.kind === "audio" && track.isEnabled
@@ -131,7 +125,7 @@ export function useMediaStreamManager(
       setLocalTracks(mediaTracks);
       return { success: true, tracks: mediaTracks };
     } catch (error) {
-      console.error("Media permissions failed:", error);
+      console.error("Media permissions failed");
       return { success: false, tracks: [] };
     }
   };
@@ -142,7 +136,7 @@ export function useMediaStreamManager(
       mediaStreamRef.current = stream;
       updateMediaState({ audioEnabled: true });
     } catch (error) {
-      console.error("Failed to start audio:", error);
+      console.error("Failed to start audio");
     }
   };
 
@@ -192,7 +186,7 @@ export function useMediaStreamManager(
 
         setLocalTracks((prev) => [...prev, ...videoTracks]);
       } catch (error) {
-        console.error("Screen share failed:", error);
+        console.error("Screen share failed");
       }
     } else {
       setLocalTracks((prev) =>
