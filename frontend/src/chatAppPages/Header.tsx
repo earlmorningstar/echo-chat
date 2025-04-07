@@ -14,8 +14,8 @@ const Header: React.FC = () => {
         return "Chats";
       case "/main-navigation/calls":
         return "Calls";
-      case "/main-navigation/updates":
-        return "Updates";
+      // case "/main-navigation/updates":
+      //   return "Updates";
       case "/main-navigation/requests":
         return "Requests";
       case "/main-navigation/settings":
