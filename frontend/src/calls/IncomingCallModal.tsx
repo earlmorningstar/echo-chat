@@ -57,19 +57,19 @@ const IncomingCallModal: React.FC = () => {
     }
   }, [callState.incomingCall, rejectCall]);
 
-  useEffect(() => {
-    const audio = new Audio("/sounds/iphone_15_ringtone_03.mp3");
-    if (incomingCall.callId) {
-      audio.loop = true;
-      audio.play().catch(() => {});
-      audioRef.current = audio;
-    }
+  // useEffect(() => {
+  //   const audio = new Audio("/sounds/iphone_15_ringtone_03.mp3");
+  //   if (incomingCall.callId) {
+  //     audio.loop = true;
+  //     audio.play().catch(() => {});
+  //     audioRef.current = audio;
+  //   }
 
-    return () => {
-      audio.pause();
-      audio.currentTime = 0;
-    };
-  }, [incomingCall.callId]);
+  //   return () => {
+  //     audio.pause();
+  //     audio.currentTime = 0;
+  //   };
+  // }, [incomingCall.callId]);
 
   const handleAccept = async () => {
     try {

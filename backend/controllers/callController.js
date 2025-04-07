@@ -192,13 +192,13 @@ const startCall = async (req, res) => {
 
     //creating call object
     const newCall = {
-      caller: callerId,
-      recipient: recipientId,
+      caller: callerObjectId,
+      recipient: recipientObjectId,
       startTime: new Date(),
       type: callType,
       status: CallStatus.INITIATED,
       createdAt: new Date(),
-      updateAt: new Date(),
+      updatedAt: new Date(),
       roomName:
         callType === CallType.VIDEO
           ? `video-${callerId}-${recipientId}-${Date.now()}`
@@ -307,13 +307,17 @@ const handleTwilioCallStatus = async (req, res) => {
     const { CallStatus, CallSid, From, To, RecordingUrl } = req.body;
     const twiml = new VoiceResponse();
 
+    //converting twilio client IDs to MongoDB ObjectIds
+    const fromId = new ObjectId(From.replace(/^client:/, ""));
+    const toId = new ObjectId(To.replace(/^client:/, ""));
+
+    //findinf call by participant IDs
     const call = await req.db.collection("calls").findOne({
       $or: [
-        { roomName: `voice-${From}-${To}` },
-        { roomName: `voice-${To}-${From}` },
-        { roomName: `video-${From}-${To}` },
-        { roomName: `video-${To}-${From}` },
+        { caller: fromId, recipient: toId },
+        { caller: toId, recipient: fromId },
       ],
+      type: CallType.VOICE,
     });
 
     if (!call) {
@@ -384,15 +388,15 @@ const handleVideoStatus = async (req, res) => {
       RoomStatus,
       ParticipantIdentity,
       ParticipantStatus,
-      ParticipantDuration,
     } = req.body;
 
     const call = await req.db.collection("calls").findOne({
       $or: [{ roomName: RoomName }, { twilioRoomSid: RoomSid }],
+      type: CallType.VIDEO,
     });
 
     if (!call) {
-      // console.warn(`No call found for Twilio video room: ${RoomName}`);
+      console.warn(`No video call found for room: ${RoomName || RoomSid}`);
       return res.status(200).send("OK");
     }
 
@@ -415,26 +419,28 @@ const handleVideoStatus = async (req, res) => {
         {
           $set: {
             status: newStatus,
-            updateAt: new Date(),
-            ...(newStatus === CallStatus.COMPLETED
-              ? { endTime: new Date() }
-              : {}),
+            updatedAt: new Date(),
+            ...(newStatus === CallStatus.COMPLETED && { endTime: new Date() }),
           },
         }
       );
     }
 
-    if (ParticipantIdentity && ParticipantStatus) {
-      if (ParticipantStatus === "connected") {
-        await req.db.collection("calls").updateOne(
-          { _id: call._id },
-          {
-            $addToSet: { participants: ParticipantIdentity },
-            $set: { updateAt: new Date() },
-          }
-        );
-      }
+    //handling participant connection
+    if (ParticipantIdentity && ParticipantStatus === "connected") {
+      const participantId = new ObjectId(
+        ParticipantIdentity.replace(/^client:/, "")
+      );
+
+      await req.db.collection("calls").updateOne(
+        { _id: call._id },
+        {
+          $addToSet: { participants: participantId },
+          $set: { updatedAt: new Date() },
+        }
+      );
     }
+
     res.status(200).send("OK");
   } catch (error) {
     console.error("Error processing Twilio video status");
@@ -492,7 +498,7 @@ const restartVideoCall = async (req, res) => {
         $set: {
           twilioRoomSid: twilioRoom.sid,
           status: CallStatus.INITIATED,
-          updateAt: new Date(),
+          updatedAt: new Date(),
           restartedAt: new Date(),
           restartredBy: userId,
         },
@@ -526,9 +532,12 @@ const acceptCall = async (req, res) => {
       return sendError(res, 400, "Invalid ID format");
     }
 
+    const callObjectId = new ObjectId(callId);
+    const userObjectId = new ObjectId(userId);
+
     const call = await req.db.collection("calls").findOne({
-      _id: new ObjectId(callId),
-      recipient: userId,
+      _id: callObjectId,
+      recipient: userObjectId,
       status: { $in: [CallStatus.INITIATED, CallStatus.RINGING] },
     });
 
@@ -537,12 +546,12 @@ const acceptCall = async (req, res) => {
     const token = await generateTwilioToken(userId, call.type, call.roomName);
 
     const updateResult = await req.db.collection("calls").updateOne(
-      { _id: new ObjectId(callId) },
+      { _id: callObjectId },
       {
         $set: {
           status: CallStatus.CONNECTED,
           acceptTime: new Date(),
-          updateAt: new Date(),
+          updatedAt: new Date(),
         },
       }
     );
@@ -579,9 +588,12 @@ const rejectCall = async (req, res) => {
       return sendError(res, 400, "Invalid ID format");
     }
 
+    const callObjectId = new ObjectId(callId);
+    const userObjectId = new ObjectId(userId);
+
     const call = await req.db.collection("calls").findOne({
-      _id: new ObjectId(callId),
-      recipient: userId,
+      _id: callObjectId,
+      recipient: userObjectId,
       status: { $in: [CallStatus.INITIATED, CallStatus.RINGING] },
     });
 
@@ -590,12 +602,13 @@ const rejectCall = async (req, res) => {
     }
 
     const updateResult = await req.db.collection("calls").updateOne(
-      { _id: new ObjectId(callId) },
+      { _id: callObjectId },
       {
         $set: {
           status: CallStatus.REJECTED,
           endTime: new Date(),
-          updateAt: new Date(),
+          updatedAt: new Date(),
+          endedBy: "recipient",
         },
       }
     );
@@ -603,6 +616,10 @@ const rejectCall = async (req, res) => {
     if (updateResult.modifiedCount === 0) {
       console.warn(`Failed to update call ${callId} status to REJECTED`);
       return sendError(res, 500, "Failed to update call status");
+    }
+
+    if (call.type === CallType.VIDEO && call.twilioRoomSid) {
+      await closeTwilioVideoRoom(call.twilioRoomSid);
     }
 
     sendSuccess(
@@ -630,9 +647,12 @@ const endCall = async (req, res) => {
       return sendError(res, 400, "Invalid ID format");
     }
 
+    const callObjectId = new ObjectId(callId);
+    const userObjectId = new ObjectId(userId);
+
     const call = await req.db.collection("calls").findOne({
-      _id: new ObjectId(callId),
-      $or: [{ caller: userId }, { recipient: userId }],
+      _id: callObjectId,
+      $or: [{ caller: userObjectId }, { recipient: userObjectId }],
       status: {
         $in: [CallStatus.INITIATED, CallStatus.RINGING, CallStatus.CONNECTED],
       },
@@ -645,12 +665,12 @@ const endCall = async (req, res) => {
     const endedBy = userId === call.caller ? "caller" : "recipient";
 
     const updateResult = await req.db.collection("calls").updateOne(
-      { _id: new ObjectId(callId) },
+      { _id: callObjectId },
       {
         $set: {
           status: CallStatus.COMPLETED,
           endTime: new Date(),
-          updateAt: new Date(),
+          updatedAt: new Date(),
           endedBy: endedBy,
         },
       }
@@ -661,7 +681,7 @@ const endCall = async (req, res) => {
       return sendError(res, 500, "Failed to update call status");
     }
 
-    if (call.type === CallType && call.twilioRoomSid) {
+    if (call.type === CallType.VIDEO && call.twilioRoomSid) {
       await closeTwilioVideoRoom(call.twilioRoomSid);
     }
 
@@ -681,6 +701,97 @@ const endCall = async (req, res) => {
   }
 };
 
+const getCallHistory = async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    if (!ObjectId.isValid(userId)) {
+      return sendError(res, 400, "Invalid user ID format");
+    }
+
+    const userObjectId = new ObjectId(userId);
+
+    //finding all calls where the user is either the caller or the recipient
+    const calls = await req.db
+      .collection("calls")
+      .aggregate([
+        {
+          $match: {
+            $or: [{ caller: userObjectId }, { recipient: userObjectId }],
+          },
+        },
+        {
+          $sort: {
+            startTime: -1,
+          },
+        },
+        {
+          $lookup: {
+            from: "users",
+            localField: "caller",
+            foreignField: "_id",
+            as: "callerDetails",
+          },
+        },
+        {
+          $lookup: {
+            from: "users",
+            localField: "recipient",
+            foreignField: "_id",
+            as: "recipientDetails",
+          },
+        },
+        {
+          $project: {
+            _id: 1,
+            caller: 1,
+            recipient: 1,
+            startTime: 1,
+            endTime: 1,
+            type: 1,
+            status: 1,
+            roomName: 1,
+            createdAt: 1,
+            participantDetails: {
+              $concatArrays: ["$callerDetails", "$recipientDetails"],
+            },
+          },
+        },
+        {
+          //limiting to most recentt 60 calls
+          $limit: 60,
+        },
+      ])
+      .toArray();
+
+    const processedCalls = calls.map((call) => ({
+      ...call,
+      _id: call._id.toString(),
+      caller:
+        typeof call.caller === "object" ? call.caller.toString() : call.caller,
+      recipient:
+        typeof call.recipient === "object"
+          ? call.recipient.toString()
+          : call.recipient,
+      participantDetails: call.participantDetails.map((p) => ({
+        ...p,
+        _id: p._id.toString(),
+      })),
+    }));
+
+    sendSuccess(
+      res,
+      200,
+      "Call history retrieved successfully",
+      { calls: processedCalls },
+      false
+    );
+  } catch (error) {
+    console.error("Error retrieving call history:", error);
+    sendError(res, 500, "Failed to retrieve call history");
+  }
+};
+
 export {
   generateTwilioToken,
   getCallToken,
@@ -692,4 +803,5 @@ export {
   rejectCall,
   endCall,
   restartVideoCall,
+  getCallHistory,
 };

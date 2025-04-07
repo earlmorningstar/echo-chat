@@ -74,7 +74,8 @@ export type CallAction =
         activeCall?: unknown;
         status?: CallStatus;
       };
-    };
+    }
+  | { type: "RESET_STATE" };
 
 export const initialState: CallState = {
   currentCall: {
@@ -223,6 +224,10 @@ export function callReducer(state: CallState, action: CallAction): CallState {
           ...action.payload,
           status: action.payload.status ?? state.incomingCall.status,
         },
+      };
+    case "RESET_STATE":
+      return {
+        ...initialState,
       };
     default:
       return state;

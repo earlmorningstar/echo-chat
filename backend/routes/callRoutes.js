@@ -11,6 +11,7 @@ import {
   handleTwilioCallStatus,
   handleVideoStatus,
   restartVideoCall,
+  getCallHistory,
 } from "../controllers/callController.js";
 
 router.post("/voice", handleVoiceRequest);
@@ -22,5 +23,6 @@ router.patch("/:callId/reject", authenticateUser, rejectCall);
 router.patch("/:callId/end", authenticateUser, endCall);
 router.post("/video-status", handleVideoStatus);
 router.post("/:callId/restart", authenticateUser, restartVideoCall);
+router.get("/history", authenticateUser, getCallHistory);
 
 export default router;

@@ -10,7 +10,6 @@
 }
 
 .main-container {
-  /* here */
   padding: 3.5rem 0 2.8rem 0;
 }
 
@@ -107,7 +106,7 @@
 
 .chat-item-avatar {
   position: relative;
-  margin-right: 6px;
+  margin-right: 12px;
 }
 
 .profile-image {
@@ -326,6 +325,203 @@
   background-color: #1a8173;
 }
 
+/* Call List Section */
+
+.call-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  height: 100%;
+  overflow-y: auto;
+}
+
+.call-item {
+  background-color: #d6c3a8;
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.call-item:hover {
+  background-color: #c2ad8f;
+}
+
+.call-item-info-holder {
+  display: flex;
+  align-items: center;
+}
+
+.call-item-avatar {
+  min-width: 48px;
+  position: relative;
+  margin-right: 6px;
+}
+
+.call-item-avatar img {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.call-info {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  overflow: hidden;
+}
+
+.call-name {
+  font-family: "Inter Tight", serif;
+  font-size: 16px;
+  font-weight: 500;
+  color: #333;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.missed-call {
+  color: #e53935;
+}
+
+.call-count {
+  font-family: "Inter Tight", serif;
+  font-size: 14px;
+  font-weight: 400;
+  color: #333;
+  margin-left: 5px;
+}
+
+.call-time {
+  font-family: "Inter Tight", serif;
+  font-size: 12px;
+  color: #333;
+  white-space: nowrap;
+}
+
+.call-details {
+  font-family: "Finlandica", serif;
+  display: flex;
+  align-items: center;
+  color: #333;
+}
+
+.call-direction {
+  display: flex;
+  align-items: center;
+  color: #757575;
+  font-size: 14px;
+}
+
+.call-icon {
+  margin-right: 6px;
+  font-size: 16px;
+}
+
+.call-icon.outgoing {
+  color: #208d7f;
+}
+
+.call-icon.incoming {
+  color: #2196f3;
+}
+
+.call-icon.missed {
+  color: #e53935;
+}
+
+.call-status {
+  margin-right: 8px;
+  font-size: 13px;
+}
+
+.call-status.missed {
+  color: #e53935;
+}
+
+.call-type-icon {
+  margin-right: 8px;
+  color: #616161;
+  font-size: 16px;
+}
+
+.call-duration {
+  font-size: 13px;
+  color: #616161;
+}
+
+.call-list-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.call-list-actions div {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.call-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  cursor: pointer;
+  color: #208d7f;
+  transition: background-color 0.2s;
+}
+
+.call-action-btn:hover {
+  background-color: rgba(19, 160, 141, 0.1);
+}
+
+.call-action-btn.voice {
+  color: #208d7f;
+}
+
+.call-action-btn.video {
+  color: #2196f3;
+}
+
+.no-calls-message {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  height: 200px;
+  gap: 16px;
+}
+
+.no-calls-message p {
+  font-family: "Roboto", sans-serif;
+}
+
+.no-calls-message button {
+  background-color: #208d7f;
+  color: #f3eadd;
+  border: none;
+  padding: 10px 15px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background-color 0.2s ease;
+}
+
+.no-calls-message button:hover {
+  background-color: #1a8173;
+}
+
 /* Add User Section--- */
 
 .add-user-page {
@@ -338,9 +534,9 @@
 }
 
 .add-user-title {
-  font-size: 20px;
-  font-weight: 600;
-  color: #000000;
+  font-size: 18px;
+  font-weight: 500;
+  color: #333;
 }
 
 .error-message {
@@ -365,7 +561,6 @@
   gap: 5px;
   color: #333;
   margin-bottom: 1.5rem;
-  /* border-bottom: 1px solid #00000099; */
 }
 
 .req-name-and-date span {
@@ -490,7 +685,6 @@
   flex: 1;
   overflow-y: auto;
   padding: 16px;
-  /* padding-bottom: 25px; */
   margin: 4.05rem 0;
   display: flex;
   flex-direction: column;
@@ -1151,7 +1345,6 @@
   background-color: #d32f2f;
 }
 
-
 /* Media Queries--- */
 @media screen and (max-width: 800px) {
   .last-message {
@@ -1174,5 +1367,11 @@
 @media screen and (max-width: 400px) {
   .last-message {
     max-width: 12rem;
+  }
+  .chat-name {
+    font-size: 14px;
+  }
+  .call-name {
+    font-size: 14px;
   }
 }

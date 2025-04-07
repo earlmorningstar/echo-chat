@@ -429,15 +429,20 @@ class WebSocketEventHandler {
         },
       }
     );
-
-    //notifying both users
+    //fetching the updated call
     const call = await this.db
       .collection("calls")
       .findOne({ _id: new ObjectId(callId) });
-    [call.caller, call.recipient].forEach((userId) => {
-      const callerWs = this.connectedClients.get(userId);
-      if (callerWs?.readyState === WebSocket.OPEN) {
-        callerWs.send(
+
+    //converting ObjectIds to strings
+    const callerId = call.caller.toString();
+    const recipientId = call.recipient.toString();
+
+    //notifying both users
+    [callerId, recipientId].forEach((userId) => {
+      const participantWs = this.connectedClients.get(userId);
+      if (participantWs?.readyState === WebSocket.OPEN) {
+        participantWs.send(
           JSON.stringify({
             type: WsEventType.CALL_REJECT,
             callId,
@@ -463,11 +468,17 @@ class WebSocketEventHandler {
       }
     );
 
-    //notifying both parties
+    //fetching updated call
     const call = await this.db
       .collection("calls")
       .findOne({ _id: new ObjectId(callId) });
-    [call.caller, call.recipient].forEach((participantId) => {
+
+    //converting ObjectIds to strings
+    const callerId = call.caller.toString();
+    const recipientId = call.recipient.toString();
+
+    //notifying both parties
+    [callerId, recipientId].forEach((participantId) => {
       const participantWs = this.connectedClients.get(participantId);
       if (participantWs?.readyState === WebSocket.OPEN) {
         participantWs.send(

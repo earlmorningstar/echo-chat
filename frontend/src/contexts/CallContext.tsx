@@ -134,6 +134,29 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
     voiceDevice: callManager.voiceDevice,
   });
 
+  const softReset = useCallback(async () => {
+    try {
+      //reseting state
+      dispatch({ type: "RESET_STATE" });
+
+      //stop all media tracks
+      await mediaControls.stopAllTracks();
+
+      //cleanup twilio connections
+      if (callManager.videoDevice) {
+        callManager.videoDevice.disconnect();
+        callManagerRef.current.videoDevice = undefined;
+      }
+
+      if (callManager.voiceDevice) {
+        callManager.voiceDevice.destroy();
+        callManagerRef.current.voiceDevice = undefined;
+      }
+    } catch (error) {
+      console.error("Soft reset failed:", error);
+    }
+  }, [mediaControls, callManager]);
+
   const initiateCall = useCallback(
     async (recipientId: string, type: CallType) => {
       let call: any = null;
@@ -145,7 +168,9 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
 
         dispatch({ type: "END_CALL" });
         await mediaControls.stopAllTracks();
-        const {success, tracks} = await mediaControls.getMediaPermissions(CallType.VIDEO);
+        const { success, tracks } = await mediaControls.getMediaPermissions(
+          CallType.VIDEO
+        );
         if (!success) throw new Error("Permissions denied");
 
         //reseting twilio device
@@ -270,7 +295,9 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
         const { token, roomName, type } = response.data;
 
         //initializing media befoee accepting
-        const {success, tracks} = await mediaControls.getMediaPermissions(CallType.VIDEO);
+        const { success, tracks } = await mediaControls.getMediaPermissions(
+          CallType.VIDEO
+        );
         if (!success) throw new Error("Permissions denied");
 
         dispatch({
@@ -285,7 +312,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
           }
           await connectToVideoRoom(token, roomName, callId, tracks);
           dispatch({ type: "CLEAR_INCOMING_CALL" });
-          } else if (type === CallType.VOICE) {
+        } else if (type === CallType.VOICE) {
           dispatch({
             type: "UPDATE_CALL",
             payload: {
@@ -336,11 +363,12 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
           rejectorId: user?._id,
           recipientId: state.incomingCall.callerId,
         });
+        await softReset();
       } catch (error) {
         dispatch({ type: "SET_ERROR", payload: "Failed to reject call" });
       }
     },
-    [user?._id, sendMessage, state.incomingCall]
+    [user?._id, sendMessage, state.incomingCall, softReset]
   );
 
   const endCall = useCallback(async () => {
@@ -360,11 +388,13 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
 
       dispatch({ type: "END_CALL" });
       disconnectCall();
+
+      await softReset();
     } catch (error) {
       console.error("Failed to end call");
       dispatch({ type: "SET_ERROR", payload: "Failed to end call" });
     }
-  }, [state.currentCall, user?._id, sendMessage, disconnectCall]);
+  }, [state.currentCall, user?._id, sendMessage, disconnectCall, softReset]);
 
   const handleAudioToggle = useCallback(
     (enabled: boolean) => {
@@ -496,6 +526,8 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
             if (callManager.voiceDevice) {
               callManager.voiceDevice.destroy();
             }
+
+            await softReset();
             break;
 
           case "call_end":
@@ -503,6 +535,8 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
               disconnectCall();
             }
             dispatch({ type: "END_CALL" });
+            await softReset();
+
             break;
 
           default:
@@ -535,6 +569,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
       state.currentCall,
       dispatch,
       state.incomingCall,
+      softReset,
     ]
   );
 
