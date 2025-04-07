@@ -152,7 +152,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   if (isLoading) {
     return <EchoChatLoader />
-    //work on this loader soonest.
   }
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

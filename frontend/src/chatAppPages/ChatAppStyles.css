@@ -151,7 +151,6 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  /* height: 1.9vh; */
 }
 
 .typing-indicator-dots {
@@ -178,7 +177,7 @@
 
 .typing-text {
   color: #208d7f;
-  font-size: 0.9em;
+  font-size: 1.15em;
 }
 
 @keyframes typingAnimation {
@@ -264,6 +263,7 @@
   display: inline-block;
   flex: 1;
   word-break: break-word;
+  font-size: 1.15em;
 }
 
 .no-messages {
@@ -1367,11 +1367,15 @@
 @media screen and (max-width: 400px) {
   .last-message {
     max-width: 12rem;
+    font-size: 1.13em;
   }
   .chat-name {
     font-size: 14px;
   }
   .call-name {
     font-size: 14px;
+  }
+  .typing-text {
+    font-size: 1.13em;
   }
 }
