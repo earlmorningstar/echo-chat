@@ -1,6 +1,7 @@
 import React, { createContext, useState, useContext, useEffect } from "react";
 import { AuthUser, AuthContextType, UserStatus } from "../types";
 import api from "../utils/api";
+import EchoChatLoader from "../pages/EchoChatLoader";
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -150,7 +151,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   if (isLoading) {
-    return <div>Loading...</div>;
+    return <EchoChatLoader />
     //work on this loader soonest.
   }
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

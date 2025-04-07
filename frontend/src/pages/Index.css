@@ -16,7 +16,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: #F9F4EC;
+  background-color: #f9f4ec;
 }
 
 .splash-header h1 {
@@ -29,7 +29,7 @@
 
 .onboarding-container {
   font-family: "Poppins", sans-serif;
-  background-color: #F9F4EC;
+  background-color: #f9f4ec;
   min-height: 100vh;
   padding: 3rem 6rem;
   display: flex;
@@ -56,7 +56,7 @@
   font-weight: 400;
   margin-bottom: 3rem;
   color: #208d7f;
-  }
+}
 
 .onboarding-container p {
   font-size: 20px;
@@ -74,7 +74,7 @@
 
 .onboarding-buttons button {
   background-color: #208d7f;
-  color: #F3EADD;
+  color: #f3eadd;
   cursor: pointer;
   padding: 10px 18px;
   width: 8rem;
@@ -92,7 +92,7 @@
   display: flex;
   flex-direction: column;
   gap: 2rem;
-  background-color: #F9F4EC;
+  background-color: #f9f4ec;
   min-height: 100vh;
 }
 
@@ -137,7 +137,7 @@
   cursor: pointer;
   padding: 10px 8px;
   background-color: #208d7f;
-  color: #F3EADD;
+  color: #f3eadd;
   border: none;
   border-radius: 10px;
   margin: 1rem 0 1.5rem 0;
@@ -203,7 +203,7 @@
 .forgot-password-container {
   font-family: "Afacad Flux", sans-serif;
   padding: 3rem;
-  background-color: #F9F4EC;
+  background-color: #f9f4ec;
   height: 100vh;
   text-align: center;
   display: flex;
@@ -234,7 +234,189 @@
   margin-bottom: 2rem;
 }
 
+/* EchoChat Loader Style Section--- */
+.echochat-loader-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #f9f4ec;
+}
+
+.echochat-text {
+  font-family: "DynaPuff", system-ui;
+  font-size: 2.5rem;
+  font-weight: 500;
+  color: #208d7f;
+  letter-spacing: 2px;
+}
+
+.echochat-loader-box {
+  position: relative;
+  padding: 30px 50px;
+  background-color: #f9f4ec;
+  box-sizing: border-box;
+  position: relative;
+}
+
+.echochat-loader-box::before,
+.echochat-loader-box::after {
+  content: "";
+  position: absolute;
+  background-color: #208d7f;
+}
+
+.echochat-loader-box::before {
+  height: 4px;
+  width: 0;
+  top: 0;
+  left: 0;
+  animation: borderTopGrow 0.8s linear forwards,
+    borderTopShrink 0.8s linear 3.2s forwards;
+  animation-iteration-count: infinite;
+  animation-delay: 0s, 3.2s;
+}
+
+.echochat-loader-box::after {
+  width: 4px;
+  height: 0;
+  top: 0;
+  right: 0;
+  animation: borderRightGrow 0.8s linear forwards,
+    borderRightShrink 0.8s linear 2.4s forwards;
+  animation-iteration-count: infinite;
+  animation-delay: 0.8s, 2.4s;
+}
+
+.echochat-loader-box .border-bottom {
+  position: absolute;
+  height: 4px;
+  width: 0;
+  bottom: 0;
+  right: 0;
+  background-color: #208d7f;
+  animation: borderBottomGrow 0.8s linear forwards,
+    borderBottomShrink 0.8s linear 1.6s forwards;
+  animation-iteration-count: infinite;
+  animation-delay: 1.6s, 1.6s;
+}
+
+.echochat-loader-box .border-left {
+  position: absolute;
+  width: 4px;
+  height: 0;
+  bottom: 0;
+  left: 0;
+  background-color: #208d7f;
+  animation: borderLeftGrow 0.8s linear forwards,
+    borderLeftShrink 0.8s linear 0.8s forwards;
+  animation-iteration-count: infinite;
+  animation-delay: 2.4s, 0.8s;
+}
+
+@keyframes borderTopGrow {
+  0% {
+    width: 0;
+    left: 0;
+  }
+  100% {
+    width: 100%;
+    left: 0;
+  }
+}
+
+@keyframes borderTopShrink {
+  0% {
+    width: 100%;
+    left: 0;
+  }
+  100% {
+    width: 0;
+    left: 100%;
+  }
+}
+
+@keyframes borderRightGrow {
+  0% {
+    height: 0;
+    top: 0;
+  }
+  100% {
+    height: 100%;
+    top: 0;
+  }
+}
+
+@keyframes borderRightShrink {
+  0% {
+    height: 100%;
+    top: 0;
+  }
+  100% {
+    height: 0;
+    top: 100%;
+  }
+}
+
+@keyframes borderBottomGrow {
+  0% {
+    width: 0;
+    right: 0;
+  }
+  100% {
+    width: 100%;
+    right: 0;
+  }
+}
+
+@keyframes borderBottomShrink {
+  0% {
+    width: 100%;
+    right: 0;
+  }
+  100% {
+    width: 0;
+    right: 100%;
+  }
+}
+
+@keyframes borderLeftGrow {
+  0% {
+    height: 0;
+    bottom: 0;
+  }
+  100% {
+    height: 100%;
+    bottom: 0;
+  }
+}
+
+@keyframes borderLeftShrink {
+  0% {
+    height: 100%;
+    bottom: 0;
+  }
+  100% {
+    height: 0;
+    bottom: 100%;
+  }
+}
+
 /* Media Queries--- */
+
+@media (max-width: 768px) {
+  .echochat-text {
+    font-size: 1.8rem;
+  }
+
+  .echochat-loader-box {
+    padding: 30px 40px;
+  }
+}
 
 @media screen and (max-width: 700px) {
   .onboarding-container {

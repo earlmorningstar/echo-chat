@@ -11,7 +11,7 @@ import { Message, AuthUser, CallType } from "../types";
 import { formatFileSize, uploadFile } from "../utils/fileUpload";
 import ImageViewer from "./ImageViewer";
 import { useCachedImage } from "../utils/imageCache";
-import { IconButton, Backdrop, CircularProgress } from "@mui/material";
+import { IconButton } from "@mui/material";
 import {
   Send,
   AttachFile,
@@ -21,6 +21,7 @@ import {
 } from "@mui/icons-material";
 import { IoChevronBackOutline, IoCloudDownloadOutline } from "react-icons/io5";
 import { CiUnread, CiRead } from "react-icons/ci";
+import EchoChatLoader from "../pages/EchoChatLoader";
 
 interface ChatMessage extends Message {
   sender: AuthUser;
@@ -453,17 +454,7 @@ const ChatWindow: React.FC = () => {
 
       <div className="messages-container">
         {isLoading ? (
-          <div className="loading-container">
-            <Backdrop
-              sx={{
-                color: "#208d7f",
-                zIndex: (theme) => theme.zIndex.drawer + 1,
-              }}
-              open={isLoading}
-            >
-              <CircularProgress color="inherit" />
-            </Backdrop>
-          </div>
+          <EchoChatLoader />
         ) : (
           <>
             {messages.map((message: ChatMessage, index: number) => (

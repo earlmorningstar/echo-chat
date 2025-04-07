@@ -2,6 +2,7 @@ import React from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { useChat } from "../contexts/ChatContext";
+import EchoChatLoader from "../pages/EchoChatLoader";
 import { CiUnread, CiRead } from "react-icons/ci";
 import { Friend, Message } from "../types";
 import "./ChatAppStyles.css";
@@ -89,7 +90,7 @@ const ChatList: React.FC = () => {
   };
 
   if (isLoading && !friends.length) {
-    return <div className="loading-spinner">Loading...</div>;
+    return <EchoChatLoader />
   }
 
   return (

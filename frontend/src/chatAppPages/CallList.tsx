@@ -12,6 +12,7 @@ import {
   MdCallReceived,
   MdCallMissed,
 } from "react-icons/md";
+import EchoChatLoader from "../pages/EchoChatLoader";
 
 interface CallHistoryItem {
   _id: string;
@@ -162,7 +163,7 @@ const CallList: React.FC = () => {
   };
 
   if (isLoading && !callHistory.length) {
-    return <div className="loading-spinner">Loading...</div>;
+    return <EchoChatLoader />;
   }
 
   return (
