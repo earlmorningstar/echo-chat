@@ -5,6 +5,8 @@ import {
   LocalVideoTrack,
   LocalTrack,
   createLocalTracks,
+  createLocalAudioTrack,
+  createLocalVideoTrack,
 } from "twilio-video";
 
 type MediaStreamManager = {
@@ -72,41 +74,6 @@ export function useMediaStreamManager(
         });
       }
 
-      //validating tracks were created and are functional
-      // const isLocalAudioTrack = (track: LocalTrack): track is LocalAudioTrack =>
-      //   track.kind === "audio";
-
-      // const isLocalVideoTrack = (track: LocalTrack): track is LocalVideoTrack =>
-      //   track.kind === "video";
-
-      // const audioTrack = tracks.find(isLocalAudioTrack);
-      // const videoTrack = tracks.find(isLocalVideoTrack);
-
-      //testing audio track by checking readyState
-      // if (audioTrack) {
-      //   console.log(
-      //     "Audio track created successfully:",
-      //     audioTrack.isEnabled,
-      //     audioTrack.mediaStreamTrack?.readyState
-      //   );
-      // } else {
-      //   console.warn("No audio track was created");
-      // }
-
-      //testing video track by checking dimensions
-      // if (videoTrack && videoTrack.dimensions) {
-      //   console.log(
-      //     "Video track created successfully:",
-      //     videoTrack.isEnabled,
-      //     videoTrack.dimensions,
-      //     videoTrack.mediaStreamTrack?.readyState
-      //   );
-      // } else if (callType === CallType.VIDEO) {
-      //   console.warn("Video track missing or has no dimensions");
-      // }
-
-      //updating state based on track availability
-      
       updateMediaState({
         audioEnabled: tracks.some(
           (track) => track.kind === "audio" && track.isEnabled
@@ -151,8 +118,20 @@ export function useMediaStreamManager(
   const toggleAudio = useCallback(
     (enabled: boolean) => {
       localTracks
-        .filter((track) => track.kind === "audio")
-        .forEach((track) => (track.isEnabled = enabled));
+        .filter((track): track is LocalAudioTrack => track.kind === "audio")
+        .forEach((track) => {
+          if (enabled) {
+            createLocalAudioTrack().then((newTrack) => {
+              track.stop();
+              setLocalTracks((prev) => [
+                ...prev.filter((t) => t !== track),
+                newTrack,
+              ]);
+            });
+          } else {
+            track.stop();
+          }
+        });
       updateMediaState({ audioEnabled: enabled });
     },
     [localTracks, updateMediaState]
@@ -161,41 +140,58 @@ export function useMediaStreamManager(
   const toggleVideo = useCallback(
     (enabled: boolean) => {
       localTracks
-        .filter((track) => track.kind === "video")
-        .forEach((track) => (track.isEnabled = enabled));
+        .filter((track): track is LocalVideoTrack => track.kind === "video")
+        .forEach((track) => {
+          if (enabled) {
+            createLocalVideoTrack().then((newTrack) => {
+              track.stop();
+              setLocalTracks((prev) => [
+                ...prev.filter((t) => t !== track),
+                newTrack,
+              ]);
+            });
+          } else {
+            track.stop();
+          }
+        });
       updateMediaState({ videoEnabled: enabled });
     },
     [localTracks, updateMediaState]
   );
 
-  const toggleScreenShare = useCallback(async (enabled: boolean) => {
-    if (enabled) {
-      try {
-        const screenTrack = await createLocalTracks({
-          video: {
-            deviceId: "screen",
-            frameRate: 15,
-            width: 1920,
-            height: 1080,
-          },
-        });
+  const toggleScreenShare = useCallback(
+    async (enabled: boolean): Promise<void> => {
+      if (enabled) {
+        try {
+          const screenStream = await navigator.mediaDevices.getDisplayMedia({
+            video: true,
+            audio: true,
+          });
 
-        const videoTracks = screenTrack.filter(
-          (track): track is LocalVideoTrack => track.kind === "video"
+          const screenTrack = new LocalVideoTrack(
+            screenStream.getVideoTracks()[0],
+            {
+              name: "screen-share",
+              logLevel: "error" as const,
+            }
+          );
+
+          setLocalTracks((prev) => [...prev, screenTrack]);
+        } catch (error) {
+          console.error("Screen share failed:", error);
+        }
+      } else {
+        setLocalTracks((prev) =>
+          prev.filter((track) => {
+            const remove = track.name === "screen-share";
+            if (remove) track.stop();
+            return !remove;
+          })
         );
-
-        setLocalTracks((prev) => [...prev, ...videoTracks]);
-      } catch (error) {
-        console.error("Screen share failed");
       }
-    } else {
-      setLocalTracks((prev) =>
-        prev.filter(
-          (track) => !(track.kind === "video" && track.name.includes("screen"))
-        )
-      );
-    }
-  }, []);
+    },
+    []
+  );
 
   useEffect(() => {
     return () => {

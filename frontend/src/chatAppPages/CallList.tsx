@@ -50,57 +50,71 @@ const CallList: React.FC = () => {
 
   const processCallHistory = (calls: any[]): CallHistoryItem[] => {
     if (!user?._id || !calls.length) return [];
-
-    //grouping calls by other user and call direction
-    const groupedCalls = calls.reduce((acc: any, call: any) => {
-      const isOutgoing = call.caller.toString() === user._id;
+  
+    // sorting all calls by timestamp 'newest first'
+    const sortedCalls = [...calls].sort(
+      (a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime()
+    );
+    
+    //grouping consecutive calls by the same user and direction
+    const processedCalls: CallHistoryItem[] = [];
+    let currentGroup: any[] = [];
+    let currentKey = '';
+    
+    sortedCalls.forEach((call) => {
+      const isOutgoing = call.caller.toString() === user?._id;
       const otherUserId = isOutgoing ? call.recipient : call.caller;
       const direction = isOutgoing ? "outgoing" : "incoming";
-      const key = `${otherUserId}-${direction}-${call.type}`;
-
-      if (!acc[key]) {
-        acc[key] = [];
+      const newKey = `${otherUserId}-${direction}-${call.type}`;
+      
+      //in a situation whereby this is a different user/direction/type or first call
+      if (newKey !== currentKey) {
+        //process previous group if it exists
+        if (currentGroup.length > 0) {
+          processedCalls.push(createCallHistoryItem(currentGroup));
+        }
+        
+        //starting new group
+        currentGroup = [call];
+        currentKey = newKey;
+      } else {
+        //same user, direction and type - add to current group
+        currentGroup.push(call);
       }
-      acc[key].push(call);
-      return acc;
-    }, {});
-
-    //creating consolidated call history items
-    const processedCalls = Object.values(groupedCalls).map((callGroup: any) => {
-      const sortedCalls = callGroup.sort(
-        (a: any, b: any) =>
-          new Date(b.startTime).getTime() - new Date(a.startTime).getTime()
-      );
-
-      const latestCall = sortedCalls[0];
-      const isOutgoing = latestCall.caller === user._id;
-      const otherUserId = isOutgoing ? latestCall.recipient : latestCall.caller;
-      const count = sortedCalls.length;
-
-      //finding participant by ensuring IDs are in string format for comparison
-      const participant = latestCall.participantDetails.find(
-        (p: any) => p._id === otherUserId.toString()
-      );
-
-      return {
-        ...latestCall,
-        isOutgoing,
-        user: participant || {
-          _id: otherUserId,
-          firstName: "Unknown",
-          lastName: "User",
-          avatarUrl: "",
-        },
-        count: count > 1 ? count : undefined,
-        duration: calculateDuration(latestCall.startTime, latestCall.endTime),
-      };
     });
-
-    //sorting by most recent calls first
-    return processedCalls.sort(
-      (a: any, b: any) =>
-        new Date(b.startTime).getTime() - new Date(a.startTime).getTime()
+    
+    //processing the last group
+    if (currentGroup.length > 0) {
+      processedCalls.push(createCallHistoryItem(currentGroup));
+    }
+    
+    return processedCalls;
+  };
+  
+  //helper - to create a call history item from a group of calls
+  const createCallHistoryItem = (callGroup: any[]): CallHistoryItem => {
+    const latestCall = callGroup[0]; //first call in group should be the latest one
+    const isOutgoing = latestCall.caller.toString() === user?._id;
+    const otherUserId = isOutgoing ? latestCall.recipient : latestCall.caller;
+    const count = callGroup.length;
+    
+    //finding participant
+    const participant = latestCall.participantDetails.find(
+      (p: any) => p._id === otherUserId.toString()
     );
+    
+    return {
+      ...latestCall,
+      isOutgoing,
+      user: participant || {
+        _id: otherUserId,
+        firstName: "Unknown",
+        lastName: "User",
+        avatarUrl: "",
+      },
+      count: count > 1 ? count : undefined,
+      duration: calculateDuration(latestCall.startTime, latestCall.endTime),
+    };
   };
 
   const calculateDuration = (
@@ -129,8 +143,14 @@ const CallList: React.FC = () => {
   const formatTimestamp = (timestamp: Date) => {
     const callDate = new Date(timestamp);
     const now = new Date();
-    const diffTime = now.getTime() - callDate.getTime();
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    const callDay = new Date(
+      callDate.getFullYear(),
+      callDate.getMonth(),
+      callDate.getDate()
+    );
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const diffTime = today.getTime() - callDay.getTime();
+    const diffDays = diffTime / (1000 * 60 * 60 * 24);
 
     if (diffDays === 0) {
       return callDate.toLocaleTimeString([], {
@@ -234,7 +254,9 @@ const CallList: React.FC = () => {
                       )}
 
                       <span
-                        className={`call-status ${call.status.toLowerCase()}`}
+                        className={`call-status ${
+                          call.status?.toLowerCase?.() ?? "unknown"
+                        }`}
                       >
                         {call.isOutgoing
                           ? "Outgoing"

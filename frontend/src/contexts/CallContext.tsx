@@ -16,7 +16,7 @@ import {
   CallState,
   CallAction,
 } from "./calls/CallStateManager";
-import { RemoteParticipant, Room } from "twilio-video";
+import { RemoteParticipant, Room, LocalVideoTrack } from "twilio-video";
 import { useMediaStreamManager } from "./calls/MediaStreamManager";
 import { useTwilioRoomManager } from "./calls/TwilioRoomManager";
 import { CallEvent, CallStatus, CallType } from "../types";
@@ -153,7 +153,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
         callManagerRef.current.voiceDevice = undefined;
       }
     } catch (error) {
-      console.error("Soft reset failed:", error);
+      console.error("Soft reset failed");
     }
   }, [mediaControls, callManager]);
 
@@ -338,7 +338,6 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
 
         dispatch({ type: "CLEAR_INCOMING_CALL" });
       } catch (error) {
-        console.error("Call acceptance failed");
         dispatch({ type: "SET_ERROR", payload: "Failed to accept call" });
       }
     },
@@ -408,6 +407,41 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
       toggleVideo(enabled);
     },
     [toggleVideo]
+  );
+
+  const handleScreenToggle = useCallback(
+    async (enabled: boolean) => {
+      if (callManager.videoDevice) {
+        const localParticipant = callManager.videoDevice.localParticipant;
+
+        //getting current screen tracks before state update
+        const currentScreenTracks = mediaControls.localTracks.filter(
+          (t): t is LocalVideoTrack => t.name === "screen-share"
+        );
+
+        //togglinscreen share and wait for state update
+        await mediaControls.toggleScreenShare(enabled);
+
+        //getting updated screen tracks after state update
+        const updatedScreenTracks = mediaControls.localTracks.filter(
+          (t): t is LocalVideoTrack => t.name === "screen-share"
+        );
+
+        if (enabled) {
+          //publishing new tracks that weren't previously present
+          updatedScreenTracks
+            .filter((track) => !currentScreenTracks.includes(track))
+            .forEach((track) => localParticipant.publishTrack(track));
+        } else {
+          //unpublishing and stoping all screen tracks
+          currentScreenTracks.forEach((track) => {
+            localParticipant.unpublishTrack(track);
+            track.stop();
+          });
+        }
+      }
+    },
+    [callManager.videoDevice, mediaControls]
   );
 
   const handleCallEvent = useCallback(
@@ -608,7 +642,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
       mediaControls,
       toggleAudio: handleAudioToggle,
       toggleVideo: handleVideoToggle,
-      toggleScreenShare: mediaControls.toggleScreenShare,
+      toggleScreenShare: handleScreenToggle,
       callState: state,
       participants: callManager.videoDevice
         ? Array.from(callManager.videoDevice.participants.values())
@@ -629,6 +663,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
       state,
       handleAudioToggle,
       handleVideoToggle,
+      handleScreenToggle,
       mediaControls,
       callManager.videoDevice,
       callManager.voiceDevice,

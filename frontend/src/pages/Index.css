@@ -249,7 +249,7 @@
 
 .echochat-text {
   font-family: "DynaPuff", system-ui;
-  font-size: 2.5rem;
+  font-size: 2.2rem;
   font-weight: 500;
   color: #208d7f;
   letter-spacing: 2px;
@@ -257,7 +257,7 @@
 
 .echochat-loader-box {
   position: relative;
-  padding: 30px 50px;
+  padding: 25px 45px;
   background-color: #f9f4ec;
   box-sizing: border-box;
   position: relative;
@@ -410,11 +410,11 @@
 
 @media (max-width: 768px) {
   .echochat-text {
-    font-size: 1.8rem;
+    font-size: 1.5rem;
   }
 
   .echochat-loader-box {
-    padding: 30px 40px;
+    padding: 20px 35px;
   }
 }
 

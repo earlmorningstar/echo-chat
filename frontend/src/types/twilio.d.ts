@@ -167,13 +167,13 @@ declare module "twilio-video" {
   export interface RemoteVideoTrackPublication {
     track: RemoteVideoTrack | null;
     trackSid: string;
-    kind: 'video';
+    kind: "video";
   }
 
   export interface RemoteAudioTrackPublication {
     track: RemoteAudioTrack | null;
     trackSid: string;
-    kind: 'video';
+    kind: "video";
   }
 
   // Connect function signature

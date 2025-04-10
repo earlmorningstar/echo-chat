@@ -136,7 +136,6 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const handleWebSocketMessage = useCallback(
     (message: any) => {
-
       if (!message || typeof message !== "object") return;
 
       const handlers: Record<string, () => void> = {

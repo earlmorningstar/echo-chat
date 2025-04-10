@@ -23,6 +23,7 @@ const IncomingCallModal: React.FC = () => {
   const { incomingCall } = callState;
   const [caller, setCaller] = useState<AuthUser | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [showModal, setShowModal] = useState(false);
 
   const { data: callerData } = useQuery({
     queryKey: ["user", incomingCall.callerId],
@@ -40,6 +41,30 @@ const IncomingCallModal: React.FC = () => {
     }
   }, [callerData]);
 
+  //to delay showing of the modal by 10secs to avoid twilio ringing while the demo sound plays
+  useEffect(() => {
+    let timeout: NodeJS.Timeout;
+
+    if (incomingCall.callId) {
+      timeout = setTimeout(() => {
+        setShowModal(true);
+        const audio = new Audio("/sounds/iphone_15_ringtone_03.mp3");
+        audio.loop = true;
+        audio.play().catch(() => {});
+        audioRef.current = audio;
+      }, 10000);
+    } else {
+      setShowModal(false);
+    }
+    return () => {
+      clearTimeout(timeout);
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+      }
+    };
+  }, [incomingCall.callId]);
+
   useEffect(() => {
     if (callState.incomingCall.activeCall) {
       const connection = callState.incomingCall
@@ -47,7 +72,7 @@ const IncomingCallModal: React.FC = () => {
 
       const timeout = setTimeout(() => {
         rejectCall(callState.incomingCall.callId!);
-      }, 90000000);
+      }, 30000);
 
       connection.on("accept", () => {
         clearTimeout(timeout);
@@ -57,26 +82,12 @@ const IncomingCallModal: React.FC = () => {
     }
   }, [callState.incomingCall, rejectCall]);
 
-  // useEffect(() => {
-  //   const audio = new Audio("/sounds/iphone_15_ringtone_03.mp3");
-  //   if (incomingCall.callId) {
-  //     audio.loop = true;
-  //     audio.play().catch(() => {});
-  //     audioRef.current = audio;
-  //   }
-
-  //   return () => {
-  //     audio.pause();
-  //     audio.currentTime = 0;
-  //   };
-  // }, [incomingCall.callId]);
-
   const handleAccept = async () => {
     try {
-    if (incomingCall.callId) {
-      await acceptCall(incomingCall.callId);
-      audioRef.current?.pause();
-    }
+      if (incomingCall.callId) {
+        await acceptCall(incomingCall.callId);
+        audioRef.current?.pause();
+      }
     } catch (error) {
       console.error("Call acceptance failed");
     }
@@ -85,8 +96,12 @@ const IncomingCallModal: React.FC = () => {
   const handleReject = async () => {
     try {
       if (incomingCall.callId && user?._id) {
+        if (audioRef.current) {
+          audioRef.current.pause();
+          audioRef.current.currentTime = 0;
+          audioRef.current = null; //avoiding reuse
+        }
         await rejectCall(incomingCall.callId);
-        audioRef.current?.pause();
 
         sendMessage({
           type: "call_reject",
@@ -101,7 +116,7 @@ const IncomingCallModal: React.FC = () => {
 
   return (
     <AnimatePresence mode="wait" initial={false}>
-      {incomingCall.callId && (
+      {incomingCall.callId && showModal && (
         <motion.div
           className="incoming-call-modal-overlay"
           initial={{ opacity: 0 }}

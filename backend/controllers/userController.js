@@ -352,6 +352,18 @@ const sendFriendRequest = async (req, res) => {
       return sendError(res, 400, "This user is not registered with EchoChat");
     }
 
+    //checking if either user has blocked the other
+    const blockExists = await req.db.collection("blockedUsers").findOne({
+      $or: [
+        { blockerId: senderObjectId, blockedId: receiver._id },
+        { blockerId: receiver._id, blockedId: senderObjectId }
+      ]
+    });
+    
+    if (blockExists) {
+      return sendError(res, 403, "Cannot send friend request due to block settings");
+    }
+
     const existingRequest = await req.db.collection("friendRequests").findOne({
       senderId: senderObjectId,
       receiverId: receiver._id,
@@ -825,6 +837,232 @@ const deleteUserAccount = async (req, res) => {
   }
 };
 
+const blockUser = async (req, res) => {
+  //current user
+  const blockerId = req.userId;
+  //user tto be blocked
+  const { blockedId } = req.body;
+
+  if (!blockedId) {
+    return sendError(res, 400, "User ID to block is required");
+  }
+
+  try {
+    const blockerObjectId = toObjectId(blockerId);
+    const blockedObjectId = toObjectId(blockedId);
+
+    if (!blockerObjectId || !blockedObjectId) {
+      return sendError(res, 400, "Invalid user ID format");
+    }
+
+    //checking if users exist
+    const [blocker, blocked] = await Promise.all([
+      req.db.collection("users").findOne({ _id: blockerObjectId }),
+      req.db.collection("users").findOne({ _id: blockedObjectId }),
+    ]);
+
+    if (!blocker || !blocked) {
+      return sendError(res, 404, "User not found");
+    }
+
+    //checking if user is already blocked
+    const existingBlock = await req.db.collection("blockedUsers").findOne({
+      blockerId: blockerObjectId,
+      blockedId: blockedObjectId,
+    });
+
+    if (existingBlock) {
+      return sendError(res, 400, "User is already blocked");
+    }
+
+    const session = req.db.client.startSession();
+
+    try {
+      await session.withTransaction(async () => {
+        //creating  a block record
+        await req.db.collection("blockedUsers").insertOne(
+          {
+            blockerId: blockerObjectId,
+            blockedId: blockedObjectId,
+            createdAt: new Date(),
+          },
+          { session }
+        );
+
+        //removing friendship if it exists
+        await req.db.collection("friendships").deleteOne(
+          {
+            $or: [
+              { user1Id: blockerId, user2Id: blockedId },
+              { user1Id: blockedId, user2Id: blockerId },
+            ],
+          },
+          { session }
+        );
+
+        //removing any pending friend requests between users
+        await req.db.collection("friendRequests").deleteMany(
+          {
+            $or: [
+              { senderId: blockerObjectId, receiverId: blockedObjectId },
+              { senderId: blockedObjectId, receiverId: blockerObjectId },
+            ],
+          },
+          { session }
+        );
+      });
+
+      return sendSuccess(res, 200, "User blocked successfully");
+    } catch (error) {
+      console.error("Error in block user transaction:", error);
+      return sendError(res, 500, "Error blocking user");
+    } finally {
+      await session.endSession();
+    }
+  } catch (error) {
+    console.error("Block user error:", error);
+    return sendError(res, 500, "Error blocking user");
+  }
+};
+
+const unblockUser = async (req, res) => {
+  const blockerId = req.userId;
+  const { blockedId } = req.body;
+
+  if (!blockedId) {
+    return sendError(res, 400, "User ID to unblock is required");
+  }
+
+  try {
+    const blockerObjectId = toObjectId(blockerId);
+    const blockedObjectId = toObjectId(blockedId);
+
+    if (!blockerObjectId || !blockedObjectId) {
+      return sendError(res, 400, "Invalid user ID format");
+    }
+
+    const result = await req.db.collection("blockedUsers").deleteOne({
+      blockerId: blockerObjectId,
+      blockedId: blockedObjectId,
+    });
+
+    if (result.deletedCount === 0) {
+      return sendError(res, 404, "Block record not found");
+    }
+
+    return sendSuccess(res, 200, "User unblocked successfully");
+  } catch (error) {
+    console.error("Unblock user error:", error);
+    return sendError(res, 500, "Error unblocking user");
+  }
+};
+
+const getBlockedUsers = async (req, res) => {
+  const userId = req.userId;
+
+  try {
+    const userObjectId = toObjectId(userId);
+
+    if (!userObjectId) {
+      return sendError(res, 400, "Invalid user ID format");
+    }
+
+    //getting all blocked users
+    const blockedRecords = await req.db
+      .collection("blockedUsers")
+      .find({ blockerId: userObjectId })
+      .toArray();
+
+    if (blockedRecords.length === 0) {
+      return sendSuccess(
+        res,
+        200,
+        "No blocked users found",
+        { blockedUsers: [] },
+        false
+      );
+    }
+
+    //geting details of blocked user
+    const blockedUserIds = blockedRecords.map((record) =>
+      toObjectId(record.blockedId)
+    );
+
+    const blockedUsers = await req.db
+      .collection("users")
+      .find({ _id: { $in: blockedUserIds } })
+      .project({
+        password: 0,
+        resetPasswordToken: 0,
+        resetPasswordExpires: 0,
+        verificationCode: 0,
+        verificationCodeExpires: 0,
+      })
+      .toArray();
+
+    const formattedBlockedUsers = blockedUsers.map((user) => ({
+      ...user,
+      _id: toString(user._id),
+      blockedAt: blockedRecords.find(
+        (record) => record.blockedId.toString() === user._id.toString()
+      )?.createdAt,
+    }));
+
+    return sendSuccess(
+      res,
+      200,
+      "Blocked users retrieved successfully",
+      {
+        blockedUsers: formattedBlockedUsers,
+      },
+      false
+    );
+  } catch (error) {
+    console.error("Get blocked users error:", error);
+    return sendError(res, 500, "Error retrieving blocked users");
+  }
+};
+
+const checkBlockStatus = async (req, res) => {
+  const userId = req.userId;
+  const { targetId } = req.params;
+
+  try {
+    const userObjectId = toObjectId(userId);
+    const targetObjectId = toObjectId(targetId);
+
+    if (!userObjectId || !targetObjectId) {
+      return sendError(res, 400, "Invalid user ID format");
+    }
+
+    //checking if current user blocked target
+    const youBlockedThem = await req.db.collection("blockedUsers").findOne({
+      blockerId: userObjectId,
+      blockedId: targetObjectId,
+    });
+
+    //checking if target blocked current user
+    const theyBlockedYou = await req.db.collection("blockedUsers").findOne({
+      blockerId: targetObjectId,
+      blockedId: userObjectId,
+    });
+
+    return sendSuccess(
+      res,
+      200,
+      "Block status retrieved",
+      {
+        youBlockedThem: !!youBlockedThem,
+        theyBlockedYou: !!theyBlockedYou,
+      },
+      false
+    );
+  } catch (error) {
+    console.error("Check block status error:", error);
+    return sendError(res, 500, "Error checking block status");
+  }
+};
+
 const logoutUser = async (req, res) => {
   try {
     if (!req.user || !req.user._id) {
@@ -859,5 +1097,9 @@ export {
   updateUserStatus,
   getFriendshipStatus,
   deleteUserAccount,
+  blockUser,
+  unblockUser,
+  getBlockedUsers,
+  checkBlockStatus,
   logoutUser,
 };

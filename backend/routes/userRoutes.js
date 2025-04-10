@@ -18,6 +18,10 @@ import {
   updateUserProfile,
   deleteUserAccount,
   logoutUser,
+  blockUser,
+  unblockUser,
+  getBlockedUsers,
+  checkBlockStatus,
 } from "../controllers/userController.js";
 
 router.post("/signup", createUser);
@@ -32,6 +36,10 @@ router.delete(
   authenticateUser,
   deleteUserAccount
 );
+router.post("user/block", authenticateUser, blockUser);
+router.post("/user/unblock", authenticateUser, unblockUser);
+router.get("/user/blocked", authenticateUser, getBlockedUsers);
+router.get("/user/block-status/:friendId", authenticateUser, checkBlockStatus);
 
 router.post("/user/send-friend-request", authenticateUser, sendFriendRequest);
 router.get("/user/friend-requests", authenticateUser, getFriendRequests);

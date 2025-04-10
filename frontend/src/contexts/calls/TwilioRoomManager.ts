@@ -202,6 +202,12 @@ export function useTwilioRoomManager(
           }
         });
 
+        room.localParticipant.on("trackPublished", (publication) => {
+          publication.on("subscribed", (track) => {
+            attachTrack(track, true);
+          });
+        });
+
         // Process already connected remote participants
         room.participants.forEach((participant) => {
           // Handle existing video tracks
@@ -307,10 +313,6 @@ export function useTwilioRoomManager(
             status: CallStatus.INITIATED,
           });
         });
-
-        // device.on("registered", () => {
-        //   console.log("[Device Status] Registered successfully");
-        // });
 
         device.on("incoming", (conn) => {
           //updating UI to show incoming call

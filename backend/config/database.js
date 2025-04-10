@@ -27,21 +27,27 @@ const connectToDatabase = async () => {
     // Connect to the specific database
     const db = client.db(DB_NAME);
 
-    // Adding TTL index for automatic call cleanup
-    await db.collection("calls").createIndex(
-      { createdAt: 1 },
-      { expireAfterSeconds: 86400 } //24hr
-    );
+    try {
+      await db
+        .collection("calls")
+        .createIndex({ createdAt: 1 }, { expireAfterSeconds: 86400 });
 
-    // Ensure we're connecting Mongoose to the same database
+      //creating a new collection specifically for call history with 30-day TTL
+      await db
+        .collection("callHistory")
+        .createIndex({ createdAt: 1 }, { expireAfterSeconds: 2592000 });
+    } catch (error) {
+      throw error;
+    }
+
     const mongooseUri = uri.includes(DB_NAME) ? uri : `${uri}/${DB_NAME}`;
 
-    // Close any existing Mongoose connections
+    //close any existing Mongoose connections
     if (mongoose.connection.readyState !== 0) {
       await mongoose.connection.close();
     }
 
-    // Connect Mongoose to the specific database
+    //connect Mongoose to the specific database
     await mongoose.connect(mongooseUri, {
       ...connectionOptions,
       dbName: DB_NAME,
@@ -49,7 +55,7 @@ const connectToDatabase = async () => {
 
     console.log(`Connected successfully to MongoDB database: ${DB_NAME}`);
 
-    // Set up event listeners on mongoose connection
+    //event listeners on mongoose connection
     mongoose.connection.on("error", () => {
       console.error("MongoDB connection error");
     });

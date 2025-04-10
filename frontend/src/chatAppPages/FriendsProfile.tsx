@@ -1,21 +1,28 @@
-import React from "react";
+import React, { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useChat } from "../contexts/ChatContext";
-import { formatLastSeen } from "../utils/chatUtils";
-import api from "../utils/api";
+import { useCall } from "../contexts/CallContext";
 import type { AuthUser } from "../types";
+import api from "../utils/api";
+import { CallType } from "../types";
+import { formatLastSeen } from "../utils/chatUtils";
 import { IoChevronBackOutline } from "react-icons/io5";
 import { SlOptions } from "react-icons/sl";
 import { IoMdCall, IoMdVideocam } from "react-icons/io";
 import { RiMessage2Fill } from "react-icons/ri";
 import { MdOutlineBlock } from "react-icons/md";
+import { CircularProgress } from "@mui/material";
 
 const FriendsProfile: React.FC = () => {
   const navigate = useNavigate();
   const { friendId } = useParams<{ friendId: string }>();
   const { getUserStatus } = useChat();
+  const { initiateCall } = useCall();
+  const queryClient = useQueryClient();
+  const [isBlocking, setIsBlocking] = useState(false);
 
+  //fetching friendship data
   const { data: friendshipData } = useQuery({
     queryKey: ["friendship", friendId],
     queryFn: async () => {
@@ -28,9 +35,10 @@ const FriendsProfile: React.FC = () => {
       };
     },
     enabled: !!friendId,
-    staleTime: Infinity, // Friendship creation date should't change
+    staleTime: Infinity, //friendship creation date should't change
   });
 
+  //fetching user data
   const { data: userData } = useQuery({
     queryKey: ["friend", friendId],
     queryFn: async () => {
@@ -42,7 +50,70 @@ const FriendsProfile: React.FC = () => {
     staleTime: 1000 * 60,
   });
 
-  // Get current status separately
+  //fetching block status
+  const { data: blockStatusData } = useQuery({
+    queryKey: ["blockStatus", friendId],
+    queryFn: async () => {
+      if (!friendId) throw new Error("No friend ID provided");
+      const response = await api.get(`api/user/block-status/${friendId}`);
+      return response.data.data;
+    },
+    enabled: !!friendId,
+  });
+
+  const blockMutation = useMutation({
+    mutationFn: async () => {
+      if(!friendId) throw new Error("No friend ID provided");
+      return api.post('/api/user/block', {blockedId: friendId});
+    },
+    onSuccess: () => {
+      //invalidating relevant queries
+      queryClient.invalidateQueries({ queryKey: ["blockStatus", friendId] });
+      queryClient.invalidateQueries({ queryKey: ["friends"] });
+      queryClient.invalidateQueries({ queryKey: ["chats"] });
+      queryClient.invalidateQueries({ queryKey: ["friendship", friendId] });
+    },
+  });
+
+  const unblockMutation = useMutation({
+    mutationFn: async () => {
+      if (!friendId) throw new Error("No friend ID provided");
+      return api.post('/api/user/unblock', { blockedId: friendId });
+    },
+    onSuccess: () => {
+      //invalidating relevant queries
+      queryClient.invalidateQueries({ queryKey: ["blockStatus", friendId] });
+    },
+  });
+
+  const handleVoiceCall = () => {
+    if (friendId) {
+      initiateCall(friendId, CallType.VOICE);
+    }
+  };
+
+  const handleVideoCall = () => {
+    if (friendId) {
+      initiateCall(friendId, CallType.VIDEO);
+    }
+  };
+
+  const handleToggleBlock = async () => {
+    if (!friendId) return;
+    
+    setIsBlocking(true);
+    try {
+      if (blockStatusData?.youBlockedThem) {
+        await unblockMutation.mutateAsync();
+      } else {
+        await blockMutation.mutateAsync();
+      }
+    } finally {
+      setIsBlocking(false);
+    }
+  };
+
+  //getting current status separately
   const status = friendId ? getUserStatus(friendId) : undefined;
 
   const formatDateAdded = (date: Date | undefined) => {
@@ -89,6 +160,9 @@ const FriendsProfile: React.FC = () => {
     }
   };
 
+  const isBlocked = blockStatusData?.youBlockedThem;
+  const isBlockedByFriend = blockStatusData?.theyBlockedYou;
+
   return (
     <section className="friends-profile-main-container">
       <span
@@ -124,18 +198,27 @@ const FriendsProfile: React.FC = () => {
         </h2>
 
         <section>
-          <span onClick={navigateToChatWindow}>
-            <RiMessage2Fill size={25} color="#208d7f" />
-          </span>
-          <span>
-            <IoMdCall size={25} color="#208d7f" />
-          </span>
-          <span>
-            <IoMdVideocam size={25} color="#208d7f" />
-          </span>
-          <span>
-            <SlOptions size={25} color="#208d7f" />
-          </span>
+          {!isBlocked && !isBlockedByFriend && (
+            <>
+              <span onClick={navigateToChatWindow}>
+                <RiMessage2Fill size={25} color="#208d7f" />
+              </span>
+              <span onClick={handleVoiceCall}>
+                <IoMdCall size={25} color="#208d7f" />
+              </span>
+              <span onClick={handleVideoCall}>
+                <IoMdVideocam size={25} color="#208d7f" />
+              </span>
+              <span>
+                <SlOptions size={25} color="#208d7f" />
+              </span>
+            </>
+          )}
+          {isBlockedByFriend && (
+            <div className="blocked-message">
+              <p>You have been blocked by this user</p>
+            </div>
+          )}
         </section>
       </div>
 
@@ -158,27 +241,43 @@ const FriendsProfile: React.FC = () => {
           <p>Email Address</p>
           <h3>{friend?.email || "Loading..."}</h3>
         </span>
-        <span>
-          <p>Date Added</p>
-          <h3>
-            {friendshipData?.createdAt
-              ? formatDateAdded(friendshipData.createdAt)
-              : "Not available"}
-          </h3>
-        </span>
-        <span>
-          <p>Status</p>
-          <h3>
-            {friend?.status === "online"
-              ? "Online"
-              : formatLastSeen(friend?.lastSeen)}
-          </h3>
-        </span>
+        {!isBlocked && !isBlockedByFriend && (
+          <span>
+            <p>Date Added</p>
+            <h3>
+              {friendshipData?.createdAt
+                ? formatDateAdded(friendshipData.createdAt)
+                : "Not available"}
+            </h3>
+          </span>
+        )}
+        {!isBlockedByFriend && (
+          <span>
+            <p>Status</p>
+            <h3>
+              {friend?.status === "online"
+                ? "Online"
+                : formatLastSeen(friend?.lastSeen)}
+            </h3>
+          </span>
+        )}
       </div>
 
       <div className="block-user-btn-holder">
-        <button className="user-blk-btn">
-          Block User <MdOutlineBlock size={20} />
+        <button 
+          className={`user-blk-btn ${isBlocked ? "user-unblk-btn" : ""}`}
+          onClick={handleToggleBlock}
+          disabled={isBlocking}
+        >
+          {isBlocking ? (
+            <>
+              {isBlocked ? "Unblocking" : "Blocking"} <CircularProgress size={20} color="inherit" />
+            </>
+          ) : (
+            <>
+              {isBlocked ? "Unblock User" : "Block User"} <MdOutlineBlock size={20} />
+            </>
+          )}
         </button>
       </div>
     </section>

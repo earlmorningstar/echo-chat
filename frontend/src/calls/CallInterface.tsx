@@ -199,6 +199,7 @@ const CallInterface: React.FC = () => {
 
               <button
                 onClick={() => toggleScreenShare(!callState.isScreenSharing)}
+                disabled={!callState.localMedia.videoEnabled}
                 className={`control-button ${
                   callState.isScreenSharing ? "active" : "inactive"
                 }`}

@@ -23,6 +23,11 @@ interface ChatContextType {
   typingStatus: Record<string, boolean>;
   friendTypingStatus: Record<string, boolean>;
   getUserStatus: (userId: string) => UserStatus;
+  blockedUsers: string[];
+  blockedByUsers: string[];
+  isUserBlocked: (userId: string) => boolean;
+  isBlockedByUser: (userId: string) => boolean;
+  fetchBlockedUsers: () => Promise<void>;
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
@@ -38,6 +43,8 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
     Record<string, boolean>
   >({});
   const typingTimeouts = useRef<Record<string, NodeJS.Timeout>>({});
+  const [blockedUsers, setBlockedUsers] = useState<string[]>([]);
+  const [blockedByUsers, setBlockedByUsers] = useState<string[]>([]);
 
   useEffect(() => {
     if (isAuthenticated && user?._id) {
@@ -48,6 +55,55 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
       });
     }
   }, [isAuthenticated, user?._id, sendMessage]);
+
+  //fetching blocked users
+  const fetchBlockedUsers = useCallback(async () => {
+    if (!isAuthenticated) return;
+
+    try {
+      const response = await api.get("/api/user/blocked");
+      if (response.data && response.data.data) {
+        //setting users you've blocked
+        if (response.data.data.blockedUsers) {
+          const blockedIds = response.data.data.blockedUsers.map(
+            (user: any) => user._id
+          );
+          setBlockedUsers(blockedIds);
+        }
+
+        //setting users who have blocked you
+        if (response.data.data.blockedByUsers) {
+          const blockedByIds = response.data.data.blockedByUsers.map(
+            (user: any) => user._id
+          );
+          setBlockedByUsers(blockedByIds);
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching blocked users:", error);
+    }
+  }, [isAuthenticated]);
+
+  const isUserBlocked = useCallback(
+    (userId: string) => {
+      return blockedUsers.includes(userId);
+    },
+    [blockedUsers]
+  );
+
+  const isBlockedByUser = useCallback(
+    (userId: string) => {
+      return blockedByUsers.includes(userId);
+    },
+    [blockedByUsers]
+  );
+
+  //fetching blocked users on authentication
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchBlockedUsers();
+    }
+  }, [isAuthenticated, fetchBlockedUsers]);
 
   useEffect(() => {
     if (!eventManager) return;
@@ -78,10 +134,6 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
       }
     };
 
-    // eventManager.on("message", handleTypingMessage);
-    // return () => {
-    //   eventManager.off("message", handleTypingMessage);
-    // };
     if (currentManager) {
       currentManager.on("message", handleTypingMessage);
     }
@@ -264,6 +316,11 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
     typingStatus,
     friendTypingStatus,
     getUserStatus,
+    blockedUsers,
+    blockedByUsers,
+    isUserBlocked,
+    isBlockedByUser,
+    fetchBlockedUsers,
   };
 
   return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;
