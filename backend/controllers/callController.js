@@ -348,7 +348,7 @@ const handleTwilioCallStatus = async (req, res) => {
         break;
       case "in-progress":
         newStatus = CallStatus.CONNECTED;
-        twiml.say("Call in progress");
+        twiml.say("The user you called is currently not available");
         break;
       case "ringing":
         newStatus = CallStatus.RINGING;
