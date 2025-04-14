@@ -1279,36 +1279,58 @@
   display: flex;
   flex-direction: column;
   width: 100vw;
+
   height: 100vh;
   overflow: hidden;
 }
 
 .call-header {
-  padding: 1.5rem;
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
   z-index: 1001;
-  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.6), transparent);
+
   display: flex;
   justify-content: center;
+  align-items: center;
+  padding: 4rem 0 1rem 0;
+  background: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.7) 0%,
+    rgba(0, 0, 0, 0) 70%
+  );
 }
 
+/* .vid-container-and-controls-flex {
+  display: flex;
+  gap: 8px;
+} */
+
 .video-container {
-  flex: 1;
   position: relative;
+  /* width: 100%; */
+  /* height: 100%; */
+
+  flex: 1;
 }
 
 .remote-video-wrapper {
   position: absolute;
   top: 0;
   left: 0;
+
   right: 0;
   bottom: 0;
+
+  /* width: 100%; */
+  /* height: 100%; */
+
   display: flex;
   justify-content: center;
   align-items: center;
+  overflow: hidden;
+
 }
 
 .remote-video-wrapper video {
@@ -1319,17 +1341,21 @@
 }
 
 .local-video-wrapper {
-  position: absolute;
+  position: fixed;
   bottom: 100px;
   right: 20px;
-  width: 20%;
-  min-width: 160px;
-  max-width: 300px;
-  aspect-ratio: 16/9;
-  border-radius: 12px;
+
+  /* right: 10px; */
+  /* bottom: 110px; */
+  border: 1px solid none;
+  border-radius: 7px;
   overflow: hidden;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
-  border: 2px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  width: 25%;
+  max-width: 280px;
+  min-width: 120px;
+  aspect-ratio: 16/9;
   transition: all 0.3s ease;
   z-index: 1002;
 }
@@ -1340,36 +1366,43 @@
 }
 
 .local-video-wrapper video {
-  width: 100%;
-  height: 100%;
+  /* width: 100%; */
+  /* height: 100%; */
   object-fit: cover;
   transform: scaleX(-1);
 }
 
-/* Call Controls */
 .call-controls {
   position: absolute;
-  bottom: 2rem;
+  bottom: 20px;
   left: 50%;
   transform: translateX(-50%);
+  padding: 1rem;
   display: flex;
-  gap: 1.5rem;
-  padding: 12px 24px;
-  border-radius: 40px;
-  background: rgba(30, 30, 30, 0.5);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-  z-index: 1003;
+  justify-content: center;
+  gap: 1.4rem;
+  border: 0.5px solid #333;
+  border-radius: 7px;
+  background-color: #c2ad8f;
 }
 
+/* .media-track video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.media-track.local video {
+  transform: scaleX(-1);
+} */
+
 .control-button {
-  width: 56px;
-  height: 56px;
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
   border: none;
-  background: rgba(255, 255, 255, 0.1);
-  color: white;
+  background-color: #404040;
+  color: #ffffff;
   cursor: pointer;
   transition: all 0.2s ease;
   display: flex;
@@ -1378,25 +1411,23 @@
 }
 
 .control-button:hover {
-  background: rgba(255, 255, 255, 0.2);
-  transform: scale(1.05);
+  background-color: #505050;
 }
 
 .control-button.active {
-  background: #2196f3;
+  background-color: #2196f3;
 }
 
 .control-button.inactive {
-  background: #f44336;
+  background-color: #f44336;
 }
 
 .control-button.end-call {
-  background: #f44336;
+  background-color: #f44336;
 }
 
 .control-button.end-call:hover {
-  background: #d32f2f;
-  transform: scale(1.05);
+  background-color: #d32f2f;
 }
 
 /* Media Queries--- */
@@ -1418,46 +1449,6 @@
   .control-button {
     width: 42px;
     height: 42px;
-  }
-}
-
-@media screen and (max-width: 768px) {
-  .local-video-wrapper {
-    width: 25%;
-    bottom: 90px;
-    right: 15px;
-    min-width: 120px;
-  }
-
-  .call-controls {
-    padding: 10px 20px;
-    gap: 1rem;
-    bottom: 1.5rem;
-  }
-
-  .control-button {
-    width: 48px;
-    height: 48px;
-  }
-}
-
-@media screen and (max-width: 480px) {
-  .local-video-wrapper {
-    width: 30%;
-    bottom: 80px;
-    right: 10px;
-    min-width: 100px;
-  }
-
-  .call-controls {
-    gap: 0.8rem;
-    padding: 8px 16px;
-    bottom: 1rem;
-  }
-
-  .control-button {
-    width: 44px;
-    height: 44px;
   }
 }
 
@@ -1491,13 +1482,6 @@
   .control-button {
     width: 36px;
     height: 36px;
-  }
-}
-
-@media (orientation: portrait) and (max-width: 480px) {
-  .local-video-wrapper {
-    width: 35%;
-    bottom: 70px;
   }
 }
 
