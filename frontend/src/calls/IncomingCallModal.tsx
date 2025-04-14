@@ -41,21 +41,30 @@ const IncomingCallModal: React.FC = () => {
     }
   }, [callerData]);
 
-  //to delay showing of the modal by 10secs to avoid twilio ringing while the demo sound plays
+  //to delay showing of the modal(for voice call) by 10secs to avoid twilio ringing while the demo sound plays
   useEffect(() => {
     let timeout: NodeJS.Timeout;
 
     if (incomingCall.callId) {
-      timeout = setTimeout(() => {
+      if (incomingCall.type === "voice") {
+        timeout = setTimeout(() => {
+          setShowModal(true);
+          const audio = new Audio("/sounds/iphone_15_ringtone_03.mp3");
+          audio.loop = true;
+          audio.play().catch(() => {});
+          audioRef.current = audio;
+        }, 10000);
+      } else {
         setShowModal(true);
         const audio = new Audio("/sounds/iphone_15_ringtone_03.mp3");
         audio.loop = true;
         audio.play().catch(() => {});
         audioRef.current = audio;
-      }, 10000);
+      }
     } else {
       setShowModal(false);
     }
+
     return () => {
       clearTimeout(timeout);
       if (audioRef.current) {
@@ -63,7 +72,7 @@ const IncomingCallModal: React.FC = () => {
         audioRef.current.currentTime = 0;
       }
     };
-  }, [incomingCall.callId]);
+  }, [incomingCall.callId, incomingCall.type]);
 
   useEffect(() => {
     if (callState.incomingCall.activeCall) {
