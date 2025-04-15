@@ -41,6 +41,10 @@ declare module "@twilio/voice-sdk" {
         | "cancel",
       handler: (...args: any[]) => void
     ): this;
+    once(
+      event: "registered" | "error",
+      handler: (...args: any[]) => void
+    ): this;
   }
 
   interface Call {
@@ -51,15 +55,21 @@ declare module "@twilio/voice-sdk" {
 
   interface Connection {
     on(
-      event: "connect" | "disconnect" | "accept",
+      event: "connect" | "disconnect" | "accept" | "mute" | "unmute",
       handler: (...args: any[]) => void
     ): this;
-    off(event: string, handler?: (...args: any[]) => void): this;
+    off(
+      event: "connect" | "disconnect" | "accept" | "mute" | "unmute",
+      handler?: (...args: any[]) => void
+    ): this;
     parameters: Record<string, string>;
     status(): string;
     direction: "incoming" | "outgoing";
     accept(): void;
     disconnect(): void;
+    mute(): void;
+    unmute(): void;
+    isMuted(): void;
   }
 
   enum ConnectionState {
@@ -143,12 +153,16 @@ declare module "twilio-video" {
     participants: Map<string, RemoteParticipant>;
     disconnect(): void;
     on(event: string, listener: Function): void;
+    off(event: string, listener: Function): void;
+    state: string;
   }
 
   export interface LocalParticipant {
     identity: string;
     videoTracks: Map<string, LocalTrackPublication>;
     audioTracks: Map<string, LocalTrackPublication>;
+    publishTrack(track: LocalTrack): Promise<LocalTrackPublication>;
+    unpublishTrack(track: LocalTrack): LocalTrackPublication;
   }
 
   export interface RemoteParticipant {
@@ -157,6 +171,7 @@ declare module "twilio-video" {
     videoTracks: Map<string, RemoteVideoTrackPublication>;
     audioTracks: Map<string, RemoteAudioTrackPublication>;
     on(event: string, listener: Function): void;
+    off(event: string, listener: Function): void;
   }
 
   export interface LocalTrackPublication {
@@ -173,7 +188,7 @@ declare module "twilio-video" {
   export interface RemoteAudioTrackPublication {
     track: RemoteAudioTrack | null;
     trackSid: string;
-    kind: "video";
+    kind: "audio";
   }
 
   // Connect function signature

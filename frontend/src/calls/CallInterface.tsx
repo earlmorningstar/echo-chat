@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useCall } from "../contexts/CallContext";
 import { useAuth } from "../contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
@@ -6,7 +6,7 @@ import api from "../utils/api";
 import { AuthUser } from "../types";
 import * as TwilioVideo from "twilio-video";
 import { LocalTrack } from "../types/twilio";
-import { TwilioVoice } from "../types/calls";
+// import { TwilioVoice } from "../types/calls";
 import {
   Mic,
   MicOff,
@@ -16,6 +16,7 @@ import {
   ScreenShare,
   StopScreenShare,
 } from "@mui/icons-material";
+import { Snackbar, Alert } from "@mui/material";
 
 const CallInterface: React.FC = () => {
   const {
@@ -29,6 +30,25 @@ const CallInterface: React.FC = () => {
     mediaControls,
   } = useCall();
   const { user } = useAuth();
+  const [audioNotification, setAudioNotification] = useState<{
+    open: boolean;
+    muted: boolean;
+    userId: string | null;
+  }>({
+    open: false,
+    muted: false,
+    userId: null,
+  });
+
+  const [videoNotification, setVideoNotification] = useState<{
+    open: boolean;
+    paused: boolean;
+    userId: string | null;
+  }>({
+    open: false,
+    paused: false,
+    userId: null,
+  });
 
   const isInitiator = callState.currentCall.initiator === user?._id;
   const remoteUserId = isInitiator
@@ -60,29 +80,170 @@ const CallInterface: React.FC = () => {
     };
   }, [mediaControls?.localTracks]);
 
+  //monitor when remote participant's audio track changes
+  useEffect(() => {
+    if (!participants.length) return;
+
+    const handleAudioEnabled = (track: TwilioVideo.RemoteAudioTrack) => {
+      const participant = participants.find((p) =>
+        Array.from(p.audioTracks.values()).some((pub) => pub.track === track)
+      );
+
+      if (participant) {
+        setAudioNotification({
+          open: true,
+          muted: false,
+          userId: participant.identity,
+        });
+
+        setTimeout(() => {
+          setAudioNotification((prev) => ({ ...prev, open: false }));
+        }, 5000);
+      }
+    };
+
+    const handleAudioDisabled = (track: TwilioVideo.RemoteAudioTrack) => {
+      const participant = participants.find((p) =>
+        Array.from(p.audioTracks.values()).some((pub) => pub.track === track)
+      );
+
+      if (participant) {
+        setAudioNotification({
+          open: true,
+          muted: true,
+          userId: participant.identity,
+        });
+
+        setTimeout(() => {
+          setAudioNotification((prev) => ({ ...prev, open: false }));
+        }, 5000);
+      }
+    };
+
+    //monitor when video track changes
+    const handleVideoEnabled = (track: TwilioVideo.RemoteVideoTrack) => {
+      const participant = participants.find((p) =>
+        Array.from(p.videoTracks.values()).some((pub) => pub.track === track)
+      );
+
+      if (participant) {
+        setVideoNotification({
+          open: true,
+          paused: false,
+          userId: participant.identity,
+        });
+
+        setTimeout(() => {
+          setVideoNotification((prev) => ({ ...prev, open: false }));
+        }, 5000);
+      }
+    };
+
+    const handleVideoDisabled = (track: TwilioVideo.RemoteVideoTrack) => {
+      const participant = participants.find((p) =>
+        Array.from(p.videoTracks.values()).some((pub) => pub.track === track)
+      );
+
+      if (participant) {
+        setVideoNotification({
+          open: true,
+          paused: true,
+          userId: participant.identity,
+        });
+
+        setTimeout(() => {
+          setVideoNotification((prev) => ({ ...prev, open: false }));
+        }, 5000);
+      }
+    };
+
+    //listeners to all participants' tracks
+    participants.forEach((participant) => {
+      participant.audioTracks.forEach((publication) => {
+        if (publication.track) {
+          publication.track.on("enabled", handleAudioEnabled);
+          publication.track.on("disabled", handleAudioDisabled);
+        }
+      });
+
+      participant.videoTracks.forEach((publication) => {
+        if (publication.track) {
+          publication.track.on("enabled", handleVideoEnabled);
+          publication.track.on("disabled", handleVideoDisabled);
+        }
+      });
+    });
+
+    //to clean up listeners when component unmounts or participants change
+    return () => {
+      participants.forEach((participant) => {
+        participant.audioTracks.forEach((publication) => {
+          if (publication.track) {
+            publication.track.off("enabled", handleAudioEnabled);
+            publication.track.off("disabled", handleAudioDisabled);
+          }
+        });
+
+        participant.videoTracks.forEach((publication) => {
+          if (publication.track) {
+            publication.track.off("enabled", handleVideoEnabled);
+            publication.track.off("disabled", handleVideoDisabled);
+          }
+        });
+      });
+    };
+  }, [participants]);
+
+  //to monitor voice call event
   useEffect(() => {
     if (!callManager.voiceDevice) return;
 
     const voiceDevice = callManager.voiceDevice;
-    let activeConnection: TwilioVoice.Connection | undefined;
+    let activeConnection = voiceDevice.activeConnection?.();
+
+    if (!activeConnection) return;
 
     const handleDisconnect = () => {
       endCall();
     };
 
-    // Get active connection properly
-    if (voiceDevice.activeConnection) {
-      activeConnection = voiceDevice.activeConnection();
-    }
+    const handleMute = () => {
+      setAudioNotification({
+        open: true,
+        muted: true,
+        userId: remoteUserId,
+      });
 
-    if (activeConnection) {
-      activeConnection.on("disconnect", handleDisconnect);
-    }
+      setTimeout(() => {
+        setAudioNotification((prev) => ({ ...prev, open: false }));
+      }, 5000);
+    };
+
+    const handleUnmute = () => {
+      setAudioNotification({
+        open: true,
+        muted: false,
+        userId: remoteUserId,
+      });
+
+      setTimeout(() => {
+        setAudioNotification((prev) => ({ ...prev, open: false }));
+      }, 5000);
+    };
+
+    //type assertions to ensure TypeScript recognizes these event
+    (activeConnection as any).on("disconnect", handleDisconnect);
+    (activeConnection as any).on("mute", handleMute);
+    (activeConnection as any).on("unmute", handleUnmute);
 
     return () => {
-      activeConnection?.off("disconnect", handleDisconnect);
+      if (activeConnection) {
+        (activeConnection as any).off("disconnect", handleDisconnect);
+        (activeConnection as any).off("mute", handleMute);
+        (activeConnection as any).off("unmute", handleUnmute);
+      }
     };
-  }, [callManager.voiceDevice, endCall]);
+  }, [callManager.voiceDevice, endCall, remoteUserId]);
 
   useEffect(() => {
     if (callManager.videoDevice) {
@@ -105,6 +266,23 @@ const CallInterface: React.FC = () => {
   ) {
     return null;
   }
+
+  //handling audio toggle for both video and voice calls
+  const handleAudioToggle = () => {
+    toggleAudio(!callState.localMedia.audioEnabled);
+
+    //for voice calls, the active connection needs to mute and unmute
+    if (callState.currentCall.type === "voice" && callManager.voiceDevice) {
+      const activeConnection = callManager.voiceDevice.activeConnection?.();
+      if (activeConnection) {
+        if (callState.localMedia.audioEnabled) {
+          (activeConnection as any).mute();
+        } else {
+          (activeConnection as any).unmute();
+        }
+      }
+    }
+  };
 
   return (
     <div className="call-interface">
@@ -162,7 +340,7 @@ const CallInterface: React.FC = () => {
                 {mediaControls.localTracks
                   .filter(
                     (track): track is TwilioVideo.LocalVideoTrack =>
-                      track.kind === "video" && "dimensions" in track
+                      track.kind === "video" && track.name !== "screen-share"
                   )
                   .slice(0, 1)
                   .map((track) => (
@@ -175,7 +353,7 @@ const CallInterface: React.FC = () => {
 
         <div className="call-controls">
           <button
-            onClick={() => toggleAudio(!callState.localMedia.audioEnabled)}
+            onClick={handleAudioToggle}
             className={`control-button ${
               callState.localMedia.audioEnabled ? "active" : "inactive"
             }`}
@@ -219,6 +397,44 @@ const CallInterface: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {/*snackbar for audio notification*/}
+      <Snackbar
+        open={audioNotification.open}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+        autoHideDuration={5000}
+        onClose={() =>
+          setAudioNotification((prev) => ({ ...prev, open: false }))
+        }
+      >
+        <Alert
+          severity={audioNotification.muted ? "info" : "success"}
+          sx={{ width: "100%" }}
+        >
+          {remoteUser && audioNotification.muted
+            ? `${remoteUser.firstName}'s microphone is muted`
+            : `${remoteUser?.firstName}'s microphone is unmuted`}
+        </Alert>
+      </Snackbar>
+
+      {/*snackbar for video */}
+      <Snackbar
+        open={videoNotification.open}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+        autoHideDuration={5000}
+        onClose={() =>
+          setVideoNotification((prev) => ({ ...prev, open: false }))
+        }
+      >
+        <Alert
+          severity={videoNotification.paused ? "info" : "success"}
+          sx={{ width: "100%" }}
+        >
+          {remoteUser && videoNotification.paused
+            ? `${remoteUser.firstName}'s camera is paused`
+            : `${remoteUser?.firstName}'s camera is active`}
+        </Alert>
+      </Snackbar>
     </div>
   );
 };
@@ -253,18 +469,6 @@ const MediaTrack: React.FC<MediaTrackProps> = ({ track, isLocal }) => {
       element.classList.add("media-element");
       //adding element to the DOM
       ref.current?.appendChild(element);
-
-      //verifying dimensions after it starts playing (for video elements)
-      // if (element.tagName.toLowerCase() === "video") {
-      //   const videoElement = element as HTMLVideoElement;
-      //   videoElement.addEventListener("playing", () => {
-      //     console.log("Video element is playing:", {
-      //       width: videoElement.videoWidth,
-      //       height: videoElement.videoHeight,
-      //       readyState: videoElement.readyState,
-      //     });
-      //   });
-      // }
 
       return () => {
         const detached = track.detach();

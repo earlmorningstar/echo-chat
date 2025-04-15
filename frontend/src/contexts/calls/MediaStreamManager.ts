@@ -148,7 +148,6 @@ export function useMediaStreamManager(
     });
   }, [updateMediaState]);
 
-
   const toggleAudio = useCallback(
     (enabled: boolean) => {
       //checking if the state is already what we want it to be
@@ -175,7 +174,7 @@ export function useMediaStreamManager(
           }
         });
 
-      //create audio tracks if there are no audio tracks and we want to enable audio, 
+      //create audio tracks if there are no audio tracks and we want to enable audio,
       if (!audioTrackExists && enabled) {
         createLocalAudioTrack().then((newTrack) => {
           newTrack.enable();
@@ -217,7 +216,7 @@ export function useMediaStreamManager(
           }
         });
 
-      //create video tracks if there are no video tracks and we want to enable video, 
+      //create video tracks if there are no video tracks and we want to enable video,
       if (!videoTrackExists && enabled) {
         createLocalVideoTrack().then((newTrack) => {
           newTrack.enable();
