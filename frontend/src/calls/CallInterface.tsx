@@ -53,7 +53,7 @@ const CallInterface: React.FC = () => {
   const isInitiator = callState.currentCall.initiator === user?._id;
   const remoteUserId = isInitiator
     ? callState.currentCall.recipientId
-    : callState.currentCall.initiator;
+    : callState.currentCall.initiator || callState.incomingCall.callerId;
 
   const { data: remoteUser } = useQuery({
     queryKey: ["user", remoteUserId],
