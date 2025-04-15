@@ -145,6 +145,10 @@ export function callReducer(state: CallState, action: CallAction): CallState {
           ...state.localMedia,
           ...action.payload,
         },
+        isScreenSharing:
+          action.payload.screenShareEnabled !== undefined
+            ? action.payload.screenShareEnabled
+            : state.isScreenSharing,
       };
     case "SET_SCREEN_SHARE":
       return {

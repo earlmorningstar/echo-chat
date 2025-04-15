@@ -1329,11 +1329,24 @@
   transform: scale(1.03);
 }
 
-.local-video-wrapper video {
+.local-video-wrapper video, 
+.local-video-wrapper .media-element {
   width: 100%;
   height: 100%;
   object-fit: cover;
   transform: scaleX(-1);
+}
+
+.media-track.local {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.media-track.remote {
+  width: 100%;
+  height: 100%;
+  display: block;
 }
 
 .call-controls {

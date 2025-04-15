@@ -98,7 +98,13 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
   const { sendMessage, eventManager, isConnected } = useWebSocket();
   const lastUpdate = useRef<CallStateUpdate | null>(null);
   const updateMedia = useCallback(
-    (payload: Partial<{ audioEnabled: boolean; videoEnabled: boolean }>) => {
+    (
+      payload: Partial<{
+        audioEnabled: boolean;
+        videoEnabled: boolean;
+        screenShareEnabled: boolean;
+      }>
+    ) => {
       dispatch({ type: "UPDATE_MEDIA", payload });
     },
     [dispatch]
@@ -398,50 +404,55 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
   const handleAudioToggle = useCallback(
     (enabled: boolean) => {
       toggleAudio(enabled);
+      dispatch({
+        type: "UPDATE_MEDIA",
+        payload: { audioEnabled: enabled },
+      });
     },
-    [toggleAudio]
+    [toggleAudio, dispatch]
   );
 
   const handleVideoToggle = useCallback(
     (enabled: boolean) => {
       toggleVideo(enabled);
+      dispatch({
+        type: "UPDATE_MEDIA",
+        payload: { videoEnabled: enabled },
+      });
     },
-    [toggleVideo]
+    [toggleVideo, dispatch]
   );
 
   const handleScreenToggle = useCallback(
     async (enabled: boolean) => {
+      await mediaControls.toggleScreenShare(enabled);
+
       if (callManager.videoDevice) {
         const localParticipant = callManager.videoDevice.localParticipant;
 
-        //getting current screen tracks before state update
-        const currentScreenTracks = mediaControls.localTracks.filter(
+        // Handle the screen track in the Twilio room
+        const screenTracks = mediaControls.localTracks.filter(
           (t): t is LocalVideoTrack => t.name === "screen-share"
         );
 
-        //togglinscreen share and wait for state update
-        await mediaControls.toggleScreenShare(enabled);
-
-        //getting updated screen tracks after state update
-        const updatedScreenTracks = mediaControls.localTracks.filter(
-          (t): t is LocalVideoTrack => t.name === "screen-share"
-        );
-
-        if (enabled) {
-          //publishing new tracks that weren't previously present
-          updatedScreenTracks
-            .filter((track) => !currentScreenTracks.includes(track))
-            .forEach((track) => localParticipant.publishTrack(track));
-        } else {
-          //unpublishing and stoping all screen tracks
-          currentScreenTracks.forEach((track) => {
-            localParticipant.unpublishTrack(track);
-            track.stop();
+        if (enabled && screenTracks.length > 0) {
+          // Publish new screen tracks to the room
+          screenTracks.forEach((track) => {
+            try {
+              localParticipant.publishTrack(track);
+            } catch (err) {
+              console.error("Failed to publish screen track", err);
+            }
           });
         }
       }
+
+      dispatch({
+        type: "UPDATE_MEDIA",
+        payload: { screenShareEnabled: enabled },
+      });
     },
-    [callManager.videoDevice, mediaControls]
+    [callManager.videoDevice, mediaControls, dispatch]
   );
 
   const handleCallEvent = useCallback(
@@ -664,9 +675,9 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
       handleAudioToggle,
       handleVideoToggle,
       handleScreenToggle,
-      mediaControls,
       callManager.videoDevice,
       callManager.voiceDevice,
+      mediaControls,
     ]
   );
 

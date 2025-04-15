@@ -164,6 +164,7 @@ const CallInterface: React.FC = () => {
                     (track): track is TwilioVideo.LocalVideoTrack =>
                       track.kind === "video" && "dimensions" in track
                   )
+                  .slice(0, 1)
                   .map((track) => (
                     <MediaTrack key={track.name} track={track} isLocal />
                   ))}
@@ -199,7 +200,7 @@ const CallInterface: React.FC = () => {
 
               <button
                 onClick={() => toggleScreenShare(!callState.isScreenSharing)}
-                disabled={!callState.localMedia.videoEnabled}
+                // disabled={!callState.localMedia.videoEnabled}
                 className={`control-button ${
                   callState.isScreenSharing ? "active" : "inactive"
                 }`}
@@ -237,13 +238,16 @@ const MediaTrack: React.FC<MediaTrackProps> = ({ track, isLocal }) => {
   useEffect(() => {
     if (!ref.current) return;
 
+    while (ref.current.firstChild) {
+      ref.current.removeChild(ref.current.firstChild);
+    }
+
     try {
       const element = track.attach();
 
-      // //configuration of element
+      //configuration of element
       if (isLocal && element.tagName.toLowerCase() === "audio") {
         element.muted = true;
-        console.log("Muted local audio to prevent echo");
       }
 
       element.classList.add("media-element");
@@ -251,20 +255,19 @@ const MediaTrack: React.FC<MediaTrackProps> = ({ track, isLocal }) => {
       ref.current?.appendChild(element);
 
       //verifying dimensions after it starts playing (for video elements)
-      if (element.tagName.toLowerCase() === "video") {
-        const videoElement = element as HTMLVideoElement;
-        videoElement.addEventListener("playing", () => {
-          console.log("Video element is playing:", {
-            width: videoElement.videoWidth,
-            height: videoElement.videoHeight,
-            readyState: videoElement.readyState,
-          });
-        });
-      }
+      // if (element.tagName.toLowerCase() === "video") {
+      //   const videoElement = element as HTMLVideoElement;
+      //   videoElement.addEventListener("playing", () => {
+      //     console.log("Video element is playing:", {
+      //       width: videoElement.videoWidth,
+      //       height: videoElement.videoHeight,
+      //       readyState: videoElement.readyState,
+      //     });
+      //   });
+      // }
 
       return () => {
         const detached = track.detach();
-
         detached.forEach((el) => el.remove());
       };
     } catch (error) {

@@ -83,15 +83,18 @@ export function useTwilioRoomManager(
       let container = document.getElementById(containerId);
 
       if (!container) {
-        setTimeout(() => attachTrack(track, isLocal), 500);
+        console.warn(`Container ${containerId} not found`);
+        // setTimeout(() => attachTrack(track, isLocal), 500);
         return;
       }
 
-      //removing existing elements for this track
+      //checking if we already have a track element with this ID
       const trackId = track.name;
       const existing = container.querySelector(`[data-track-id="${trackId}"]`);
       if (existing) {
-        existing.remove();
+        console.log(`Track ${trackId} already attached, skipping`);
+        return;
+        // existing.remove();
       }
 
       try {
@@ -102,33 +105,11 @@ export function useTwilioRoomManager(
         //muting to prevent echo, for local videos or audios
         if (isLocal) {
           element.muted = true;
-          if (element.tagName.toLowerCase() === "video") {
-            element.style.transform = "scaleX(-1)"; //mirroring for self view
-          }
         }
 
         //adding the element to the container
         container.appendChild(element);
 
-        //verifying element was added
-        container.contains(element);
-
-        //verifying video tracks are displaying properly
-        if (track.kind === "video") {
-          //event listeners to monitor video
-          const videoElement = element as HTMLVideoElement;
-          videoElement.addEventListener("playing", () => {
-            console.log(`Video track ${trackId} is playing`, {
-              width: videoElement.videoWidth,
-              height: videoElement.videoHeight,
-              duration: videoElement.duration,
-            });
-          });
-
-          element.addEventListener("error", (e) => {
-            console.error(`Video track ${trackId} error:`, element.error, e);
-          });
-        }
         return element;
       } catch (error) {
         console.error(`Failed to attach ${track.kind} track`);
@@ -146,14 +127,14 @@ export function useTwilioRoomManager(
       tracks: LocalTrack[]
     ) => {
       try {
-        // Update call state to connecting
+        //updating call state to connecting
         stableUpdateCallState({
           callId,
           type: CallType.VIDEO,
           status: CallStatus.CONNECTING,
         });
 
-        // Connect to the room with appropriate options
+        //connecting to the room with appropriate options
         const room = await TwilioVideo.connect(token, {
           name: roomName,
           tracks: tracks,
@@ -172,10 +153,10 @@ export function useTwilioRoomManager(
           networkQuality: { local: 1, remote: 1 },
         });
 
-        // Store reference to the room
+        //store reference to the room
         deviceRef.current.videoDevice = room;
 
-        // Attach local tracks
+        //attaching local tracks
         const localVideoTracks = Array.from(
           room.localParticipant.videoTracks.values()
         );
@@ -208,23 +189,23 @@ export function useTwilioRoomManager(
           });
         });
 
-        // Process already connected remote participants
+        //processing already connected remote participants
         room.participants.forEach((participant) => {
-          // Handle existing video tracks
+          //handling existing video tracks
           participant.videoTracks.forEach((publication) => {
             if (publication.track) {
               attachTrack(publication.track, false);
             }
           });
 
-          // Handle existing audio tracks
+          //handling existing audio tracks
           participant.audioTracks.forEach((publication) => {
             if (publication.track) {
               attachTrack(publication.track, false);
             }
           });
 
-          // Set up listeners for this participant
+          //setting up listeners for this participant
           participant.on("trackSubscribed", (track) => {
             if (track.kind === "video" || track.kind === "audio") {
               attachTrack(track as RemoteVideoTrack | RemoteAudioTrack, false);
@@ -236,7 +217,7 @@ export function useTwilioRoomManager(
           });
         });
 
-        // Set up event handlers for future participants
+        //setting up event handlers for future participants
         room.on("participantConnected", (participant) => {
           participant.on("trackSubscribed", (track) => {
             if (track.kind === "video" || track.kind === "audio") {
@@ -249,7 +230,7 @@ export function useTwilioRoomManager(
           });
         });
 
-        // After setup, update call state
+        //after setup, update call state
         stableUpdateCallState({
           status: CallStatus.CONNECTED,
           activeCall: room,
@@ -298,7 +279,7 @@ export function useTwilioRoomManager(
 
         deviceRef.current.voiceDevice = device;
 
-        // Add connection state tracking
+        //adding connection state tracking
         let connectionAttempts = 0;
         const connectionInterval = setInterval(() => {
           if (++connectionAttempts > 10) {
