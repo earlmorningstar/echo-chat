@@ -317,6 +317,21 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
             callManager.videoDevice.disconnect();
           }
           await connectToVideoRoom(token, roomName, callId, tracks);
+          dispatch({
+            type: "UPDATE_CALL",
+            payload: {
+              currentCall: {
+                id: callId,
+                type: CallType.VIDEO,
+                status: CallStatus.CONNECTED,
+                participants: [],
+                initiator: state.incomingCall.callerId!,
+                recipientId: user?._id!,
+                roomName: roomName,
+              },
+            },
+          });
+          
           dispatch({ type: "CLEAR_INCOMING_CALL" });
         } else if (type === CallType.VOICE) {
           dispatch({
