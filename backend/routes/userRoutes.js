@@ -36,7 +36,7 @@ router.delete(
   authenticateUser,
   deleteUserAccount
 );
-router.post("user/block", authenticateUser, blockUser);
+router.post("/user/block", authenticateUser, blockUser);
 router.post("/user/unblock", authenticateUser, unblockUser);
 router.get("/user/blocked", authenticateUser, getBlockedUsers);
 router.get("/user/block-status/:friendId", authenticateUser, checkBlockStatus);

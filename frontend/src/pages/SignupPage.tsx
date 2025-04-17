@@ -13,7 +13,6 @@ import {
   CircularProgress,
 } from "@mui/material";
 import { Visibility, VisibilityOff } from "@mui/icons-material";
-// import { IoIosArrowRoundBack } from "react-icons/io";
 import { useAuth } from "../contexts/AuthContext";
 import api from "../utils/api";
 

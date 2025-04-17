@@ -57,7 +57,6 @@ export class WebSocketEventManager {
   }
 
   private handleConnectionError(error: Event) {
-    console.error("WebSocket connection error");
     this.clearPendingAcks();
   }
 
@@ -172,8 +171,6 @@ export class WebSocketEventManager {
   }
 
   private async sendWithAck(data: any): Promise<boolean> {
-    // console.log("Sending message:", data.type, "to", data.recipientId);
-
     const timeoutDuration = data.type.startsWith("call_")
       ? data.callType === "video"
         ? 60000
@@ -191,10 +188,6 @@ export class WebSocketEventManager {
 
         return new Promise((resolve) => {
           const timeout = setTimeout(() => {
-            this.pendingAcks.delete(data.id);
-            console.warn(
-              `Ack timeout for ${data.type} (attempt ${attempt}/${maxRetries})`
-            );
             resolve(false);
           }, timeoutDuration);
 
@@ -207,9 +200,6 @@ export class WebSocketEventManager {
           this.pendingAcks.set(data.id, { timeout, resolve });
         });
       } catch (error) {
-        console.error(
-          `Error sending message (attempt ${attempt}/${maxRetries})`
-        );
         if (attempt === maxRetries) return false;
         await new Promise((res) => setTimeout(res, 2000));
       }
@@ -270,8 +260,6 @@ export class WebSocketEventManager {
           break;
         }
       } catch (error) {
-        console.error("Error processing event");
-
         if (this.ws.readyState !== WebSocket.OPEN) {
           await new Promise((resolve) => setTimeout(resolve, 1000));
           continue;

@@ -14,9 +14,12 @@ export interface AuthUser {
 }
 
 export interface Friend extends AuthUser {
-  lastMessage?: Message;
+  status: UserStatus;
+  lastSeen?: Date;
+  lastMessage?: Message | null;
   unreadCount?: number;
   friendshipCreatedAt?: Date;
+  friendshipStatus: string;
 }
 
 export type UserStatus = "online" | "offline";

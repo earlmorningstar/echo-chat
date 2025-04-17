@@ -4,7 +4,7 @@ import { IoIosArrowRoundBack } from "react-icons/io";
 const ErrorPage: React.FC = () => {
   return (
     <div className="error-page-container">
-      <NavLink className="login-redirection-arrow" to="/onboarding">
+      <NavLink className="login-redirection-arrow" to="/main-navigation/chats">
         <IoIosArrowRoundBack size={30} color="#000000" />
       </NavLink>
       <span>

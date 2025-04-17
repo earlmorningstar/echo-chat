@@ -107,6 +107,7 @@ const ForgotPassword: React.FC = () => {
         <NavLink to="/login" className="no-deco-signupLink">
           Sign in
         </NavLink>
+        Page
       </p>
       <Backdrop
         sx={{ color: "#208d7f", zIndex: (theme) => theme.zIndex.drawer + 1 }}

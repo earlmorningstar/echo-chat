@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import {
   Button,
@@ -14,6 +15,7 @@ const Settings: React.FC = () => {
   const [openLogoutDialog, setOpenLogoutDialog] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const { logout } = useAuth();
+  const navigate = useNavigate();
 
   const handleLogoutClick = () => {
     setOpenLogoutDialog(true);
@@ -31,6 +33,10 @@ const Settings: React.FC = () => {
     }
   };
 
+  const blockedUsers = () => {
+    navigate("/blocked-users");
+  };
+
   const handleLogoutCancel = () => {
     setOpenLogoutDialog(false);
   };
@@ -39,12 +45,13 @@ const Settings: React.FC = () => {
     <section className="main-container">
       <div className="add-user-page">
         <p className="add-user-title">App Settings</p>
-        <span className="req-action-btn">
-          <button  onClick={handleLogoutClick}>
-          Logout
-        </button>
+        <span className="settings-btn-holder">
+          <button onClick={blockedUsers}>Blocked Users</button>
+          <button onClick={handleLogoutClick}>Logout</button>
         </span>
-        
+        {/* <span className="req-action-btn">
+          
+        </span> */}
 
         <Dialog open={openLogoutDialog} onClose={handleLogoutCancel}>
           <DialogTitle>Confirm Logout</DialogTitle>

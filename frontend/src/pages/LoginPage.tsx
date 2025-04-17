@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate, NavLink } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
+import api from "../utils/api";
 import {
   TextField,
   InputLabel,
@@ -14,8 +15,6 @@ import {
   CircularProgress,
 } from "@mui/material";
 import { Visibility, VisibilityOff } from "@mui/icons-material";
-// import { IoIosArrowRoundBack } from "react-icons/io";
-import api from "../utils/api";
 
 const LoginPage: React.FC = () => {
   const [email, setEmail] = useState("");

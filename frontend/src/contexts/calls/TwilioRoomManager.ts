@@ -167,7 +167,6 @@ export function useTwilioRoomManager(
 
         localVideoTracks.forEach((publication) => {
           if (publication.track) {
-            console.log("Attaching local video track");
             attachTrack(publication.track, true); //check
           } else {
             console.warn("Local video publication has no track");
@@ -176,7 +175,6 @@ export function useTwilioRoomManager(
 
         localAudioTracks.forEach((publication) => {
           if (publication.track) {
-            console.log("Attaching local audio track");
             attachTrack(publication.track, true); //check
           } else {
             console.warn("Local audio publication has no track");

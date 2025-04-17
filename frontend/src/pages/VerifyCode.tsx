@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, NavLink } from "react-router-dom";
 import {
   TextField,
   Alert,
@@ -119,6 +119,13 @@ const VerifyCode: React.FC = () => {
           </button>
         </div>
       </form>
+      <p>
+        Back to
+        <NavLink to="/login" className="no-deco-signupLink">
+          Sign in
+        </NavLink>
+        Page
+      </p>
 
       <Backdrop
         sx={{ color: "#208d7f", zIndex: (theme) => theme.zIndex.drawer + 1 }}

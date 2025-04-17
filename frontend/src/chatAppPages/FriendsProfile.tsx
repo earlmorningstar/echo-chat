@@ -12,7 +12,7 @@ import { SlOptions } from "react-icons/sl";
 import { IoMdCall, IoMdVideocam } from "react-icons/io";
 import { RiMessage2Fill } from "react-icons/ri";
 import { MdOutlineBlock } from "react-icons/md";
-import { CircularProgress } from "@mui/material";
+import { CircularProgress, Snackbar } from "@mui/material";
 
 const FriendsProfile: React.FC = () => {
   const navigate = useNavigate();
@@ -21,6 +21,8 @@ const FriendsProfile: React.FC = () => {
   const { initiateCall } = useCall();
   const queryClient = useQueryClient();
   const [isBlocking, setIsBlocking] = useState(false);
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState("");
 
   //fetching friendship data
   const { data: friendshipData } = useQuery({
@@ -35,7 +37,7 @@ const FriendsProfile: React.FC = () => {
       };
     },
     enabled: !!friendId,
-    staleTime: Infinity, //friendship creation date should't change
+    staleTime: Infinity, //friendship creation date shouldn't change
   });
 
   //fetching user data
@@ -55,7 +57,7 @@ const FriendsProfile: React.FC = () => {
     queryKey: ["blockStatus", friendId],
     queryFn: async () => {
       if (!friendId) throw new Error("No friend ID provided");
-      const response = await api.get(`api/user/block-status/${friendId}`);
+      const response = await api.get(`/api/user/block-status/${friendId}`);
       return response.data.data;
     },
     enabled: !!friendId,
@@ -63,22 +65,28 @@ const FriendsProfile: React.FC = () => {
 
   const blockMutation = useMutation({
     mutationFn: async () => {
-      if(!friendId) throw new Error("No friend ID provided");
-      return api.post('/api/user/block', {blockedId: friendId});
+      if (!friendId) throw new Error("No friend ID provided");
+      return api.post("/api/user/block", { blockedId: friendId });
     },
     onSuccess: () => {
+      setSnackbarMessage("User blocked successfully");
+      setSnackbarOpen(true);
       //invalidating relevant queries
       queryClient.invalidateQueries({ queryKey: ["blockStatus", friendId] });
       queryClient.invalidateQueries({ queryKey: ["friends"] });
       queryClient.invalidateQueries({ queryKey: ["chats"] });
       queryClient.invalidateQueries({ queryKey: ["friendship", friendId] });
+
+      setTimeout(() => {
+        navigate("/main-navigation/chats");
+      }, 1000);
     },
   });
 
   const unblockMutation = useMutation({
     mutationFn: async () => {
       if (!friendId) throw new Error("No friend ID provided");
-      return api.post('/api/user/unblock', { blockedId: friendId });
+      return api.post("/api/user/unblock", { blockedId: friendId });
     },
     onSuccess: () => {
       //invalidating relevant queries
@@ -100,7 +108,7 @@ const FriendsProfile: React.FC = () => {
 
   const handleToggleBlock = async () => {
     if (!friendId) return;
-    
+
     setIsBlocking(true);
     try {
       if (blockStatusData?.youBlockedThem) {
@@ -166,7 +174,7 @@ const FriendsProfile: React.FC = () => {
   return (
     <section className="friends-profile-main-container">
       <span
-        className="userProfile-redirection-arrow"
+        className="userProfile-redirection-arrow back-button"
         onClick={navigateToChatWindow}
       >
         <IoChevronBackOutline size={25} color="#333" />
@@ -264,22 +272,31 @@ const FriendsProfile: React.FC = () => {
       </div>
 
       <div className="block-user-btn-holder">
-        <button 
+        <button
           className={`user-blk-btn ${isBlocked ? "user-unblk-btn" : ""}`}
           onClick={handleToggleBlock}
-          disabled={isBlocking}
+          disabled={isBlocking || isBlocked}
         >
           {isBlocking ? (
             <>
-              {isBlocked ? "Unblocking" : "Blocking"} <CircularProgress size={20} color="inherit" />
+              {isBlocked ? "Unblocking" : "Blocking"}{" "}
+              <CircularProgress size={20} color="inherit" />
             </>
           ) : (
             <>
-              {isBlocked ? "Unblock User" : "Block User"} <MdOutlineBlock size={20} />
+              {isBlocked ? "Unblock User" : "Block User"}{" "}
+              <MdOutlineBlock size={20} />
             </>
           )}
         </button>
       </div>
+      <Snackbar
+        open={snackbarOpen}
+        autoHideDuration={3000}
+        onClose={() => setSnackbarOpen(false)}
+        anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
+        message={snackbarMessage}
+      />
     </section>
   );
 };

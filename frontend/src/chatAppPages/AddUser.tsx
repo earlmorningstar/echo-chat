@@ -121,7 +121,7 @@ const AddUser: React.FC = () => {
 
         <Snackbar
           open={snackbar.open}
-          autoHideDuration={6000}
+          autoHideDuration={3000}
           onClose={() => setSnackbar({ ...snackbar, open: false })}
           message={snackbar.message}
         />

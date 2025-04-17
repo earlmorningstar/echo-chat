@@ -162,11 +162,26 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
 
     const friendsWithMessages = await Promise.all(
       response.data.friends.map(async (friend: AuthUser) => {
+        try{
         const [messageResponse, unreadCountResponse, friendshipResponse] =
           await Promise.all([
             api.get(`/api/messages/last/${friend._id}`),
             api.get(`/api/messages/unread-count/${friend._id}`),
-            api.get(`/api/user/friendship/${friend._id}`),
+            api.get(`/api/user/friendship/${friend._id}`).catch((error) => {
+              return {
+                data: {
+                  data: {
+                    friendship: {
+                      createdAt: new Date(),
+                      status: "not-friends",
+                      _id: "not-friends",
+                      user1Id: user?._id,
+                      user2Id: friend._id,
+                    },
+                  },
+                },
+              };
+            }),
           ]);
 
         const status =
@@ -183,6 +198,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
           status,
           lastSeen,
           friendshipCreatedAt,
+          friendshipStatus: friendshipResponse.data.data.friendship.status || "not-friends",
           lastMessage: messageResponse.data.message
             ? {
                 ...messageResponse.data.message,
@@ -191,6 +207,18 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
             : null,
           unreadCount: unreadCountResponse.data.count || 0,
         } as Friend;
+      } catch(error) {
+        console.error(`Error fetching data for friend ${friend._id}:`, error);
+        //returning a friend object if an error occurs
+        return {
+          ...friend,
+          status: 'offline',
+          friendshipCreatedAt: new Date(),
+          friendshipStatus: 'error',
+          lastMessage: null,
+          unreadCount: 0,
+        } as Friend;
+      }
       })
     );
 
@@ -217,7 +245,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
       // Sort by most recent activity (whether it's a new friendship or new message)
       return bLatestActivity - aLatestActivity;
     });
-  }, [isAuthenticated, queryClient]);
+  }, [isAuthenticated, queryClient, user?._id]);
 
   const {
     data: friends = [],

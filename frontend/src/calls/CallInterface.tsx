@@ -16,7 +16,7 @@ import {
   ScreenShare,
   StopScreenShare,
 } from "@mui/icons-material";
-import { Snackbar, Alert } from "@mui/material";
+import { Snackbar } from "@mui/material";
 
 const CallInterface: React.FC = () => {
   const {
@@ -401,40 +401,32 @@ const CallInterface: React.FC = () => {
       {/*snackbar for audio notification*/}
       <Snackbar
         open={audioNotification.open}
-        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
-        autoHideDuration={5000}
+        anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
+        autoHideDuration={3000}
         onClose={() =>
           setAudioNotification((prev) => ({ ...prev, open: false }))
         }
-      >
-        <Alert
-          severity={audioNotification.muted ? "info" : "success"}
-          sx={{ width: "100%" }}
-        >
-          {remoteUser && audioNotification.muted
+        message={
+          remoteUser && audioNotification.muted
             ? `${remoteUser.firstName}'s microphone is muted`
-            : `${remoteUser?.firstName}'s microphone is unmuted`}
-        </Alert>
-      </Snackbar>
+            : `${remoteUser?.firstName}'s microphone is unmuted`
+        }
+      />
 
       {/*snackbar for video */}
       <Snackbar
         open={videoNotification.open}
-        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
-        autoHideDuration={5000}
+        anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
+        autoHideDuration={3000}
         onClose={() =>
           setVideoNotification((prev) => ({ ...prev, open: false }))
         }
-      >
-        <Alert
-          severity={videoNotification.paused ? "info" : "success"}
-          sx={{ width: "100%" }}
-        >
-          {remoteUser && videoNotification.paused
+        message={
+          remoteUser && videoNotification.paused
             ? `${remoteUser.firstName}'s camera is paused`
-            : `${remoteUser?.firstName}'s camera is active`}
-        </Alert>
-      </Snackbar>
+            : `${remoteUser?.firstName}'s camera is active`
+        }
+      />
     </div>
   );
 };

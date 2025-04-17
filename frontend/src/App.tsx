@@ -23,6 +23,7 @@ import IncomingCallModal from "./calls/IncomingCallModal";
 import { useCall } from "./contexts/CallContext";
 import { ErrorBoundary } from "./utils/ErrorBoundary";
 import CallErrorFallback from "./utils/CallErrorFallback";
+import BlockedUsers from "./chatAppPages/BlockedUsers";
 
 const router = createBrowserRouter([
   {
@@ -68,7 +69,7 @@ const router = createBrowserRouter([
       { path: "chats", element: <ChatList /> },
       { path: "calls", element: <CallList /> },
       { path: "updates", element: <UpdateList /> },
-      { path: "settings", element: <Settings /> },
+      { path: "settings", element: <Settings />},
       { path: "user-profile", element: <UserProfile /> },
       { path: "add-user", element: <AddUser /> },
       { path: "requests", element: <Request /> },
@@ -82,6 +83,11 @@ const router = createBrowserRouter([
   {
     path: "/friends-profile/:friendId",
     element: <FriendsProfile />,
+    errorElement: <ErrorPage />,
+  },
+  {
+    path: "/blocked-users",
+    element: <BlockedUsers />,
     errorElement: <ErrorPage />,
   },
 ]);
