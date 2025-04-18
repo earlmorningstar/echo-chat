@@ -1267,7 +1267,7 @@
   background-color: #1a8173;
 }
 
-.unblockProgress-holder{
+.unblockProgress-holder {
   display: flex;
   align-items: center;
   gap: 5px;
@@ -1391,13 +1391,16 @@
 }
 
 .call-header {
+  position: absolute;
   top: 0;
+  width: 100%;
   z-index: 1002;
   padding: 4rem 0 1rem 0;
   display: flex;
   justify-content: center;
   align-items: center;
-  background-color: #d6c3a8;
+  /* background-color: #d6c3a8; */
+  background-color: rgba(214, 195, 168, 0.7);
   color: #ffffff;
 }
 
@@ -1406,6 +1409,8 @@
   inset: 0;
   background: #d6c3a8;
   z-index: 1;
+  height: 100vh;
+  width: 100vw;
 }
 
 .remote-video-wrapper {
@@ -1437,6 +1442,12 @@
   overflow: hidden;
   box-shadow: 0 0 12px rgba(0, 0, 0, 0.5);
   transition: transform 0.3s ease;
+}
+
+.vid-container-and-controls-flex {
+  position: relative;
+  width: 100%;
+  height: 100%;
 }
 
 .local-video-wrapper:hover {
