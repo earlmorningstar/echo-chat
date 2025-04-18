@@ -88,6 +88,7 @@ const BlockedUsers: React.FC = () => {
               <div className="blocked-user-avatar-holder">
                 {user.avatarUrl ? (
                   <img
+                    className="profile-image"
                     src={user.avatarUrl}
                     alt={`${user.firstName} ${user.lastName}`}
                   />
@@ -107,9 +108,9 @@ const BlockedUsers: React.FC = () => {
                       user.lastName.slice(1).toLowerCase()}
                   </h3>
                   <p>{user.email}</p>
+                  <small>Blocked on {formatBlockedDate(user.blockedAt)}</small>
                 </div>
                 <div className="user-info unblock-action">
-                  <small>Blocked on {formatBlockedDate(user.blockedAt)}</small>
                   <button
                     onClick={() => handleUnblock(user._id)}
                     disabled={unblockingUserId === user._id}
@@ -134,13 +135,13 @@ const BlockedUsers: React.FC = () => {
         </div>
       )}
 
-<Snackbar
-  open={snackbarOpen}
-  autoHideDuration={3000}
-  onClose={() => setSnackbarOpen(false)}
-  anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-  message={snackbarMessage}
-  />
+      <Snackbar
+        open={snackbarOpen}
+        autoHideDuration={3000}
+        onClose={() => setSnackbarOpen(false)}
+        anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
+        message={snackbarMessage}
+      />
     </div>
   );
 };
