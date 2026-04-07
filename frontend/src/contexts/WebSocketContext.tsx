@@ -13,7 +13,7 @@ import { WebSocketEventManager } from "./calls/WebSocketEventManager";
 
 interface WebSocketContextType {
   sendMessage: (message: any) => Promise<void>;
-  eventManager: React.RefObject<WebSocketEventManager>;
+  eventManager: React.RefObject<WebSocketEventManager | null>;
   isConnected: boolean;
   connectionState: number;
 }
@@ -45,13 +45,15 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [isConnected, setIsConnected] = useState(false);
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout>();
-  const connectionAttempts = useRef(0);
+  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
+  const connectionAttempts = useRef<number>(0);
   const lastStatusRef = useRef<UserStatus>("offline");
-  const isConnecting = useRef(false);
+  const isConnecting = useRef<boolean>(false);
   const pendingMessages = useRef<pendingMessage[]>([]);
-  const connectRef = useRef<ConnectFunction>();
-  const cleanupConnectionRef = useRef<() => void>();
+  const connectRef = useRef<ConnectFunction | undefined>(undefined);
+  const cleanupConnectionRef = useRef<(() => void) | undefined>(undefined);
 
   const sendMessage = useCallback(async (message: any) => {
     if (!eventManager.current?.isConnected) {
@@ -62,7 +64,7 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
     //to maintain message queue health
     const now = Date.now();
     pendingMessages.current = pendingMessages.current.filter(
-      (msg) => now - msg.timestamp < 300000 // 5-minute TTL
+      (msg) => now - msg.timestamp < 300000, // 5-minute TTL
     );
     if (pendingMessages.current.length >= 50) {
       pendingMessages.current.shift();
@@ -87,7 +89,7 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
         await eventManager.current.enqueueEvent(
           message.type,
           message,
-          message.type.startsWith("status") ? 2 : 1
+          message.type.startsWith("status") ? 2 : 1,
         );
       } catch (error) {
         console.error(`Failed to send message: ${message.type}`);
@@ -142,11 +144,11 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
         typing: () => {
           queryClient.setQueryData(
             ["typingStatus", message.senderId],
-            message.isTyping
+            message.isTyping,
           );
           queryClient.setQueryData(
             ["friendTypingStatus", message.senderId],
-            message.isTyping
+            message.isTyping,
           );
           if (!message.isTyping) return;
 
@@ -168,12 +170,12 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
           }
           queryClient.setQueryData(
             ["userStatus", message.userId],
-            message.status
+            message.status,
           );
           if (message.lastSeen) {
             queryClient.setQueryData(
               ["userLastSeen", message.userId],
-              message.lastSeen
+              message.lastSeen,
             );
           }
           queryClient.invalidateQueries({ queryKey: ["friends"] });
@@ -224,7 +226,7 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
         }
       }
     },
-    [queryClient, user?._id, eventManager]
+    [queryClient, user?._id, eventManager],
   );
 
   const connect = useCallback<ConnectFunction>(() => {
@@ -233,7 +235,7 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
 
     //clearing existing connection if in invalid state
     if (ws.current) {
-      const state = ws.current.readyState;
+      const state = ws.current.readyState as number;
       if (state === WebSocket.OPEN || state === WebSocket.CONNECTING) {
         ws.current.close();
       }
@@ -278,20 +280,20 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
               requireAck: true,
               id: `reg-${Date.now()}`,
             },
-            2
+            2,
           );
         }
 
         //processing pending messages
         const now = Date.now();
         pendingMessages.current = pendingMessages.current.filter(
-          (msg) => now - msg.timestamp < 300000
+          (msg) => now - msg.timestamp < 300000,
         );
         pendingMessages.current.forEach((msg) => {
           eventManager.current?.enqueueEvent(
             msg.type,
             msg.data,
-            msg.priority || 1
+            msg.priority || 1,
           );
         });
         pendingMessages.current = [];
@@ -315,7 +317,7 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
         if (connectionAttempts.current < MAX_RECONNECT_ATTEMPTS) {
           const delay = Math.min(
             RECONNECT_DELAY * Math.pow(2, connectionAttempts.current),
-            30000 // max 30 seconds
+            30000, // max 30 seconds
           );
           connectionAttempts.current++;
           reconnectTimeoutRef.current = setTimeout(connect, delay);
@@ -378,7 +380,7 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
       return () => {
         document.removeEventListener(
           "visibilitychange",
-          handleVisibilityChange
+          handleVisibilityChange,
         );
         window.removeEventListener("beforeunload", handleBeforeUnload);
         cleanupConnection();
