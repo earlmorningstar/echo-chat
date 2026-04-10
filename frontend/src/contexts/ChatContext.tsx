@@ -37,7 +37,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
 }) => {
   const queryClient = useQueryClient();
   const { user, isAuthenticated } = useAuth();
-  const { sendMessage, eventManager } = useWebSocket();
+  const { sendMessage, eventManager, managerReady } = useWebSocket();
   const [typingStatus, setTypingStatus] = useState<Record<string, boolean>>({});
   const [friendTypingStatus, setFriendTypingStatus] = useState<
     Record<string, boolean>
@@ -66,7 +66,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
         //setting users you've blocked
         if (response.data.data.blockedUsers) {
           const blockedIds = response.data.data.blockedUsers.map(
-            (user: any) => user._id
+            (user: any) => user._id,
           );
           setBlockedUsers(blockedIds);
         }
@@ -74,7 +74,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
         //setting users who have blocked you
         if (response.data.data.blockedByUsers) {
           const blockedByIds = response.data.data.blockedByUsers.map(
-            (user: any) => user._id
+            (user: any) => user._id,
           );
           setBlockedByUsers(blockedByIds);
         }
@@ -88,14 +88,14 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
     (userId: string) => {
       return blockedUsers.includes(userId);
     },
-    [blockedUsers]
+    [blockedUsers],
   );
 
   const isBlockedByUser = useCallback(
     (userId: string) => {
       return blockedByUsers.includes(userId);
     },
-    [blockedByUsers]
+    [blockedByUsers],
   );
 
   //fetching blocked users on authentication
@@ -105,10 +105,14 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   }, [isAuthenticated, fetchBlockedUsers]);
 
+  /**
+   * Subscribes to raw WebSocket "message" events for typing indicators.
+   * Re-subscribes whenever managerReady changes — i.e. whenever a new
+   * WebSocketEventManager is created (initial connect or after reconnect).
+   */
   useEffect(() => {
-    if (!eventManager) return;
-
-    const currentManager = eventManager.current;
+    const manager = eventManager.current;
+    if (!manager) return;
 
     const handleTypingMessage = (message: any) => {
       if (message.type === "typing") {
@@ -134,23 +138,18 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
       }
     };
 
-    if (currentManager) {
-      currentManager.on("message", handleTypingMessage);
-    }
+    manager.on("message", handleTypingMessage);
 
     return () => {
-      if (currentManager) {
-        currentManager.off("message", handleTypingMessage);
-      }
+      manager.off("message", handleTypingMessage);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [eventManager.current]);
+  }, [eventManager, managerReady]);
 
   const getUserStatus = useCallback(
     (userId: string): UserStatus => {
       return queryClient.getQueryData(["userStatus", userId]) || "offline";
     },
-    [queryClient]
+    [queryClient],
   );
 
   const fetchFriendsWithMessages = useCallback(async (): Promise<Friend[]> => {
@@ -162,64 +161,68 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
 
     const friendsWithMessages = await Promise.all(
       response.data.friends.map(async (friend: AuthUser) => {
-        try{
-        const [messageResponse, unreadCountResponse, friendshipResponse] =
-          await Promise.all([
-            api.get(`/api/messages/last/${friend._id}`),
-            api.get(`/api/messages/unread-count/${friend._id}`),
-            api.get(`/api/user/friendship/${friend._id}`).catch((error) => {
-              return {
-                data: {
+        try {
+          const [messageResponse, unreadCountResponse, friendshipResponse] =
+            await Promise.all([
+              api.get(`/api/messages/last/${friend._id}`),
+              api.get(`/api/messages/unread-count/${friend._id}`),
+              api.get(`/api/user/friendship/${friend._id}`).catch((error) => {
+                return {
                   data: {
-                    friendship: {
-                      createdAt: new Date(),
-                      status: "not-friends",
-                      _id: "not-friends",
-                      user1Id: user?._id,
-                      user2Id: friend._id,
+                    data: {
+                      friendship: {
+                        createdAt: new Date(),
+                        status: "not-friends",
+                        _id: "not-friends",
+                        user1Id: user?._id,
+                        user2Id: friend._id,
+                      },
                     },
                   },
-                },
-              };
-            }),
+                };
+              }),
+            ]);
+
+          const status =
+            queryClient.getQueryData(["userStatus", friend._id]) || "offline";
+          const lastSeen = queryClient.getQueryData([
+            "userLastSeen",
+            friend._id,
           ]);
 
-        const status =
-          queryClient.getQueryData(["userStatus", friend._id]) || "offline";
-        const lastSeen = queryClient.getQueryData(["userLastSeen", friend._id]);
+          const friendshipCreatedAt = friendshipResponse.data.data.friendship
+            .createdAt
+            ? new Date(friendshipResponse.data.data.friendship.createdAt)
+            : new Date();
 
-        const friendshipCreatedAt = friendshipResponse.data.data.friendship
-          .createdAt
-          ? new Date(friendshipResponse.data.data.friendship.createdAt)
-          : new Date();
-
-        return {
-          ...friend,
-          status,
-          lastSeen,
-          friendshipCreatedAt,
-          friendshipStatus: friendshipResponse.data.data.friendship.status || "not-friends",
-          lastMessage: messageResponse.data.message
-            ? {
-                ...messageResponse.data.message,
-                status: messageResponse.data.message.status || "sent",
-              }
-            : null,
-          unreadCount: unreadCountResponse.data.count || 0,
-        } as Friend;
-      } catch(error) {
-        console.error(`Error fetching data for friend ${friend._id}:`, error);
-        //returning a friend object if an error occurs
-        return {
-          ...friend,
-          status: 'offline',
-          friendshipCreatedAt: new Date(),
-          friendshipStatus: 'error',
-          lastMessage: null,
-          unreadCount: 0,
-        } as Friend;
-      }
-      })
+          return {
+            ...friend,
+            status,
+            lastSeen,
+            friendshipCreatedAt,
+            friendshipStatus:
+              friendshipResponse.data.data.friendship.status || "not-friends",
+            lastMessage: messageResponse.data.message
+              ? {
+                  ...messageResponse.data.message,
+                  status: messageResponse.data.message.status || "sent",
+                }
+              : null,
+            unreadCount: unreadCountResponse.data.count || 0,
+          } as Friend;
+        } catch (error) {
+          console.error(`Error fetching data for friend ${friend._id}:`, error);
+          //returning a friend object if an error occurs
+          return {
+            ...friend,
+            status: "offline",
+            friendshipCreatedAt: new Date(),
+            friendshipStatus: "error",
+            lastMessage: null,
+            unreadCount: 0,
+          } as Friend;
+        }
+      }),
     );
 
     return friendsWithMessages.sort((a, b) => {
@@ -276,11 +279,11 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
                   ? { ...friend.lastMessage, status: "read" }
                   : null,
               }
-            : friend
+            : friend,
         );
       });
     },
-    [queryClient]
+    [queryClient],
   );
 
   const updateTypingStatus = useCallback(
@@ -305,7 +308,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
         setTypingStatus((prev) => ({ ...prev, [friendId]: false }));
       }, 2000);
     },
-    [sendMessage, user?._id]
+    [sendMessage, user?._id],
   );
 
   useEffect(() => {

@@ -16,6 +16,9 @@ interface WebSocketContextType {
   eventManager: React.RefObject<WebSocketEventManager | null>;
   isConnected: boolean;
   connectionState: number;
+  /** Increments each time a new WebSocketEventManager is created. Consumers
+   *  should include this in useEffect deps to re-subscribe after reconnects. */
+  managerReady: number;
 }
 
 interface pendingMessage {
@@ -30,6 +33,7 @@ const WebSocketContext = createContext<WebSocketContextType>({
   eventManager: { current: null },
   isConnected: false,
   connectionState: WebSocket.CLOSED,
+  managerReady: 0,
 });
 
 const RECONNECT_DELAY = 1000;
@@ -45,6 +49,9 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [isConnected, setIsConnected] = useState(false);
+  /** Increments each time a new WebSocketEventManager is created, so consumers
+   *  can re-subscribe when the manager instance changes (e.g. after reconnect). */
+  const [managerReady, setManagerReady] = useState(0);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(
     undefined,
   );
@@ -54,6 +61,14 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
   const pendingMessages = useRef<pendingMessage[]>([]);
   const connectRef = useRef<ConnectFunction | undefined>(undefined);
   const cleanupConnectionRef = useRef<(() => void) | undefined>(undefined);
+
+  // ── Stable refs for use inside handleWebSocketMessage ──────────────
+  // These keep the callback stable (empty deps []) while still giving it
+  // access to the latest queryClient and userId without causing re-creation.
+  const queryClientRef = useRef(queryClient);
+  queryClientRef.current = queryClient;
+  const userIdRef = useRef<string | null>(user?._id ?? null);
+  userIdRef.current = user?._id ?? null;
 
   const sendMessage = useCallback(async (message: any) => {
     if (!eventManager.current?.isConnected) {
@@ -136,49 +151,57 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
     cleanupConnectionRef.current = cleanupConnection;
   }, [cleanupConnection]);
 
+  /**
+   * Centralized handler for incoming WebSocket messages.
+   * Uses refs (queryClientRef, userIdRef, lastStatusRef, eventManager)
+   * so this callback is stable with an empty dependency array — preventing
+   * the reconnect-storm bug when deps change.
+   */
   const handleWebSocketMessage = useCallback(
     (message: any) => {
       if (!message || typeof message !== "object") return;
 
+      const qc = queryClientRef.current;
+      const currentUserId = userIdRef.current;
+
       const handlers: Record<string, () => void> = {
         typing: () => {
-          queryClient.setQueryData(
-            ["typingStatus", message.senderId],
-            message.isTyping,
-          );
-          queryClient.setQueryData(
+          qc.setQueryData(["typingStatus", message.senderId], message.isTyping);
+          qc.setQueryData(
             ["friendTypingStatus", message.senderId],
             message.isTyping,
           );
           if (!message.isTyping) return;
 
           setTimeout(() => {
-            queryClient.setQueryData(["typingStatus", message.senderId], false);
+            qc.setQueryData(["typingStatus", message.senderId], false);
           }, 5000);
         },
+        // FIX #1 — invalidate the correct query keys.
+        // ChatWindow uses ["messages", friendId] (plural).  We invalidate
+        // every query whose first key segment is "messages" so all open
+        // chat windows refetch when a new message arrives.
         message: () => {
-          queryClient.invalidateQueries({ queryKey: ["message"] });
-          queryClient.invalidateQueries({ queryKey: ["friends"] });
+          qc.invalidateQueries({
+            predicate: (query) => query.queryKey[0] === "messages",
+          });
+          qc.invalidateQueries({ queryKey: ["friends"] });
         },
         read_status: () => {
-          queryClient.invalidateQueries({ queryKey: ["message"] });
-          queryClient.invalidateQueries({ queryKey: ["friends"] });
+          qc.invalidateQueries({
+            predicate: (query) => query.queryKey[0] === "messages",
+          });
+          qc.invalidateQueries({ queryKey: ["friends"] });
         },
         status: () => {
-          if (message.userId === user?._id) {
+          if (message.userId === currentUserId) {
             lastStatusRef.current = message.status;
           }
-          queryClient.setQueryData(
-            ["userStatus", message.userId],
-            message.status,
-          );
+          qc.setQueryData(["userStatus", message.userId], message.status);
           if (message.lastSeen) {
-            queryClient.setQueryData(
-              ["userLastSeen", message.userId],
-              message.lastSeen,
-            );
+            qc.setQueryData(["userLastSeen", message.userId], message.lastSeen);
           }
-          queryClient.invalidateQueries({ queryKey: ["friends"] });
+          qc.invalidateQueries({ queryKey: ["friends"] });
         },
         call_initiate: () => {
           eventManager.current?.emit("call", {
@@ -226,7 +249,7 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
         }
       }
     },
-    [queryClient, user?._id, eventManager],
+    [], // stable — all mutable state accessed via refs
   );
 
   const connect = useCallback<ConnectFunction>(() => {
@@ -267,6 +290,9 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
 
         eventManager.current = new WebSocketEventManager(socket);
         eventManager.current.on("message", handleWebSocketMessage);
+
+        // Signal consumers that a fresh manager exists and they should subscribe.
+        setManagerReady((g) => g + 1);
 
         //sending registration message
         if (user._id) {
@@ -334,7 +360,8 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
       isConnecting.current = false;
       cleanupConnection();
     }
-  }, [user?._id, cleanupConnection, handleWebSocketMessage]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?._id, cleanupConnection]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -412,6 +439,7 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
         isConnected,
         connectionState:
           eventManager.current?.connectionState ?? WebSocket.CLOSED,
+        managerReady,
       }}
     >
       {children}
