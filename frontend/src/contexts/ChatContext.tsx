@@ -8,7 +8,7 @@ import React, {
 } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import api from "../utils/api";
-import { Friend, AuthUser, UserStatus } from "../types";
+import { Friend, UserStatus } from "../types";
 import { useWebSocket } from "./WebSocketContext";
 import { useAuth } from "./AuthContext";
 import { isValidObjectId } from "../utils/validators";
@@ -152,103 +152,36 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
     [queryClient],
   );
 
+  /**
+   * Fetches all friends with their last message, unread count, and
+   * friendship metadata in a SINGLE API call — eliminating the N+1
+   * pattern that previously fired 3×N requests per refetch.
+   */
   const fetchFriendsWithMessages = useCallback(async (): Promise<Friend[]> => {
-    if (!isAuthenticated) {
+    if (!isAuthenticated) return [];
+    // Guard: don't fire the request until the user's _id is available.
+    if (!user?._id) return [];
+
+    try {
+      const response = await api.get("/api/user/friends-summary");
+      // sendSuccess spreads { friends } at the top level:
+      // { success: true, message: "...", friends: [...] }
+      const rawFriends = response.data?.friends || [];
+
+      return rawFriends.map((f: Friend) => ({
+        ...f,
+        friendshipCreatedAt: f.friendshipCreatedAt
+          ? new Date(f.friendshipCreatedAt)
+          : new Date(),
+        lastMessage: f.lastMessage
+          ? { ...f.lastMessage, status: f.lastMessage.status || "sent" }
+          : null,
+      }));
+    } catch (error) {
+      console.error("Error fetching friends summary:", error);
       return [];
     }
-
-    const response = await api.get("/api/user/friends");
-
-    const friendsWithMessages = await Promise.all(
-      response.data.friends.map(async (friend: AuthUser) => {
-        try {
-          const [messageResponse, unreadCountResponse, friendshipResponse] =
-            await Promise.all([
-              api.get(`/api/messages/last/${friend._id}`),
-              api.get(`/api/messages/unread-count/${friend._id}`),
-              api.get(`/api/user/friendship/${friend._id}`).catch((error) => {
-                return {
-                  data: {
-                    data: {
-                      friendship: {
-                        createdAt: new Date(),
-                        status: "not-friends",
-                        _id: "not-friends",
-                        user1Id: user?._id,
-                        user2Id: friend._id,
-                      },
-                    },
-                  },
-                };
-              }),
-            ]);
-
-          const status =
-            queryClient.getQueryData(["userStatus", friend._id]) || "offline";
-          const lastSeen = queryClient.getQueryData([
-            "userLastSeen",
-            friend._id,
-          ]);
-
-          const friendshipCreatedAt = friendshipResponse.data.data.friendship
-            .createdAt
-            ? new Date(friendshipResponse.data.data.friendship.createdAt)
-            : new Date();
-
-          return {
-            ...friend,
-            status,
-            lastSeen,
-            friendshipCreatedAt,
-            friendshipStatus:
-              friendshipResponse.data.data.friendship.status || "not-friends",
-            lastMessage: messageResponse.data.message
-              ? {
-                  ...messageResponse.data.message,
-                  status: messageResponse.data.message.status || "sent",
-                }
-              : null,
-            unreadCount: unreadCountResponse.data.count || 0,
-          } as Friend;
-        } catch (error) {
-          console.error(`Error fetching data for friend ${friend._id}:`, error);
-          //returning a friend object if an error occurs
-          return {
-            ...friend,
-            status: "offline",
-            friendshipCreatedAt: new Date(),
-            friendshipStatus: "error",
-            lastMessage: null,
-            unreadCount: 0,
-          } as Friend;
-        }
-      }),
-    );
-
-    return friendsWithMessages.sort((a, b) => {
-      // timestamps for comparison
-      const aFriendshipTime = a.friendshipCreatedAt
-        ? new Date(a.friendshipCreatedAt).getTime()
-        : 0;
-      const bFriendshipTime = b.friendshipCreatedAt
-        ? new Date(b.friendshipCreatedAt).getTime()
-        : 0;
-
-      const aMessageTime = a.lastMessage?.timestamp
-        ? new Date(a.lastMessage.timestamp).getTime()
-        : 0;
-      const bMessageTime = b.lastMessage?.timestamp
-        ? new Date(b.lastMessage.timestamp).getTime()
-        : 0;
-
-      // the most recent activity time (either message or friendship)
-      const aLatestActivity = Math.max(aFriendshipTime, aMessageTime);
-      const bLatestActivity = Math.max(bFriendshipTime, bMessageTime);
-
-      // Sort by most recent activity (whether it's a new friendship or new message)
-      return bLatestActivity - aLatestActivity;
-    });
-  }, [isAuthenticated, queryClient, user?._id]);
+  }, [isAuthenticated, user?._id]);
 
   const {
     data: friends = [],
@@ -258,8 +191,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
   } = useQuery({
     queryKey: ["friends"],
     queryFn: fetchFriendsWithMessages,
-    refetchInterval: 2000,
-    staleTime: 1000,
+    staleTime: 60_000,
     gcTime: 5 * 60 * 1000,
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,

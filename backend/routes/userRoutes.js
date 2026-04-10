@@ -11,6 +11,7 @@ import {
   getFriendRequests,
   handleFriendRequest,
   getFriends,
+  getFriendsSummary,
   getUserById,
   getUserProfile,
   updateUserStatus,
@@ -34,7 +35,7 @@ router.patch("/user/profile", authenticateUser, updateUserProfile);
 router.delete(
   "/user/profile/delete-account",
   authenticateUser,
-  deleteUserAccount
+  deleteUserAccount,
 );
 router.post("/user/block", authenticateUser, blockUser);
 router.post("/user/unblock", authenticateUser, unblockUser);
@@ -46,9 +47,10 @@ router.get("/user/friend-requests", authenticateUser, getFriendRequests);
 router.post(
   "/user/handle-friend-request",
   authenticateUser,
-  handleFriendRequest
+  handleFriendRequest,
 );
 router.get("/user/friends", authenticateUser, getFriends);
+router.get("/user/friends-summary", authenticateUser, getFriendsSummary);
 router.get("/user/:userId", authenticateUser, getUserById);
 router.post("/user/status", authenticateUser, updateUserStatus);
 router.get("/user/friendship/:friendId", authenticateUser, getFriendshipStatus);

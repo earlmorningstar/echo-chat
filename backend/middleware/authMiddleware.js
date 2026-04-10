@@ -35,7 +35,7 @@ const renewToken = async (req, res) => {
         avatarUrl: user.avatarUrl,
       },
       process.env.JWT_SECRET,
-      { expiresIn: "24h" }
+      { expiresIn: "24h" },
     );
 
     return sendSuccess(res, 200, "Token renewed", { token: newToken }, false);

@@ -61,6 +61,9 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
   const pendingMessages = useRef<pendingMessage[]>([]);
   const connectRef = useRef<ConnectFunction | undefined>(undefined);
   const cleanupConnectionRef = useRef<(() => void) | undefined>(undefined);
+  /** Single shared ref for the ping interval — prevents duplicate intervals
+   *  when connect() is called again before the previous socket fully closes. */
+  const pingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // ── Stable refs for use inside handleWebSocketMessage ──────────────
   // These keep the callback stable (empty deps []) while still giving it
@@ -120,13 +123,9 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
   }, []);
 
   const cleanupConnection = useCallback(() => {
-    if (ws.current?.readyState === WebSocket.OPEN) {
-      sendMessage({
-        type: "status",
-        senderId: user?._id,
-        status: "online",
-        timestamp: Date.now(),
-      });
+    if (pingIntervalRef.current !== null) {
+      clearInterval(pingIntervalRef.current);
+      pingIntervalRef.current = null;
     }
     if (reconnectTimeoutRef.current) {
       clearTimeout(reconnectTimeoutRef.current);
@@ -145,6 +144,7 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
 
     setIsConnected(false);
     queryClient.invalidateQueries({ queryKey: ["typingStatus"] });
+    
   }, [sendMessage, user?._id, queryClient]);
 
   useEffect(() => {
@@ -325,14 +325,21 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
         pendingMessages.current = [];
       };
 
-      const pingInterval = setInterval(() => {
+      // Clear any previous ping interval before starting a new one
+      if (pingIntervalRef.current !== null) {
+        clearInterval(pingIntervalRef.current);
+      }
+      pingIntervalRef.current = setInterval(() => {
         if (socket.readyState === WebSocket.OPEN) {
           socket.send(JSON.stringify({ type: "ping" }));
         }
       }, 25000);
 
       socket.onclose = () => {
-        clearInterval(pingInterval);
+        if (pingIntervalRef.current !== null) {
+          clearInterval(pingIntervalRef.current);
+          pingIntervalRef.current = null;
+        }
         clearTimeout(connectTimeout);
         // console.log("WebSocket disconnected");
         setIsConnected(false);
@@ -360,7 +367,7 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
       isConnecting.current = false;
       cleanupConnection();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line
   }, [user?._id, cleanupConnection]);
 
   useEffect(() => {

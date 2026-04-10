@@ -44,7 +44,7 @@ const createUser = async (req, res) => {
       return sendError(
         res,
         400,
-        "Email already in use. Try using another email address"
+        "Email already in use. Try using another email address",
       );
     }
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -86,7 +86,7 @@ const createUser = async (req, res) => {
       {
         userid: user.insertedId,
       },
-      false
+      false,
     );
   } catch (error) {
     console.error("User creation error");
@@ -100,7 +100,7 @@ const createUser = async (req, res) => {
             ? error.message
             : "Internal server error",
       },
-      false
+      false,
     );
   }
 };
@@ -124,7 +124,7 @@ const verifyEmail = async (req, res) => {
       {
         $set: { isVerified: true },
         $unset: { verificationCode: "", verificationCodeExpires: "" },
-      }
+      },
     );
     sendSuccess(res, 200, "Email verified successfully");
   } catch (error) {
@@ -166,7 +166,7 @@ const loginUser = async (req, res) => {
         avatarUrl: user.avatarUrl,
       },
       process.env.JWT_SECRET,
-      { expiresIn: "24h" }
+      { expiresIn: "24h" },
     );
 
     const sanitizedUser = {
@@ -186,7 +186,7 @@ const loginUser = async (req, res) => {
         user: sanitizedUser,
         token: token,
       },
-      false
+      false,
     );
   } catch (error) {
     sendError(res, 500, "Error logging in");
@@ -214,7 +214,7 @@ const forgotPassword = async (req, res) => {
           resetCode,
           resetCodeExpires: new Date(Date.now() + 600000),
         },
-      }
+      },
     );
 
     await sendPasswordResetCode(email, resetCode);
@@ -245,7 +245,7 @@ const resetPassword = async (req, res) => {
       {
         $set: { password: hashedPassword },
         $unset: { resetCode: "", resetCodeExpires: "" },
-      }
+      },
     );
 
     sendSuccess(res, 200, "Password reset successful.");
@@ -282,7 +282,7 @@ const getUserProfile = async (req, res) => {
       {
         user: userData,
       },
-      false
+      false,
     );
   } catch (error) {
     sendError(res, 500, "Error retrieving user profile");
@@ -340,7 +340,7 @@ const sendFriendRequest = async (req, res) => {
       return sendError(
         res,
         400,
-        "You cannot send a friend request to yourself, haha!"
+        "You cannot send a friend request to yourself, haha!",
       );
     }
 
@@ -364,7 +364,7 @@ const sendFriendRequest = async (req, res) => {
       return sendError(
         res,
         403,
-        "Cannot send friend request due to block settings"
+        "Cannot send friend request due to block settings",
       );
     }
 
@@ -397,7 +397,7 @@ const sendFriendRequest = async (req, res) => {
       await sendFriendRequestNotificationEmail(
         receiver.email,
         receiver.firstName,
-        `${sender.firstName} ${sender.lastName}`
+        `${sender.firstName} ${sender.lastName}`,
       );
     } catch {
       console.error("Failed to send friend request notification email:");
@@ -497,7 +497,7 @@ const handleFriendRequest = async (req, res) => {
                 updatedAt: new Date(),
               },
             },
-            { session }
+            { session },
           );
 
           // Create or update friendship
@@ -525,7 +525,7 @@ const handleFriendRequest = async (req, res) => {
                 createdAt: new Date(),
               },
             },
-            { upsert: true, session }
+            { upsert: true, session },
           );
 
           // Get user details for email
@@ -543,7 +543,7 @@ const handleFriendRequest = async (req, res) => {
               await sendFriendRequestAcceptedEmail(
                 sender.email,
                 sender.firstName,
-                `${accepter.firstName} ${accepter.lastName}`
+                `${accepter.firstName} ${accepter.lastName}`,
               );
             } catch (emailError) {
               console.error("Failed to send acceptance email");
@@ -565,7 +565,7 @@ const handleFriendRequest = async (req, res) => {
             status: "declined",
             updatedAt: new Date(),
           },
-        }
+        },
       );
 
       await req.db.collection("friendships").updateOne(
@@ -586,7 +586,7 @@ const handleFriendRequest = async (req, res) => {
             status: "declined",
             updatedAt: new Date(),
           },
-        }
+        },
       );
 
       return sendSuccess(res, 200, "Friend request declined");
@@ -595,6 +595,199 @@ const handleFriendRequest = async (req, res) => {
     return sendError(res, 400, "Invalid action");
   } catch (error) {
     return sendError(res, 500, "Error handling friend request");
+  }
+};
+
+const getFriendsSummary = async (req, res) => {
+  /**
+   * Returns all accepted friends in a single query, each enriched with:
+   *  - lastMessage (content, timestamp, senderId, status)
+   *  - unreadCount (messages sent to this user that are still "sent")
+   *  - onlineStatus / lastSeen (from the users collection)
+   *  - friendshipCreatedAt, friendshipStatus
+   */
+  try {
+    const userId = req.userId;
+    if (!userId) {
+      return sendError(res, 401, "Unauthorized");
+    }
+
+    if (!ObjectId.isValid(userId)) {
+      return sendError(res, 400, "Invalid user ID format");
+    }
+
+    const userObjectId = new ObjectId(userId);
+    const userIdStr = userId.toString();
+
+    // ── Step 1: all accepted friendships ──────────────────────────────
+    const friendships = await req.db
+      .collection("friendships")
+      .find({
+        $or: [{ user1Id: userIdStr }, { user2Id: userIdStr }],
+        status: "accepted",
+      })
+      .toArray();
+
+    if (friendships.length === 0) {
+      return sendSuccess(
+        res,
+        200,
+        "Friends summary retrieved successfully",
+        { friends: [] },
+        false,
+      );
+    }
+
+    // ── Step 2: collect friend ObjectIds ──────────────────────────────
+    const friendIds = friendships
+      .map((f) => {
+        const raw = f.user1Id === userIdStr ? f.user2Id : f.user1Id;
+        try {
+          return typeof raw === "string" ? new ObjectId(raw) : raw;
+        } catch {
+          return null;
+        }
+      })
+      .filter(Boolean);
+
+    // ── Step 3: batch-fetch friend user docs ──────────────────────────
+    const users = await req.db
+      .collection("users")
+      .find(
+        { _id: { $in: friendIds } },
+        {
+          projection: {
+            password: 0,
+            resetPasswordToken: 0,
+            resetPasswordExpires: 0,
+            verificationCode: 0,
+            verificationCodeExpires: 0,
+          },
+        },
+      )
+      .toArray();
+
+    // Map userId → user doc
+    const userMap = {};
+    users.forEach((u) => {
+      userMap[u._id.toString()] = u;
+    });
+
+    // ── Step 4: batch-fetch last messages per friend ──────────────────
+    // We need one query per friend for last message + unread, but these
+    // are lightweight indexed queries.  For a production app with many
+    // friends, replace with a single aggregation pipeline.
+    const messagePromises = friendIds.map((fid) => {
+      const fidStr = fid.toString();
+      return Promise.all([
+        // Last message
+        req.db.collection("messages").findOne(
+          {
+            $or: [
+              { senderId: userObjectId, receiverId: fid },
+              { senderId: fid, receiverId: userObjectId },
+            ],
+          },
+          {
+            sort: { timestamp: -1 },
+            projection: {
+              content: 1,
+              type: 1,
+              timestamp: 1,
+              senderId: 1,
+              receiverId: 1,
+              status: 1,
+              metadata: 1,
+            },
+          },
+        ),
+        // Unread count
+        req.db.collection("messages").countDocuments({
+          senderId: fid,
+          receiverId: userObjectId,
+          status: "sent",
+        }),
+        // Friendship createdAt
+        req.db.collection("friendships").findOne(
+          {
+            $or: [
+              { user1Id: userIdStr, user2Id: fidStr },
+              { user1Id: fidStr, user2Id: userIdStr },
+            ],
+          },
+          { projection: { createdAt: 1, status: 1 } },
+        ),
+      ]);
+    });
+
+    const messageResults = await Promise.all(messagePromises);
+
+    // ── Step 5: assemble response ─────────────────────────────────────
+    const friends = friendships
+      .map((friendship, idx) => {
+        const rawId =
+          friendship.user1Id === userIdStr
+            ? friendship.user2Id
+            : friendship.user1Id;
+        const fidStr = typeof rawId === "string" ? rawId : rawId.toString();
+        const userDoc = userMap[fidStr];
+
+        if (!userDoc) return null;
+
+        const [lastMsg, unreadCount, friendshipDoc] = messageResults[idx];
+
+        return {
+          _id: fidStr,
+          firstName: userDoc.firstName,
+          lastName: userDoc.lastName,
+          email: userDoc.email,
+          avatarUrl: userDoc.avatarUrl || null,
+          status: userDoc.status || "offline",
+          lastSeen: userDoc.lastSeen || null,
+          friendshipCreatedAt: friendshipDoc?.createdAt || null,
+          friendshipStatus: friendshipDoc?.status || "accepted",
+          lastMessage: lastMsg
+            ? {
+                content: lastMsg.content,
+                type: lastMsg.type || "text",
+                timestamp: lastMsg.timestamp,
+                senderId: lastMsg.senderId.toString(),
+                status: lastMsg.status || "sent",
+                metadata: lastMsg.metadata || undefined,
+              }
+            : null,
+          unreadCount: unreadCount || 0,
+        };
+      })
+      .filter(Boolean);
+
+    // Sort by most recent activity (last message or friendship creation)
+    friends.sort((a, b) => {
+      const aMsgTime = a.lastMessage?.timestamp
+        ? new Date(a.lastMessage.timestamp).getTime()
+        : 0;
+      const bMsgTime = b.lastMessage?.timestamp
+        ? new Date(b.lastMessage.timestamp).getTime()
+        : 0;
+      const aFriendTime = a.friendshipCreatedAt
+        ? new Date(a.friendshipCreatedAt).getTime()
+        : 0;
+      const bFriendTime = b.friendshipCreatedAt
+        ? new Date(b.friendshipCreatedAt).getTime()
+        : 0;
+      return Math.max(bMsgTime, bFriendTime) - Math.max(aMsgTime, aFriendTime);
+    });
+
+    return sendSuccess(
+      res,
+      200,
+      "Friends summary retrieved successfully",
+      { friends },
+      false,
+    );
+  } catch (error) {
+    console.error("Error retrieving friends summary:", error);
+    return sendError(res, 500, "Error retrieving friends summary");
   }
 };
 
@@ -632,7 +825,7 @@ const getFriends = async (req, res) => {
         {
           friends: [],
         },
-        false
+        false,
       );
     }
     // Extract friend IDs
@@ -641,8 +834,8 @@ const getFriends = async (req, res) => {
         toObjectId(
           friendship.user1Id === userId
             ? friendship.user2Id
-            : friendship.user1Id
-        )
+            : friendship.user1Id,
+        ),
       )
       .filter((id) => id !== null);
 
@@ -671,7 +864,7 @@ const getFriends = async (req, res) => {
       {
         friends: formattedFriends,
       },
-      false
+      false,
     );
   } catch (error) {
     return sendError(res, 500, "Error retrieving friends");
@@ -745,7 +938,7 @@ const getUserById = async (req, res) => {
       {
         user: userResponse,
       },
-      false
+      false,
     );
   } catch (error) {
     console.error("Detailed User Retrieval Error");
@@ -769,7 +962,7 @@ const updateUserStatus = async (req, res) => {
           lastSeen: new Date(),
           status: "offline",
         },
-      }
+      },
     );
 
     sendSuccess(res, 200, "User status updated successfully");
@@ -836,7 +1029,7 @@ const getFriendshipStatus = async (req, res) => {
         200,
         "Friendship retrieved successfully",
         response,
-        false
+        false,
       );
     }
 
@@ -858,7 +1051,7 @@ const getFriendshipStatus = async (req, res) => {
             },
           },
         },
-        false
+        false,
       );
     }
 
@@ -878,7 +1071,7 @@ const getFriendshipStatus = async (req, res) => {
           },
         },
       },
-      false
+      false,
     );
   } catch (error) {
     return sendError(res, 500, "Error retrieving friendship");
@@ -962,7 +1155,7 @@ const blockUser = async (req, res) => {
             blockedId: blockedObjectId,
             createdAt: new Date(),
           },
-          { session }
+          { session },
         );
 
         //removing friendship if it exists
@@ -973,7 +1166,7 @@ const blockUser = async (req, res) => {
               { user1Id: blockedIdStr, user2Id: blockerIdStr },
             ],
           },
-          { session }
+          { session },
         );
 
         //removing any pending friend requests between users
@@ -984,7 +1177,7 @@ const blockUser = async (req, res) => {
               { senderId: blockedObjectId, receiverId: blockerObjectId },
             ],
           },
-          { session }
+          { session },
         );
       });
 
@@ -1052,13 +1245,13 @@ const getBlockedUsers = async (req, res) => {
         200,
         "No blocked users found",
         { blockedUsers: [] },
-        false
+        false,
       );
     }
 
     //getting details of blocked user
     const blockedUserIds = blockedRecords.map((record) =>
-      toObjectId(record.blockedId)
+      toObjectId(record.blockedId),
     );
 
     const blockedUsers = await req.db
@@ -1075,7 +1268,7 @@ const getBlockedUsers = async (req, res) => {
 
     const formattedBlockedUsers = blockedUsers.map((user) => {
       const blockRecord = blockedRecords.find(
-        (record) => record.blockedId.toString() === user._id.toString()
+        (record) => record.blockedId.toString() === user._id.toString(),
       );
 
       return {
@@ -1092,7 +1285,7 @@ const getBlockedUsers = async (req, res) => {
       {
         blockedUsers: formattedBlockedUsers,
       },
-      false
+      false,
     );
   } catch (error) {
     return sendError(res, 500, "Error retrieving blocked users");
@@ -1131,7 +1324,7 @@ const checkBlockStatus = async (req, res) => {
         youBlockedThem: !!youBlockedThem,
         theyBlockedYou: !!theyBlockedYou,
       },
-      false
+      false,
     );
   } catch (error) {
     return sendError(res, 500, "Error checking block status");
@@ -1167,6 +1360,7 @@ export {
   getFriendRequests,
   handleFriendRequest,
   getFriends,
+  getFriendsSummary,
   initializeFriendshipsForUser,
   getUserById,
   updateUserStatus,
