@@ -2,6 +2,10 @@ import { WebSocketServer } from "ws";
 import WebSocketEventHandler from "./WebSocketEventHandler.js";
 import { RateLimiter, createRequestPool } from "../utils/networkControl.js";
 import { ObjectId } from "mongodb";
+import jwt from "jsonwebtoken";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 const isValidObjectId = (id) => ObjectId.isValid(id);
 
@@ -45,7 +49,7 @@ const initializeWebSocket = (server, db) => {
           JSON.stringify({
             type: "error",
             message: "Rate limit exceeded. Please slow down.",
-          })
+          }),
         );
         return;
       }
@@ -80,7 +84,7 @@ const initializeWebSocket = (server, db) => {
             JSON.stringify({
               type: "error",
               message: error.message,
-            })
+            }),
           );
         }
         handleError(error);
@@ -89,11 +93,57 @@ const initializeWebSocket = (server, db) => {
 
     const handleRegistration = async (message) => {
       try {
-        if (!isValidObjectId(message.senderId)) {
+        // ── JWT Token verification ────────────────────────────────
+        const token = message.token;
+        if (!token) {
+          ws.send(
+            JSON.stringify({
+              type: "error",
+              id: message.id,
+              message: "Authentication required: no token provided",
+            }),
+          );
+          ws.close(4001, "No token provided");
+          return;
+        }
+
+        let decoded;
+        try {
+          decoded = jwt.verify(token, process.env.JWT_SECRET);
+        } catch (jwtError) {
+          ws.send(
+            JSON.stringify({
+              type: "error",
+              id: message.id,
+              message: "Authentication failed: invalid or expired token",
+            }),
+          );
+          ws.close(4001, "Invalid token");
+          return;
+        }
+
+        // Ensure the token's userId matches the claimed senderId
+        const tokenUserId = decoded.userId?.toString();
+        const claimedUserId = message.senderId?.toString();
+
+        if (!tokenUserId || !claimedUserId || tokenUserId !== claimedUserId) {
+          ws.send(
+            JSON.stringify({
+              type: "error",
+              id: message.id,
+              message:
+                "Authentication failed: token does not match sender identity",
+            }),
+          );
+          ws.close(4001, "Token mismatch");
+          return;
+        }
+
+        if (!isValidObjectId(claimedUserId)) {
           throw new Error("Invalid user ID format");
         }
 
-        const stringUserId = message.senderId.toString();
+        const stringUserId = claimedUserId;
 
         userId = stringUserId;
         connectedClients.set(userId, ws);
@@ -105,12 +155,12 @@ const initializeWebSocket = (server, db) => {
             JSON.stringify({
               type: "ack",
               id: message.id,
-            })
+            }),
           );
         }
 
         const connectedUsers = Array.from(connectedClients.keys()).filter(
-          (id) => id !== userId
+          (id) => id !== userId,
         );
 
         // to broadcast new user's status
@@ -124,7 +174,7 @@ const initializeWebSocket = (server, db) => {
               userId: connectedUserId,
               status: "online",
               lastSeen: null,
-            })
+            }),
           );
         });
       } catch (error) {
@@ -135,7 +185,7 @@ const initializeWebSocket = (server, db) => {
               type: "error",
               id: message.id,
               message: "Registration failed",
-            })
+            }),
           );
         }
         throw error;
@@ -162,7 +212,7 @@ const initializeWebSocket = (server, db) => {
         JSON.stringify({
           type: "error",
           message: "An error occurred processing your request",
-        })
+        }),
       );
     };
 

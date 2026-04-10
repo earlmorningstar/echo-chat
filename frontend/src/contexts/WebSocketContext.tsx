@@ -144,7 +144,7 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
 
     setIsConnected(false);
     queryClient.invalidateQueries({ queryKey: ["typingStatus"] });
-    
+    // eslint-disable-next-line
   }, [sendMessage, user?._id, queryClient]);
 
   useEffect(() => {
@@ -294,13 +294,15 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
         // Signal consumers that a fresh manager exists and they should subscribe.
         setManagerReady((g) => g + 1);
 
-        //sending registration message
+        //sending registration message with auth token
         if (user._id) {
+          const token = localStorage.getItem("token");
           eventManager.current?.enqueueEvent(
             "register",
             {
               type: "register",
               senderId: user._id,
+              token: token || undefined,
               status: lastStatusRef.current,
               timestamp: Date.now(),
               requireAck: true,

@@ -82,7 +82,7 @@ export class WebSocketEventManager {
             type: "ack",
             id: message.id,
             timestamp: Date.now(),
-          })
+          }),
         );
       }
 
@@ -114,14 +114,14 @@ export class WebSocketEventManager {
   async enqueueEvent(
     type: string,
     data: any,
-    priority: number = 1
+    priority: number = 1,
   ): Promise<void> {
     try {
       this.cleanupPendingAcks();
 
       if (this.eventQueue.length >= this.maxQueueSize) {
         this.eventQueue = this.eventQueue.filter(
-          (event) => Date.now() - event.timestamp < 60000
+          (event) => Date.now() - event.timestamp < 60000,
         );
       }
 
@@ -216,7 +216,7 @@ export class WebSocketEventManager {
     //priority based processing
     this.eventQueue.sort((a, b) => {
       if (a.type.startsWith("call_")) return -1;
-      if (b.type.startsWith("call_")) return -1;
+      if (b.type.startsWith("call_")) return 1;
       return b.priority - a.priority;
     });
 
@@ -252,7 +252,7 @@ export class WebSocketEventManager {
               event.attempts++;
               this.eventQueue.push(this.eventQueue.shift()!);
               await new Promise((resolve) =>
-                setTimeout(resolve, this.retryDelay * event.attempts)
+                setTimeout(resolve, this.retryDelay * event.attempts),
               );
             }
           }
@@ -271,7 +271,7 @@ export class WebSocketEventManager {
           event.attempts++;
           this.eventQueue.push(this.eventQueue.shift()!);
           await new Promise((resolve) =>
-            setTimeout(resolve, this.retryDelay * event.attempts)
+            setTimeout(resolve, this.retryDelay * event.attempts),
           );
         }
       }
