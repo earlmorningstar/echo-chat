@@ -369,6 +369,32 @@ const CallInterface: React.FC = () => {
         )}
       </div>
 
+      {/* Voice Call Live State - Center Avatar with Breathing Animation */}
+      {callState.currentCall.type === "voice" && remoteUser && (
+        <div className="voice-call-live-avatar">
+          <div className="avatar-wrapper">
+            {remoteUser.avatarUrl ? (
+              <img
+                src={remoteUser.avatarUrl}
+                alt={`${remoteUser.firstName} ${remoteUser.lastName}`}
+              />
+            ) : (
+              <div className="avatar-fallback">
+                <span>
+                  {remoteUser.firstName?.[0]}
+                  {remoteUser.lastName?.[0]}
+                </span>
+              </div>
+            )}
+          </div>
+          <div className="voice-call-status">
+            {callState.currentCall.status === "connected"
+              ? "Connected"
+              : "Connecting..."}
+          </div>
+        </div>
+      )}
+
       {/* Semi-transparent participant overlay (top-left) */}
       <div className="participant-overlay">
         {remoteUser && (
