@@ -37,7 +37,7 @@ type CallContextType = {
   initializeVoiceDevice: (
     token: string,
     callId: string,
-    recipientId: string
+    recipientId: string,
   ) => TwilioVoice.Device;
   acceptCall: (callId: string) => Promise<void>;
   rejectCall: (callId: string) => Promise<void>;
@@ -65,7 +65,7 @@ const adaptCallStateUpdate = (
     status?: CallStatus;
     participants?: string[];
     activeCall?: ActiveCall;
-  }>
+  }>,
 ): Partial<CallState> => {
   const currentCallUpdate: Partial<CallState["currentCall"]> = {};
 
@@ -103,11 +103,11 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
         audioEnabled: boolean;
         videoEnabled: boolean;
         screenShareEnabled: boolean;
-      }>
+      }>,
     ) => {
       dispatch({ type: "UPDATE_MEDIA", payload });
     },
-    [dispatch]
+    [dispatch],
   );
   const mediaControls = useMediaStreamManager(updateMedia);
   const { toggleAudio, toggleVideo } = mediaControls;
@@ -120,7 +120,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
         payload: adaptCallStateUpdate(update),
       });
     },
-    [dispatch]
+    [dispatch],
   );
 
   const {
@@ -132,7 +132,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
   } = useTwilioRoomManager(
     mediaControls.localTracks,
     useCallback(updateCallback, [updateCallback]),
-    state.currentCall.recipientId || undefined
+    state.currentCall.recipientId || undefined,
   );
 
   const callManagerRef = useRef({
@@ -175,7 +175,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
         dispatch({ type: "END_CALL" });
         await mediaControls.stopAllTracks();
         const { success, tracks } = await mediaControls.getMediaPermissions(
-          CallType.VIDEO
+          CallType.VIDEO,
         );
         if (!success) throw new Error("Permissions denied");
 
@@ -232,7 +232,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
                 device.once("error", (error) => reject(error));
                 setTimeout(
                   () => reject(new Error("Device never became registered")),
-                  30000
+                  30000,
                 );
               }
             });
@@ -240,7 +240,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
             const voiceCall = await makeVoiceCall(
               recipientId,
               call._id,
-              user?._id
+              user?._id,
             );
             if (!voiceCall) {
               throw new Error("Voice connection failed");
@@ -288,7 +288,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
       makeVoiceCall,
       callManager,
       mediaControls,
-    ]
+    ],
   );
 
   const acceptCall = useCallback(
@@ -302,7 +302,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
 
         //initializing media befoee accepting
         const { success, tracks } = await mediaControls.getMediaPermissions(
-          CallType.VIDEO
+          CallType.VIDEO,
         );
         if (!success) throw new Error("Permissions denied");
 
@@ -331,7 +331,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
               },
             },
           });
-          
+
           dispatch({ type: "CLEAR_INCOMING_CALL" });
         } else if (type === CallType.VOICE) {
           dispatch({
@@ -368,7 +368,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
       state.incomingCall,
       mediaControls,
       callManager,
-    ]
+    ],
   );
 
   const rejectCall = useCallback(
@@ -388,7 +388,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
         dispatch({ type: "SET_ERROR", payload: "Failed to reject call" });
       }
     },
-    [user?._id, sendMessage, state.incomingCall, softReset]
+    [user?._id, sendMessage, state.incomingCall, softReset],
   );
 
   const endCall = useCallback(async () => {
@@ -424,7 +424,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
         payload: { audioEnabled: enabled },
       });
     },
-    [toggleAudio, dispatch]
+    [toggleAudio, dispatch],
   );
 
   const handleVideoToggle = useCallback(
@@ -435,7 +435,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
         payload: { videoEnabled: enabled },
       });
     },
-    [toggleVideo, dispatch]
+    [toggleVideo, dispatch],
   );
 
   const handleScreenToggle = useCallback(
@@ -447,7 +447,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
 
         // Handle the screen track in the Twilio room
         const screenTracks = mediaControls.localTracks.filter(
-          (t): t is LocalVideoTrack => t.name === "screen-share"
+          (t): t is LocalVideoTrack => t.name === "screen-share",
         );
 
         if (enabled && screenTracks.length > 0) {
@@ -467,7 +467,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
         payload: { screenShareEnabled: enabled },
       });
     },
-    [callManager.videoDevice, mediaControls, dispatch]
+    [callManager.videoDevice, mediaControls, dispatch],
   );
 
   const handleCallEvent = useCallback(
@@ -516,14 +516,14 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
               const device = initializeVoiceDevice(
                 message.token!,
                 message.callId,
-                message.callerId
+                message.callerId,
               );
 
               // Handle device registration status
               await new Promise((resolve, reject) => {
                 const timeout = setTimeout(
                   () => reject(new Error("Device registration timeout")),
-                  10000
+                  10000,
                 );
 
                 device.once("registered", () => {
@@ -568,7 +568,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
                   message.token,
                   message.roomName,
                   message.callId,
-                  message.tracks
+                  message.tracks,
                 );
               }
             }
@@ -630,7 +630,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
       dispatch,
       state.incomingCall,
       softReset,
-    ]
+    ],
   );
 
   useEffect(() => {
@@ -658,6 +658,19 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
     };
   }, [handleCallEvent, eventManager, isConnected, state.currentCall.id]);
 
+  /** Stabilized participants array — only changes identity when the actual
+   *  participant set changes, preventing event listener teardown/re-attach
+   *  on every render in CallInterface. */
+  const participantsRef = useRef<RemoteParticipant[]>([]);
+  const rawParticipants = callManager.videoDevice
+    ? Array.from(callManager.videoDevice.participants.values())
+    : [];
+  const rawKey = rawParticipants.map((p) => p.identity).join(",");
+  const stableKey = participantsRef.current.map((p) => p.identity).join(",");
+  if (rawKey !== stableKey) {
+    participantsRef.current = rawParticipants;
+  }
+
   const value = useMemo(
     () => ({
       initiateCall,
@@ -670,9 +683,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
       toggleVideo: handleVideoToggle,
       toggleScreenShare: handleScreenToggle,
       callState: state,
-      participants: callManager.videoDevice
-        ? Array.from(callManager.videoDevice.participants.values())
-        : [],
+      participants: participantsRef.current,
       room: callManagerRef.current.videoDevice || null,
       callManager: {
         videoDevice: callManager.videoDevice,
@@ -693,7 +704,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
       callManager.videoDevice,
       callManager.voiceDevice,
       mediaControls,
-    ]
+    ],
   );
 
   return <CallContext.Provider value={value}>{children}</CallContext.Provider>;

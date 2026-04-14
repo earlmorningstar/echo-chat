@@ -102,7 +102,7 @@ const ChatWindow: React.FC = () => {
   const [newMessage, setNewMessage] = useState("");
   const [typing, setTyping] = useState(false);
   const [typingTimeout, setTypingTimeout] = useState<NodeJS.Timeout | null>(
-    null
+    null,
   );
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -190,11 +190,11 @@ const ChatWindow: React.FC = () => {
           return oldMessages
             ? [...oldMessages, { ...message, status: "read" }]
             : [{ ...message, status: "read" }];
-        }
+        },
       );
       scrollToBottom();
     },
-    [queryClient, friendId, scrollToBottom]
+    [queryClient, friendId, scrollToBottom],
   );
 
   const updateMessagesAsRead = useCallback(() => {
@@ -206,7 +206,7 @@ const ChatWindow: React.FC = () => {
           ...message,
           status: message.senderId === friendId ? "read" : message.status,
         }));
-      }
+      },
     );
   }, [friendId, queryClient]);
 
@@ -232,7 +232,8 @@ const ChatWindow: React.FC = () => {
   useEffect(() => {
     if (friendId && messages.length > 0) {
       const hasUnreadMessages = messages.some(
-        (msg: ChatMessage) => msg.senderId === friendId && msg.status !== "read"
+        (msg: ChatMessage) =>
+          msg.senderId === friendId && msg.status !== "read",
       );
 
       if (hasUnreadMessages) {
@@ -275,6 +276,9 @@ const ChatWindow: React.FC = () => {
       // save to db
       await api.post("/api/messages/send", messageToSend);
       queryClient.invalidateQueries({ queryKey: ["messages", friendId] });
+      // Update the sender's sidebar immediately so "Last Message" preview
+      // refreshes the millisecond the API call succeeds
+      queryClient.invalidateQueries({ queryKey: ["friends"] });
     } catch (error) {
       console.error("Error sending message");
     }
@@ -301,7 +305,7 @@ const ChatWindow: React.FC = () => {
         updateTypingStatus(friendId, isTyping);
       }
     },
-    [friendId, user?._id, sendMessage, updateTypingStatus]
+    [friendId, user?._id, sendMessage, updateTypingStatus],
   );
 
   const handleMessageInput = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -329,7 +333,7 @@ const ChatWindow: React.FC = () => {
   }, [typingTimeout]);
 
   const handleFileSelect = async (
-    event: React.ChangeEvent<HTMLInputElement>
+    event: React.ChangeEvent<HTMLInputElement>,
   ) => {
     const file = event.target.files?.[0];
     if (!file || !user?._id) return;
@@ -377,6 +381,7 @@ const ChatWindow: React.FC = () => {
 
       await api.post("/api/messages/send", messageToSend);
       queryClient.invalidateQueries({ queryKey: ["messages", friendId] });
+      queryClient.invalidateQueries({ queryKey: ["friends"] });
     } catch (error) {
       console.error("Error sending file");
     }
@@ -423,7 +428,7 @@ const ChatWindow: React.FC = () => {
                       (name) =>
                         `${name.charAt(0).toUpperCase()}${name
                           .slice(1)
-                          .toLowerCase()}`
+                          .toLowerCase()}`,
                     )
                     .join(" ")}
                 </h3>

@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useCall } from "../contexts/CallContext";
-import { useWebSocket } from "../contexts/WebSocketContext";
 import { useAuth } from "../contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import { Call, CallEnd, Videocam } from "@mui/icons-material";
@@ -19,7 +18,6 @@ const AnimatePresence = FramerMotion.AnimatePresence as React.ComponentType<{
 const IncomingCallModal: React.FC = () => {
   const { callState, acceptCall, rejectCall } = useCall();
   const { user } = useAuth();
-  const { sendMessage } = useWebSocket();
   const { incomingCall } = callState;
   const [caller, setCaller] = useState<AuthUser | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -110,13 +108,8 @@ const IncomingCallModal: React.FC = () => {
           audioRef.current.currentTime = 0;
           audioRef.current = null; //avoiding reuse
         }
+        // rejectCall already sends the WS call_reject message internally
         await rejectCall(incomingCall.callId);
-
-        sendMessage({
-          type: "call_reject",
-          callId: incomingCall.callId,
-          rejectorId: user._id,
-        });
       }
     } catch (error) {
       console.error("Rejection failed");

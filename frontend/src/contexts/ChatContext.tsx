@@ -5,6 +5,7 @@ import React, {
   useCallback,
   useEffect,
   useRef,
+  useMemo,
 } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import api from "../utils/api";
@@ -269,22 +270,35 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
     };
   }, [isAuthenticated, queryClient]);
 
-  const value = {
-    friends,
-    isLoading,
-    isError,
-    refetch,
-    setFriendAsRead,
-    updateTypingStatus,
-    typingStatus,
-    friendTypingStatus,
-    getUserStatus,
-    blockedUsers,
-    blockedByUsers,
-    isUserBlocked,
-    isBlockedByUser,
-    fetchBlockedUsers,
-  };
+  const value = useMemo(
+    () => ({
+      friends,
+      isLoading,
+      isError,
+      refetch,
+      setFriendAsRead,
+      updateTypingStatus,
+      typingStatus,
+      friendTypingStatus,
+      getUserStatus,
+      blockedUsers,
+      blockedByUsers,
+      isUserBlocked,
+      isBlockedByUser,
+      fetchBlockedUsers,
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [
+      friends,
+      isLoading,
+      isError,
+      refetch,
+      typingStatus,
+      friendTypingStatus,
+      blockedUsers,
+      blockedByUsers,
+    ],
+  );
 
   return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;
 };

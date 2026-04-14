@@ -11,22 +11,58 @@ import { useAuth } from "./AuthContext";
 import { UserStatus } from "../types";
 import { WebSocketEventManager } from "./calls/WebSocketEventManager";
 
-interface WebSocketContextType {
-  sendMessage: (message: any) => Promise<void>;
-  eventManager: React.RefObject<WebSocketEventManager | null>;
-  isConnected: boolean;
-  connectionState: number;
-  /** Increments each time a new WebSocketEventManager is created. Consumers
-   *  should include this in useEffect deps to re-subscribe after reconnects. */
-  managerReady: number;
+// ─── Interfaces ───────────────────────────────────────────────────────
+
+/** Shape of a message sent through the WebSocket. */
+export interface WSSendMessage {
+  type: string;
+  senderId?: string | null;
+  receiverId?: string | null;
+  status?: string;
+  timestamp?: number | Date;
+  content?: string;
+  metadata?: Record<string, unknown>;
+  isTyping?: boolean;
+  callId?: string;
+  callerId?: string | null;
+  recipientId?: string | null;
+  acceptorId?: string;
+  rejectorId?: string | null;
+  endedBy?: string | null;
+  callType?: string;
+  roomName?: string;
+  token?: string;
+  originalId?: string;
+  requireAck?: boolean;
+  [key: string]: unknown;
 }
 
-interface pendingMessage {
+/** A pending message waiting for delivery when the socket reconnects. */
+interface PendingMessage {
   type: string;
-  data: any;
+  data: Record<string, unknown>;
   priority: number;
   timestamp: number;
 }
+
+/** Context value exposed to consumers. */
+interface WebSocketContextType {
+  sendMessage: (message: WSSendMessage) => Promise<void>;
+  eventManager: React.RefObject<WebSocketEventManager | null>;
+  isConnected: boolean;
+  connectionState: number;
+  managerReady: number;
+}
+
+// ─── Constants ────────────────────────────────────────────────────────
+
+const MESSAGE_TTL_MS = 300_000;
+const MAX_PENDING_MESSAGES = 50;
+const CONNECT_TIMEOUT_MS = 5_000;
+const RECONNECT_CHECK_INTERVAL_MS = 15_000;
+const TYPING_RESET_TIMEOUT_MS = 5_000;
+
+// ─── Context ──────────────────────────────────────────────────────────
 
 const WebSocketContext = createContext<WebSocketContextType>({
   sendMessage: async () => {},
@@ -36,65 +72,52 @@ const WebSocketContext = createContext<WebSocketContextType>({
   managerReady: 0,
 });
 
-const RECONNECT_DELAY = 1000;
-const MAX_RECONNECT_ATTEMPTS = 5;
-
-type ConnectFunction = () => void;
+// ─── Provider ─────────────────────────────────────────────────────────
 
 export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
-  const ws = useRef<WebSocket | null>(null);
-  const eventManager = useRef<WebSocketEventManager | null>(null);
+  const wsRef = useRef<WebSocket | null>(null);
+  const eventManagerRef = useRef<WebSocketEventManager | null>(null);
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [isConnected, setIsConnected] = useState(false);
-  /** Increments each time a new WebSocketEventManager is created, so consumers
-   *  can re-subscribe when the manager instance changes (e.g. after reconnect). */
   const [managerReady, setManagerReady] = useState(0);
-  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(
-    undefined,
+  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
   );
-  const connectionAttempts = useRef<number>(0);
   const lastStatusRef = useRef<UserStatus>("offline");
-  const isConnecting = useRef<boolean>(false);
-  const pendingMessages = useRef<pendingMessage[]>([]);
-  const connectRef = useRef<ConnectFunction | undefined>(undefined);
-  const cleanupConnectionRef = useRef<(() => void) | undefined>(undefined);
-  /** Single shared ref for the ping interval — prevents duplicate intervals
-   *  when connect() is called again before the previous socket fully closes. */
+  const isConnectingRef = useRef(false);
+  const pendingMessagesRef = useRef<PendingMessage[]>([]);
+  const connectRef = useRef<(() => void) | null>(null);
   const pingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // ── Stable refs for use inside handleWebSocketMessage ──────────────
-  // These keep the callback stable (empty deps []) while still giving it
-  // access to the latest queryClient and userId without causing re-creation.
+  // Stable refs so handleWebSocketMessage never needs to recreate
   const queryClientRef = useRef(queryClient);
   queryClientRef.current = queryClient;
   const userIdRef = useRef<string | null>(user?._id ?? null);
   userIdRef.current = user?._id ?? null;
 
-  const sendMessage = useCallback(async (message: any) => {
-    if (!eventManager.current?.isConnected) {
+  // ── sendMessage ────────────────────────────────────────────────────
+
+  const sendMessage = useCallback(async (message: WSSendMessage) => {
+    if (!eventManagerRef.current?.isConnected) {
       await new Promise((resolve) => setTimeout(resolve, 500));
-      if (!eventManager.current?.isConnected) return;
+      if (!eventManagerRef.current?.isConnected) return;
     }
 
-    //to maintain message queue health
     const now = Date.now();
-    pendingMessages.current = pendingMessages.current.filter(
-      (msg) => now - msg.timestamp < 300000, // 5-minute TTL
+    pendingMessagesRef.current = pendingMessagesRef.current.filter(
+      (msg) => now - msg.timestamp < MESSAGE_TTL_MS,
     );
-    if (pendingMessages.current.length >= 50) {
-      pendingMessages.current.shift();
+    if (pendingMessagesRef.current.length >= MAX_PENDING_MESSAGES) {
+      pendingMessagesRef.current.shift();
     }
 
-    if (
-      !eventManager.current &&
-      connectionAttempts.current < MAX_RECONNECT_ATTEMPTS
-    ) {
-      pendingMessages.current.push({
+    if (!eventManagerRef.current) {
+      pendingMessagesRef.current.push({
         type: message.type,
-        data: message,
+        data: message as Record<string, unknown>,
         priority: 1,
         timestamp: Date.now(),
       });
@@ -102,19 +125,19 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
       return;
     }
 
-    if (eventManager.current) {
+    if (eventManagerRef.current) {
       try {
-        await eventManager.current.enqueueEvent(
+        const priority = message.type.startsWith("status") ? 2 : 1;
+        await eventManagerRef.current.enqueueEvent(
           message.type,
-          message,
-          message.type.startsWith("status") ? 2 : 1,
+          message as Record<string, unknown>,
+          priority,
         );
-      } catch (error) {
-        console.error(`Failed to send message: ${message.type}`);
-        //store failed messages for retry
-        pendingMessages.current.push({
+      } catch (error: unknown) {
+        console.error(`Failed to send message: ${message.type}`, error);
+        pendingMessagesRef.current.push({
           type: message.type,
-          data: message,
+          data: message as Record<string, unknown>,
           priority: 1,
           timestamp: Date.now(),
         });
@@ -122,89 +145,101 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   }, []);
 
+  // ── cleanupConnection ──────────────────────────────────────────────
+
   const cleanupConnection = useCallback(() => {
     if (pingIntervalRef.current !== null) {
       clearInterval(pingIntervalRef.current);
       pingIntervalRef.current = null;
     }
-    if (reconnectTimeoutRef.current) {
+    if (reconnectTimeoutRef.current !== null) {
       clearTimeout(reconnectTimeoutRef.current);
-      reconnectTimeoutRef.current = undefined;
+      reconnectTimeoutRef.current = null;
     }
 
-    if (eventManager.current) {
-      eventManager.current.cleanup();
-      eventManager.current = null;
+    if (eventManagerRef.current) {
+      eventManagerRef.current.cleanup();
+      eventManagerRef.current = null;
     }
 
-    if (ws.current) {
-      ws.current.close();
-      ws.current = null;
+    if (wsRef.current) {
+      wsRef.current.close();
+      wsRef.current = null;
     }
 
     setIsConnected(false);
     queryClient.invalidateQueries({ queryKey: ["typingStatus"] });
-    // eslint-disable-next-line
-  }, [sendMessage, user?._id, queryClient]);
+  }, [queryClient]);
 
   useEffect(() => {
-    cleanupConnectionRef.current = cleanupConnection;
-  }, [cleanupConnection]);
+    connectRef.current = () => connect();
+  });
 
-  /**
-   * Centralized handler for incoming WebSocket messages.
-   * Uses refs (queryClientRef, userIdRef, lastStatusRef, eventManager)
-   * so this callback is stable with an empty dependency array — preventing
-   * the reconnect-storm bug when deps change.
-   */
+  // ── handleWebSocketMessage (stable: [] deps) ───────────────────────
+
   const handleWebSocketMessage = useCallback(
-    (message: any) => {
+    (message: Record<string, unknown>) => {
+      console.log("[WS] RAW WS EVENT RECEIVED:", message?.type, message);
       if (!message || typeof message !== "object") return;
 
       const qc = queryClientRef.current;
       const currentUserId = userIdRef.current;
 
+      const invalidateMessageQueries = () => {
+        qc.invalidateQueries(
+          {
+            predicate: (query) => {
+              const keyStr = JSON.stringify(query.queryKey).toLowerCase();
+              const isTarget =
+                keyStr.includes("message") || keyStr.includes("friend");
+              if (isTarget) {
+                console.log("[WS] 🔁 MATCH — refetching:", query.queryKey);
+              }
+              return isTarget;
+            },
+          },
+          { cancelRefetch: true },
+        );
+      };
+
       const handlers: Record<string, () => void> = {
         typing: () => {
-          qc.setQueryData(["typingStatus", message.senderId], message.isTyping);
+          qc.setQueryData(
+            ["typingStatus", message.senderId],
+            message.isTyping ?? false,
+          );
           qc.setQueryData(
             ["friendTypingStatus", message.senderId],
-            message.isTyping,
+            message.isTyping ?? false,
           );
-          if (!message.isTyping) return;
-
-          setTimeout(() => {
-            qc.setQueryData(["typingStatus", message.senderId], false);
-          }, 5000);
+          if (message.isTyping) {
+            setTimeout(() => {
+              qc.setQueryData(["typingStatus", message.senderId], false);
+            }, TYPING_RESET_TIMEOUT_MS);
+          }
         },
-        // FIX #1 — invalidate the correct query keys.
-        // ChatWindow uses ["messages", friendId] (plural).  We invalidate
-        // every query whose first key segment is "messages" so all open
-        // chat windows refetch when a new message arrives.
-        message: () => {
-          qc.invalidateQueries({
-            predicate: (query) => query.queryKey[0] === "messages",
-          });
-          qc.invalidateQueries({ queryKey: ["friends"] });
-        },
-        read_status: () => {
-          qc.invalidateQueries({
-            predicate: (query) => query.queryKey[0] === "messages",
-          });
-          qc.invalidateQueries({ queryKey: ["friends"] });
-        },
+        // Accepts "message" (backend envelope) and "text" (content type)
+        message: invalidateMessageQueries,
+        text: invalidateMessageQueries,
+        read_status: invalidateMessageQueries,
         status: () => {
           if (message.userId === currentUserId) {
-            lastStatusRef.current = message.status;
+            lastStatusRef.current = message.status as UserStatus;
           }
           qc.setQueryData(["userStatus", message.userId], message.status);
-          if (message.lastSeen) {
+          if (message.lastSeen !== undefined) {
             qc.setQueryData(["userLastSeen", message.userId], message.lastSeen);
           }
-          qc.invalidateQueries({ queryKey: ["friends"] });
+          qc.invalidateQueries(
+            {
+              predicate: (query) =>
+                JSON.stringify(query.queryKey).toLowerCase().includes("friend"),
+            },
+            { cancelRefetch: true },
+          );
         },
         call_initiate: () => {
-          eventManager.current?.emit("call", {
+          eventManagerRef.current?.emit("call", {
             type: "call_initiate",
             callId: message.callId,
             callerId: message.callerId,
@@ -215,7 +250,7 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
           });
         },
         call_accept: () => {
-          eventManager.current?.emit("call", {
+          eventManagerRef.current?.emit("call", {
             type: "call_accept",
             callId: message.callId,
             acceptorId: message.acceptorId,
@@ -224,14 +259,14 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
           });
         },
         call_reject: () => {
-          eventManager.current?.emit("call", {
+          eventManagerRef.current?.emit("call", {
             type: "call_reject",
             callId: message.callId,
             rejectorId: message.rejectorId,
           });
         },
         call_end: () => {
-          eventManager.current?.emit("call", {
+          eventManagerRef.current?.emit("call", {
             type: "call_end",
             callId: message.callId,
             endedBy: message.endedBy,
@@ -240,7 +275,7 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
         },
       };
 
-      const handler = handlers[message.type];
+      const handler = handlers[message.type as string];
       if (handler) {
         try {
           handler();
@@ -249,55 +284,58 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
         }
       }
     },
-    [], // stable — all mutable state accessed via refs
+    [], // stable — all mutable state via refs
   );
 
-  const connect = useCallback<ConnectFunction>(() => {
-    if (ws.current?.readyState === WebSocket.OPEN) return;
-    if (!user?._id || isConnecting.current) return;
+  // ── connect ────────────────────────────────────────────────────────
 
-    //clearing existing connection if in invalid state
-    if (ws.current) {
-      const state = ws.current.readyState as number;
+  const connect = useCallback(() => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) return;
+    if (!user?._id || isConnectingRef.current) return;
+
+    if (wsRef.current) {
+      const state = wsRef.current.readyState as number;
       if (state === WebSocket.OPEN || state === WebSocket.CONNECTING) {
-        ws.current.close();
+        wsRef.current.close();
+        setTimeout(() => connect(), 100);
+        return;
       }
     }
 
-    if (isConnecting.current) return;
-    isConnecting.current = true;
+    isConnectingRef.current = true;
     cleanupConnection();
 
     try {
       const wsUrl = process.env.REACT_APP_WS_URL || "ws://localhost:5000";
       const socket = new WebSocket(wsUrl);
-      ws.current = socket;
+      wsRef.current = socket;
 
       const connectTimeout = setTimeout(() => {
         if (socket.readyState === WebSocket.CONNECTING) {
           socket.close();
-          isConnecting.current = false;
+          isConnectingRef.current = false;
         }
-      }, 5000);
+      }, CONNECT_TIMEOUT_MS);
 
       socket.onopen = () => {
+        if (isConnectingRef.current === false && isDestroyedRef.current) return;
         clearTimeout(connectTimeout);
-        // console.log("WebSocket connected");
-        // console.log("WS Connected - User ID:", user?._id);
         setIsConnected(true);
-        connectionAttempts.current = 0;
-        isConnecting.current = false;
+        isConnectingRef.current = false;
 
-        eventManager.current = new WebSocketEventManager(socket);
-        eventManager.current.on("message", handleWebSocketMessage);
-
-        // Signal consumers that a fresh manager exists and they should subscribe.
+        eventManagerRef.current = new WebSocketEventManager(socket);
+        const unsubscribe = eventManagerRef.current.on(
+          "message",
+          handleWebSocketMessage,
+        );
+        (eventManagerRef.current as unknown as Record<string, unknown>)[
+          "_unsubscribeMessage"
+        ] = unsubscribe;
         setManagerReady((g) => g + 1);
 
-        //sending registration message with auth token
         if (user._id) {
           const token = localStorage.getItem("token");
-          eventManager.current?.enqueueEvent(
+          eventManagerRef.current.enqueueEvent(
             "register",
             {
               type: "register",
@@ -312,22 +350,20 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
           );
         }
 
-        //processing pending messages
         const now = Date.now();
-        pendingMessages.current = pendingMessages.current.filter(
-          (msg) => now - msg.timestamp < 300000,
+        pendingMessagesRef.current = pendingMessagesRef.current.filter(
+          (msg) => now - msg.timestamp < MESSAGE_TTL_MS,
         );
-        pendingMessages.current.forEach((msg) => {
-          eventManager.current?.enqueueEvent(
+        pendingMessagesRef.current.forEach((msg) => {
+          eventManagerRef.current?.enqueueEvent(
             msg.type,
             msg.data,
-            msg.priority || 1,
+            msg.priority,
           );
         });
-        pendingMessages.current = [];
+        pendingMessagesRef.current = [];
       };
 
-      // Clear any previous ping interval before starting a new one
       if (pingIntervalRef.current !== null) {
         clearInterval(pingIntervalRef.current);
       }
@@ -343,100 +379,98 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
           pingIntervalRef.current = null;
         }
         clearTimeout(connectTimeout);
-        // console.log("WebSocket disconnected");
         setIsConnected(false);
-        isConnecting.current = false;
+        isConnectingRef.current = false;
         cleanupConnection();
 
-        //exponential backoff reconnect
-        if (connectionAttempts.current < MAX_RECONNECT_ATTEMPTS) {
-          const delay = Math.min(
-            RECONNECT_DELAY * Math.pow(2, connectionAttempts.current),
-            30000, // max 30 seconds
-          );
-          connectionAttempts.current++;
+        if (eventManagerRef.current && !eventManagerRef.current.isThrottled()) {
+          const delay = eventManagerRef.current.getNextReconnectDelay();
           reconnectTimeoutRef.current = setTimeout(connect, delay);
+        } else {
+          reconnectTimeoutRef.current = setTimeout(
+            connect,
+            Math.min(1000 * Math.pow(2, 5), 30000),
+          );
         }
       };
 
-      socket.onerror = (error) => {
-        // console.error("WebSocket error");
-        isConnecting.current = false;
+      socket.onerror = () => {
+        isConnectingRef.current = false;
         socket.close();
       };
-    } catch (error) {
-      // console.error("WebSocket initialization error:", error);
-      isConnecting.current = false;
+    } catch (error: unknown) {
+      console.error("[WS Context] Connection error:", error);
+      isConnectingRef.current = false;
       cleanupConnection();
     }
-    // eslint-disable-next-line
-  }, [user?._id, cleanupConnection]);
+  }, [user?._id, cleanupConnection, handleWebSocketMessage]);
+
+  // ── Effects ────────────────────────────────────────────────────────
+
+  const isDestroyedRef = useRef(false);
 
   useEffect(() => {
     const interval = setInterval(() => {
-      if (!isConnected) connect();
-    }, 15000);
+      if (!isConnected && !isDestroyedRef.current) connect();
+    }, RECONNECT_CHECK_INTERVAL_MS);
     return () => clearInterval(interval);
   }, [isConnected, connect]);
 
   useEffect(() => {
-    connectRef.current = connect;
-  }, [connect]);
+    if (!user?._id) return;
+    connect();
 
-  useEffect(() => {
-    if (user?._id) {
-      connect();
-
-      const handleVisibilityChange = () => {
-        // console.log("WS connection state:", ws.current?.readyState);
-        const isVisible = document.visibilityState === "visible";
-        if (isVisible && ws.current?.readyState !== WebSocket.OPEN) {
-          connect();
-        }
-        sendMessage({
-          type: "status",
-          senderId: user._id,
-          status: isVisible ? "online" : "offline",
-          timestamp: Date.now(),
-        });
-      };
-
-      const handleBeforeUnload = () => {
-        sendMessage({
-          type: "status",
-          senderId: user._id,
-          status: "offline",
-          timestamp: Date.now(),
-        });
-      };
-
-      document.addEventListener("visibilitychange", handleVisibilityChange);
-      window.addEventListener("beforeunload", handleBeforeUnload);
-
-      return () => {
-        document.removeEventListener(
-          "visibilitychange",
-          handleVisibilityChange,
-        );
-        window.removeEventListener("beforeunload", handleBeforeUnload);
-        cleanupConnection();
-      };
-    }
-  }, [user?._id, connect, sendMessage, cleanupConnection]);
-
-  useEffect(() => {
-    const handleConnectionChange = () => {
-      if (ws.current) {
-        setIsConnected(ws.current.readyState === WebSocket.OPEN);
+    const handleVisibilityChange = () => {
+      const isVisible = document.visibilityState === "visible";
+      if (isVisible && wsRef.current?.readyState !== WebSocket.OPEN) {
+        connect();
       }
+      sendMessage({
+        type: "status",
+        senderId: user._id,
+        status: isVisible ? "online" : "offline",
+        timestamp: Date.now(),
+      });
     };
 
-    window.addEventListener("online", handleConnectionChange);
-    window.addEventListener("offline", handleConnectionChange);
+    const handleBeforeUnload = () => {
+      sendMessage({
+        type: "status",
+        senderId: user._id,
+        status: "offline",
+        timestamp: Date.now(),
+      });
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("beforeunload", handleBeforeUnload);
 
     return () => {
-      window.removeEventListener("online", handleConnectionChange);
-      window.removeEventListener("offline", handleConnectionChange);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?._id]);
+
+  useEffect(() => {
+    return () => {
+      isDestroyedRef.current = true;
+      cleanupConnection();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const handleNetworkChange = () => {
+      if (wsRef.current) {
+        setIsConnected(wsRef.current.readyState === WebSocket.OPEN);
+      }
+    };
+    window.addEventListener("online", handleNetworkChange);
+    window.addEventListener("offline", handleNetworkChange);
+    return () => {
+      window.removeEventListener("online", handleNetworkChange);
+      window.removeEventListener("offline", handleNetworkChange);
     };
   }, []);
 
@@ -444,10 +478,10 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
     <WebSocketContext.Provider
       value={{
         sendMessage,
-        eventManager,
+        eventManager: eventManagerRef,
         isConnected,
         connectionState:
-          eventManager.current?.connectionState ?? WebSocket.CLOSED,
+          eventManagerRef.current?.connectionState ?? WebSocket.CLOSED,
         managerReady,
       }}
     >
@@ -456,7 +490,7 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
   );
 };
 
-export const useWebSocket = () => {
+export const useWebSocket = (): WebSocketContextType => {
   const context = useContext(WebSocketContext);
   if (context === undefined) {
     throw new Error("useWebSocket must be used within a WebSocketProvider");

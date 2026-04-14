@@ -24,6 +24,7 @@ export class WebSocketEventManager {
   private maxRetries: number = 3;
   private retryDelay: number = 1000;
   private readonly maxQueueSize = 100;
+  private reconnectAttempts: number = 0;
   private pendingAcks = new Map<
     string,
     { timeout: NodeJS.Timeout; resolve: (value: boolean) => void }
@@ -47,6 +48,7 @@ export class WebSocketEventManager {
   }
 
   private handleConnectionOpen() {
+    this.reconnectAttempts = 0;
     this.processQueue().catch((error) => {
       console.error("Error processing queue after connection");
     });
@@ -147,6 +149,18 @@ export class WebSocketEventManager {
     } catch (error) {
       throw error;
     }
+  }
+
+  /** Returns the next reconnect delay using exponential backoff (1s → 30s cap). */
+  getNextReconnectDelay(): number {
+    const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000);
+    this.reconnectAttempts++;
+    return delay;
+  }
+
+  /** Whether reconnect attempts have exceeded the limit (5). */
+  isThrottled(): boolean {
+    return this.reconnectAttempts >= 5;
   }
 
   cleanup() {

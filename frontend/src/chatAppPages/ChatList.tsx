@@ -73,7 +73,7 @@ const ChatList: React.FC = () => {
   const truncateLastMessage = (
     message: string,
     wordLimit: number = 15,
-    charLimit: number = 100
+    charLimit: number = 100,
   ) => {
     const words = message.split(" ");
     let truncatedMessage = message;
@@ -90,7 +90,7 @@ const ChatList: React.FC = () => {
   };
 
   if (isLoading && !friends.length) {
-    return <EchoChatLoader />
+    return <EchoChatLoader />;
   }
 
   return (
@@ -104,9 +104,9 @@ const ChatList: React.FC = () => {
             </button>
           </div>
         ) : (
-          friends.map((friend: Friend) => (
+          friends.map((friend: Friend, index: number) => (
             <div
-              key={friend._id}
+              key={`${friend._id}-${index}`}
               className="chat-item"
               onClick={() => handleChatClick(friend._id)}
             >
@@ -137,7 +137,7 @@ const ChatList: React.FC = () => {
                         (name) =>
                           `${name.charAt(0).toUpperCase()}${name
                             .slice(1)
-                            .toLowerCase()}`
+                            .toLowerCase()}`,
                       )
                       .join(" ")}
                   </span>
@@ -150,7 +150,7 @@ const ChatList: React.FC = () => {
 
                 <div className="chat-preview">
                   {friendTypingStatus[friend._id] ? (
-                   <div className="typing-indicator-list">
+                    <div className="typing-indicator-list">
                       <div className="typing-indicator-dots">
                         <div className="typing-dot"></div>
                         <div className="typing-dot"></div>
@@ -159,7 +159,7 @@ const ChatList: React.FC = () => {
                       <span className="typing-text">typing...</span>
                     </div>
                   ) : (
-                  <>
+                    <>
                       {friend.lastMessage && (
                         <span className="message-status">
                           {friend.lastMessage.senderId === user?._id && (
@@ -184,9 +184,7 @@ const ChatList: React.FC = () => {
                           {getMessagePreview(friend.lastMessage)}
                         </span>
                       ) : (
-                        <span className="no-messages">
-                          No messages yet
-                        </span>
+                        <span className="no-messages">No messages yet</span>
                       )}
                     </>
                   )}

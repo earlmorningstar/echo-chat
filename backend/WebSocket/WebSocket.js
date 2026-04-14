@@ -147,6 +147,8 @@ const initializeWebSocket = (server, db) => {
 
         userId = stringUserId;
         connectedClients.set(userId, ws);
+        // Attach userId to the socket so controllers can find it without the map
+        ws.userId = stringUserId;
         await eventHandler.registerClient(userId, ws);
 
         //sending immediate acknowledgment

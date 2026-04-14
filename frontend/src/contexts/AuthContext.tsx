@@ -1,4 +1,10 @@
-import React, { createContext, useState, useContext, useEffect } from "react";
+import React, {
+  createContext,
+  useState,
+  useContext,
+  useEffect,
+  useMemo,
+} from "react";
 import { AuthUser, AuthContextType, UserStatus } from "../types";
 import api from "../utils/api";
 import EchoChatLoader from "../pages/EchoChatLoader";
@@ -139,19 +145,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
-  const value: AuthContextType = {
-    user,
-    token,
-    isAuthenticated,
-    isLoading,
-    login,
-    logout,
-    updateUser,
-    updateStatus,
-  };
+  const value: AuthContextType = useMemo(
+    () => ({
+      user,
+      token,
+      isAuthenticated,
+      isLoading,
+      login,
+      logout,
+      updateUser,
+      updateStatus,
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [user, token, isAuthenticated, isLoading],
+  );
 
   if (isLoading) {
-    return <EchoChatLoader />
+    return <EchoChatLoader />;
   }
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

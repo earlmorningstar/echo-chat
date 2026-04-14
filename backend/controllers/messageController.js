@@ -48,7 +48,7 @@ const getChatHistory = async (req, res) => {
       {
         messages: formattedMessages,
       },
-      false
+      false,
     );
   } catch (error) {
     sendError(res, 500, "Error retrieving chat history");
@@ -73,20 +73,71 @@ const sendMessage = async (req, res) => {
               fileName: metadata.fileName,
               fileSize: metadata.fileSize,
               mimeType: metadata.mimeType,
-              fileId: metadata.fileId, //storing Gridfs file ID and not the url
+              fileId: metadata.fileId,
             }
           : undefined,
     };
 
-    const message = await req.db.collection("messages").insertOne(messageData);
+    const result = await req.db.collection("messages").insertOne(messageData);
 
-    sendSuccess(res, 201, "Message sent successfully", {
-      messageId: message.insertedId.toString(),
-      ...messageData,
+    // Build the formatted message for WebSocket broadcast
+    const formattedMessage = {
+      _id: result.insertedId.toString(),
+      content: messageData.content,
+      type: messageData.type || "text",
       senderId: senderId.toString(),
       receiverId: receiverId.toString(),
-    }, false);
+      timestamp: messageData.timestamp,
+      status: messageData.status,
+      metadata: messageData.metadata || undefined,
+    };
+
+    // ── WebSocket broadcast to receiver AND sender (loopback) ───────
+    const wss = req.wss;
+    if (wss) {
+      console.log(
+        "[Backend] Broadcasting message — sender:",
+        senderId,
+        "receiver:",
+        receiverId,
+      );
+
+      let broadcastCount = 0;
+      for (const client of wss.clients) {
+        if (
+          client.readyState === 1 /* WebSocket.OPEN */ &&
+          (client.userId === receiverId || client.userId === senderId)
+        ) {
+          client.send(
+            JSON.stringify({
+              type: "message",
+              ...formattedMessage,
+            }),
+          );
+          broadcastCount++;
+        }
+      }
+      console.log(
+        "[Backend] Message broadcast to",
+        broadcastCount,
+        "client(s)",
+      );
+    } else {
+      console.warn("[Backend] No WebSocket server available on request");
+    }
+
+    sendSuccess(
+      res,
+      201,
+      "Message sent successfully",
+      {
+        messageId: result.insertedId.toString(),
+        ...formattedMessage,
+      },
+      false,
+    );
   } catch (error) {
+    console.error("Error sending message:", error);
     sendError(res, 500, "Error sending message");
   }
 };
@@ -115,7 +166,7 @@ const getLastMessage = async (req, res) => {
           receiverId: 1,
           status: 1,
         },
-      }
+      },
     );
 
     const unread = lastMessage
@@ -138,7 +189,7 @@ const getLastMessage = async (req, res) => {
             }
           : null,
       },
-      false
+      false,
     );
   } catch (error) {
     sendError(res, 500, "Error retrieving last message");
@@ -161,20 +212,29 @@ const markMessageAsRead = async (req, res) => {
       },
       {
         $set: { status: "read", readAt: new Date() },
-      }
+      },
     );
 
     if (result.modifiedCount > 0) {
-      const ws = connectedClients.get(friendId);
-      if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(
-          JSON.stringify({
-            type: "read_status",
-            senderId: userId,
-            receiverId: friendId,
-            timestamp: new Date(),
-          })
-        );
+      // Broadcast read_status to the message sender via WebSocket
+      const wss = req.wss;
+      if (wss) {
+        for (const client of wss.clients) {
+          if (
+            client.readyState === 1 /* WebSocket.OPEN */ &&
+            client.userId === friendId
+          ) {
+            client.send(
+              JSON.stringify({
+                type: "read_status",
+                senderId: userId,
+                receiverId: friendId,
+                timestamp: new Date(),
+              }),
+            );
+            break;
+          }
+        }
       }
     }
 
@@ -202,7 +262,7 @@ const getUnreadCount = async (req, res) => {
       200,
       "Unread count retrieved successfully",
       { count },
-      false
+      false,
     );
   } catch (error) {
     sendError(res, 500, "Error getting unread count");
