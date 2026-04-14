@@ -16,7 +16,12 @@ import {
   CallState,
   CallAction,
 } from "./calls/CallStateManager";
-import { RemoteParticipant, Room, LocalVideoTrack } from "twilio-video";
+import {
+  RemoteParticipant,
+  Room,
+  LocalVideoTrack,
+  LocalTrack,
+} from "twilio-video";
 import { useMediaStreamManager } from "./calls/MediaStreamManager";
 import { useTwilioRoomManager } from "./calls/TwilioRoomManager";
 import { CallEvent, CallStatus, CallType } from "../types";
@@ -28,7 +33,7 @@ interface CallStateUpdate {
   callId?: string;
   type?: CallType;
   status?: CallStatus;
-  participants?: string[];
+  participants?: RemoteParticipant[];
   activeCall?: ActiveCall;
 }
 
@@ -63,7 +68,7 @@ const adaptCallStateUpdate = (
     callId?: string;
     type?: CallType;
     status?: CallStatus;
-    participants?: string[];
+    participants?: RemoteParticipant[];
     activeCall?: ActiveCall;
   }>,
 ): Partial<CallState> => {
@@ -79,7 +84,8 @@ const adaptCallStateUpdate = (
     currentCallUpdate.status = update.status;
   }
   if (update.participants !== undefined) {
-    currentCallUpdate.participants = update.participants ?? [];
+    currentCallUpdate.participants =
+      update.participants?.map((p) => p.identity) ?? [];
   }
 
   const adaptedUpdate: Partial<CallState> = {};
@@ -111,8 +117,18 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
   );
   const mediaControls = useMediaStreamManager(updateMedia);
   const { toggleAudio, toggleVideo } = mediaControls;
+  /** Stores the latest RemoteParticipant[] so CallInterface gets a stable,
+   *  identity-changing reference whenever tracks are subscribed/unsubscribed. */
+  const participantsRef = useRef<RemoteParticipant[]>([]);
+  /** Tracks the set of local tracks that have already been published to the room,
+   *  so we only publish newly created ones (e.g. video enabled mid-call). */
+  const publishTrackRef = useRef<LocalTrack[]>([]);
   const updateCallback = useCallback(
     (update: CallStateUpdate) => {
+      // Sync participants ref whenever the room manager updates state
+      if (update.participants !== undefined) {
+        participantsRef.current = update.participants;
+      }
       if (isEqual(update, lastUpdate.current)) return;
       lastUpdate.current = update;
       dispatch({
@@ -128,12 +144,47 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
     initializeVoiceDevice,
     makeVoiceCall,
     disconnectCall,
+    publishTrack,
+    unpublishTrack,
     callManager,
   } = useTwilioRoomManager(
     mediaControls.localTracks,
     useCallback(updateCallback, [updateCallback]),
     state.currentCall.recipientId || undefined,
   );
+
+  /** Publish/unpublish tracks on the active video room when local tracks change.
+   *  Only runs when there's an active room — initial tracks are passed directly
+   *  to TwilioVideo.connect() in connectToVideoRoom. */
+  useEffect(() => {
+    // Guard: don't attempt publishing until the room is connected
+    if (!callManager.videoDevice) return;
+
+    const prevTracks = publishTrackRef.current;
+    const currentIds = new Set(mediaControls.localTracks.map((t) => t.name));
+    const prevIds = new Set(prevTracks.map((t) => t.name));
+
+    // Unpublish tracks that are no longer present
+    prevTracks.forEach((t) => {
+      if (!currentIds.has(t.name)) {
+        unpublishTrack(t);
+      }
+    });
+
+    // Publish new tracks that weren't there before
+    mediaControls.localTracks.forEach((t) => {
+      if (!prevIds.has(t.name)) {
+        publishTrack(t);
+      }
+    });
+
+    publishTrackRef.current = mediaControls.localTracks;
+  }, [
+    mediaControls.localTracks,
+    callManager.videoDevice,
+    publishTrack,
+    unpublishTrack,
+  ]);
 
   const callManagerRef = useRef({
     videoDevice: callManager.videoDevice,
@@ -353,7 +404,6 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
             .activeCall as TwilioVoice.Connection;
           if (connection) {
             connection.accept();
-            // console.log("Call accepted by recipient");
           }
         }
 
@@ -657,19 +707,6 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
       manager.off("call", handler);
     };
   }, [handleCallEvent, eventManager, isConnected, state.currentCall.id]);
-
-  /** Stabilized participants array — only changes identity when the actual
-   *  participant set changes, preventing event listener teardown/re-attach
-   *  on every render in CallInterface. */
-  const participantsRef = useRef<RemoteParticipant[]>([]);
-  const rawParticipants = callManager.videoDevice
-    ? Array.from(callManager.videoDevice.participants.values())
-    : [];
-  const rawKey = rawParticipants.map((p) => p.identity).join(",");
-  const stableKey = participantsRef.current.map((p) => p.identity).join(",");
-  if (rawKey !== stableKey) {
-    participantsRef.current = rawParticipants;
-  }
 
   const value = useMemo(
     () => ({

@@ -25,7 +25,7 @@ type MediaStreamManager = {
       audioEnabled?: boolean;
       videoEnabled?: boolean;
       screenShareEnabled?: boolean;
-    }>
+    }>,
   ) => void;
 };
 
@@ -35,11 +35,11 @@ export function useMediaStreamManager(
       audioEnabled: boolean;
       videoEnabled: boolean;
       screenShareEnabled?: boolean;
-    }>
+    }>,
   ) => void,
   callType?: CallType,
   selectedAudioInput?: string,
-  selectedVideoInput?: string
+  selectedVideoInput?: string,
 ): MediaStreamManager {
   const [localTracks, setLocalTracks] = useState<LocalTrack[]>([]);
   const mediaStreamRef = useRef<MediaStream | null>(null);
@@ -63,8 +63,8 @@ export function useMediaStreamManager(
                   deviceId: selectedVideoInput
                     ? { exact: selectedVideoInput }
                     : undefined,
-                  width: { ideal: 1280 },
-                  height: { ideal: 720 },
+                  width: { ideal: 1280, max: 1920 },
+                  height: { ideal: 720, max: 1080 },
                   frameRate: { ideal: 24 },
                 }
               : false,
@@ -85,17 +85,17 @@ export function useMediaStreamManager(
 
         updateMediaState({
           audioEnabled: tracks.some(
-            (track) => track.kind === "audio" && track.isEnabled
+            (track) => track.kind === "audio" && track.isEnabled,
           ),
           videoEnabled: tracks.some(
-            (track) => track.kind === "video" && track.isEnabled
+            (track) => track.kind === "video" && track.isEnabled,
           ),
         });
 
         //filteringg to only media tracks and store them
         const mediaTracks = tracks.filter(
           (track): track is LocalAudioTrack | LocalVideoTrack =>
-            ["audio", "video"].includes(track.kind)
+            ["audio", "video"].includes(track.kind),
         );
 
         setLocalTracks(mediaTracks);
@@ -105,7 +105,7 @@ export function useMediaStreamManager(
         return { success: false, tracks: [] };
       }
     },
-    [selectedAudioInput, selectedVideoInput, updateMediaState]
+    [selectedAudioInput, selectedVideoInput, updateMediaState],
   );
 
   const startAudioTracks = async () => {
@@ -152,7 +152,7 @@ export function useMediaStreamManager(
     (enabled: boolean) => {
       //checking if the state is already what we want it to be
       const audioTracks = localTracks.filter(
-        (track): track is LocalAudioTrack => track.kind === "audio"
+        (track): track is LocalAudioTrack => track.kind === "audio",
       );
 
       //don't take any action if we already have the desired state
@@ -184,14 +184,14 @@ export function useMediaStreamManager(
 
       updateMediaState({ audioEnabled: enabled });
     },
-    [localTracks, updateMediaState]
+    [localTracks, updateMediaState],
   );
 
   const toggleVideo = useCallback(
     (enabled: boolean) => {
       const videoTracks = localTracks.filter(
         (track): track is LocalVideoTrack =>
-          track.kind === "video" && track.name !== "screen-share"
+          track.kind === "video" && track.name !== "screen-share",
       );
 
       //preventing unnecessary updates
@@ -205,7 +205,7 @@ export function useMediaStreamManager(
       localTracks
         .filter(
           (track): track is LocalVideoTrack =>
-            track.kind === "video" && track.name !== "screen-share"
+            track.kind === "video" && track.name !== "screen-share",
         )
         .forEach((track) => {
           videoTrackExists = true;
@@ -226,7 +226,7 @@ export function useMediaStreamManager(
 
       updateMediaState({ videoEnabled: enabled });
     },
-    [localTracks, updateMediaState]
+    [localTracks, updateMediaState],
   );
 
   const toggleScreenShare = useCallback(
@@ -234,13 +234,13 @@ export function useMediaStreamManager(
       try {
         //remove any existing screen share tracks
         const existingScreenTracks = localTracks.filter(
-          (track) => track.name === "screen-share"
+          (track) => track.name === "screen-share",
         );
 
         if (existingScreenTracks.length > 0) {
           existingScreenTracks.forEach((track) => track.stop());
           setLocalTracks((prev) =>
-            prev.filter((track) => track.name !== "screen-share")
+            prev.filter((track) => track.name !== "screen-share"),
           );
         }
 
@@ -255,7 +255,7 @@ export function useMediaStreamManager(
           screenStream.getVideoTracks()[0].addEventListener("ended", () => {
             //cleaning up screen share when user stops it via browser UI
             setLocalTracks((prev) =>
-              prev.filter((track) => track.name !== "screen-share")
+              prev.filter((track) => track.name !== "screen-share"),
             );
             updateMediaState({ screenShareEnabled: false });
           });
@@ -265,7 +265,7 @@ export function useMediaStreamManager(
             {
               name: "screen-share",
               logLevel: "error" as const,
-            }
+            },
           );
 
           setLocalTracks((prev) => [...prev, screenTrack]);
@@ -278,7 +278,7 @@ export function useMediaStreamManager(
         updateMediaState({ screenShareEnabled: false });
       }
     },
-    [localTracks, updateMediaState]
+    [localTracks, updateMediaState],
   );
 
   useEffect(() => {

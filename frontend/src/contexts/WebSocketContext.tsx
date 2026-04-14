@@ -179,7 +179,6 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const handleWebSocketMessage = useCallback(
     (message: Record<string, unknown>) => {
-      console.log("[WS] RAW WS EVENT RECEIVED:", message?.type, message);
       if (!message || typeof message !== "object") return;
 
       const qc = queryClientRef.current;
@@ -190,12 +189,8 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
           {
             predicate: (query) => {
               const keyStr = JSON.stringify(query.queryKey).toLowerCase();
-              const isTarget =
-                keyStr.includes("message") || keyStr.includes("friend");
-              if (isTarget) {
-                console.log("[WS] 🔁 MATCH — refetching:", query.queryKey);
-              }
-              return isTarget;
+              // Simply return the boolean result directly
+              return keyStr.includes("message") || keyStr.includes("friend");
             },
           },
           { cancelRefetch: true },

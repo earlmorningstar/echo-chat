@@ -158,24 +158,19 @@ const ChatWindow: React.FC = () => {
 
   useEffect(() => {
     const unsubscribe = queryClient.getQueryCache().subscribe(() => {
-      const typingStatusData = queryClient.getQueryData([
-        "typingStatus",
-        friendId,
-      ]);
-      setTyping(!!typingStatusData);
+      // Defer to avoid updating state during another component's render phase
+      requestAnimationFrame(() => {
+        const typingStatusData = queryClient.getQueryData([
+          "typingStatus",
+          friendId,
+        ]);
+        setTyping(!!typingStatusData);
+      });
     });
 
     return () => {
       unsubscribe();
     };
-  }, [friendId, queryClient]);
-
-  useEffect(() => {
-    const typingStatusData = queryClient.getQueryData([
-      "typingStatus",
-      friendId,
-    ]);
-    setTyping(!!typingStatusData);
   }, [friendId, queryClient]);
 
   const scrollToBottom = useCallback(() => {

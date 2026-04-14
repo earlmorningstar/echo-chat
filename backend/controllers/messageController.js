@@ -95,13 +95,6 @@ const sendMessage = async (req, res) => {
     // ── WebSocket broadcast to receiver AND sender (loopback) ───────
     const wss = req.wss;
     if (wss) {
-      console.log(
-        "[Backend] Broadcasting message — sender:",
-        senderId,
-        "receiver:",
-        receiverId,
-      );
-
       let broadcastCount = 0;
       for (const client of wss.clients) {
         if (
@@ -117,11 +110,6 @@ const sendMessage = async (req, res) => {
           broadcastCount++;
         }
       }
-      console.log(
-        "[Backend] Message broadcast to",
-        broadcastCount,
-        "client(s)",
-      );
     } else {
       console.warn("[Backend] No WebSocket server available on request");
     }

@@ -2,20 +2,13 @@ import { useEffect, useCallback, useRef } from "react";
 import { CallStatus, CallType } from "../../types";
 import isEqual from "lodash.isequal";
 import { ActiveCall, TwilioVideo, TwilioVoice } from "../../types/calls";
-import {
-  LocalTrack,
-  Room,
-  LocalVideoTrack,
-  LocalAudioTrack,
-  RemoteVideoTrack,
-  RemoteAudioTrack,
-} from "twilio-video";
+import { LocalTrack, Room, RemoteParticipant } from "twilio-video";
 
 interface CallStateUpdate {
   callId?: string;
   type?: CallType;
   status?: CallStatus;
-  participants?: string[];
+  participants?: RemoteParticipant[];
   activeCall?: ActiveCall;
   callQuality?: "good" | "average" | "poor";
   error?: string;
@@ -24,25 +17,27 @@ interface CallStateUpdate {
 export function useTwilioRoomManager(
   localTracks: LocalTrack[] = [],
   updateCallState: (update: CallStateUpdate) => void,
-  recipientId?: string | null
+  recipientId?: string | null,
 ): {
   connectToVideoRoom: (
     token: string,
     roomName: string,
     callId: string,
-    tracks: LocalTrack[]
+    tracks: LocalTrack[],
   ) => Promise<Room>;
   initializeVoiceDevice: (
     token: string,
     callId: string,
-    recipientId: string
+    recipientId: string,
   ) => TwilioVoice.Device;
   makeVoiceCall: (
     identity: string,
     currentCallId: string,
-    userId: string
+    userId: string,
   ) => Promise<TwilioVoice.Connection>;
   disconnectCall: () => void;
+  publishTrack: (track: LocalTrack) => Promise<void>;
+  unpublishTrack: (track: LocalTrack) => void;
   callManager: {
     videoDevice?: Room;
     voiceDevice?: TwilioVoice.Device;
@@ -64,59 +59,7 @@ export function useTwilioRoomManager(
         status: update.status || CallStatus.COMPLETED,
       });
     },
-    [updateCallState]
-  );
-
-  const attachTrack = useCallback(
-    (
-      track:
-        | LocalVideoTrack
-        | RemoteVideoTrack
-        | RemoteAudioTrack
-        | LocalAudioTrack,
-      isLocal: boolean
-    ) => {
-      const containerId = isLocal
-        ? "local-media-container"
-        : "remote-media-container";
-
-      let container = document.getElementById(containerId);
-
-      if (!container) {
-        console.warn(`Container ${containerId} not found`);
-        // setTimeout(() => attachTrack(track, isLocal), 500);
-        return;
-      }
-
-      //checking if we already have a track element with this ID
-      const trackId = track.name;
-      const existing = container.querySelector(`[data-track-id="${trackId}"]`);
-      if (existing) {
-        console.log(`Track ${trackId} already attached, skipping`);
-        return;
-        // existing.remove();
-      }
-
-      try {
-        const element = track.attach() as HTMLMediaElement;
-        element.setAttribute("data-track-id", trackId);
-        element.classList.add(isLocal ? "local-media" : "remote-media");
-
-        //muting to prevent echo, for local videos or audios
-        if (isLocal) {
-          element.muted = true;
-        }
-
-        //adding the element to the container
-        container.appendChild(element);
-
-        return element;
-      } catch (error) {
-        console.error(`Failed to attach ${track.kind} track`);
-        return null;
-      }
-    },
-    []
+    [updateCallState],
   );
 
   const connectToVideoRoom = useCallback(
@@ -124,22 +67,21 @@ export function useTwilioRoomManager(
       token: string,
       roomName: string,
       callId: string,
-      tracks: LocalTrack[]
+      tracks: LocalTrack[],
     ) => {
       try {
-        //updating call state to connecting
         stableUpdateCallState({
           callId,
           type: CallType.VIDEO,
           status: CallStatus.CONNECTING,
         });
 
-        //connecting to the room with appropriate options
+        // Connect to the Twilio Video room with local tracks
         const room = await TwilioVideo.connect(token, {
           name: roomName,
           tracks: tracks,
           dominantSpeaker: true,
-          preferredVideoCodecs: ["VP8", "H264"],
+          preferredVideoCodecs: [{ codec: "VP8", simulcast: false }],
           bandwidthProfile: {
             video: {
               mode: "grid",
@@ -153,93 +95,57 @@ export function useTwilioRoomManager(
           networkQuality: { local: 1, remote: 1 },
         });
 
-        //store reference to the room
         deviceRef.current.videoDevice = room;
 
-        //attaching local tracks
-        const localVideoTracks = Array.from(
-          room.localParticipant.videoTracks.values()
-        );
+        // Debounced syncParticipants — prevents rapid re-renders from
+        // unmounting video elements mid-attachment (causes track-stalled).
+        let syncTimeout: ReturnType<typeof setTimeout> | null = null;
+        const syncParticipants = () => {
+          if (syncTimeout !== null) clearTimeout(syncTimeout);
+          syncTimeout = setTimeout(() => {
+            syncTimeout = null;
+            const p = Array.from(room.participants.values());
+            stableUpdateCallState({
+              status: CallStatus.CONNECTED,
+              activeCall: room,
+              participants: p,
+            });
+          }, 300);
+        };
 
-        const localAudioTracks = Array.from(
-          room.localParticipant.audioTracks.values()
-        );
-
-        localVideoTracks.forEach((publication) => {
-          if (publication.track) {
-            attachTrack(publication.track, true); //check
-          } else {
-            console.warn("Local video publication has no track");
-          }
-        });
-
-        localAudioTracks.forEach((publication) => {
-          if (publication.track) {
-            attachTrack(publication.track, true); //check
-          } else {
-            console.warn("Local audio publication has no track");
-          }
-        });
-
-        room.localParticipant.on("trackPublished", (publication) => {
-          publication.on("subscribed", (track) => {
-            attachTrack(track, true);
-          });
-        });
-
-        //processing already connected remote participants
+        // Process already-connected remote participants
         room.participants.forEach((participant) => {
-          //handling existing video tracks
-          participant.videoTracks.forEach((publication) => {
-            if (publication.track) {
-              attachTrack(publication.track, false);
-            }
-          });
-
-          //handling existing audio tracks
-          participant.audioTracks.forEach((publication) => {
-            if (publication.track) {
-              attachTrack(publication.track, false);
-            }
-          });
-
-          //setting up listeners for this participant
-          participant.on("trackSubscribed", (track) => {
-            if (track.kind === "video" || track.kind === "audio") {
-              attachTrack(track as RemoteVideoTrack | RemoteAudioTrack, false);
-            }
-          });
-
-          participant.on("trackUnsubscribed", (track) => {
-            track.detach().forEach((element) => element.remove());
-          });
+          // We only need the listeners here; Twilio handles the initial sync
+          // through the syncParticipants call triggered at the end of connection.
+          participant.on("trackSubscribed", () => syncParticipants());
+          participant.on("trackUnsubscribed", () => syncParticipants());
         });
 
-        //setting up event handlers for future participants
+        // Future participants
         room.on("participantConnected", (participant) => {
-          participant.on("trackSubscribed", (track) => {
-            if (track.kind === "video" || track.kind === "audio") {
-              attachTrack(track as RemoteVideoTrack | RemoteAudioTrack, false);
-            }
-          });
+          participant.on("trackSubscribed", () => syncParticipants());
+          participant.on("trackUnsubscribed", () => syncParticipants());
+          syncParticipants();
+        });
 
-          participant.on("trackUnsubscribed", (track) => {
-            track.detach().forEach((element) => element.remove());
+        room.on("participantDisconnected", () => {
+          syncParticipants();
+        });
+
+        room.on("disconnected", () => {
+          stableUpdateCallState({
+            status: CallStatus.COMPLETED,
+            activeCall: null,
+            participants: [],
           });
         });
 
-        //after setup, update call state
-        stableUpdateCallState({
-          status: CallStatus.CONNECTED,
-          activeCall: room,
-          participants: Array.from(room.participants.values()).map(
-            (p) => p.identity
-          ),
-        });
+        // Initial participant sync
+        syncParticipants();
 
         return room;
-      } catch (error: any) {
-        console.error("Video connection failed");
+      } catch (error: unknown) {
+        console.error("Video connection failed:", error);
         stableUpdateCallState({
           status: CallStatus.FAILED,
           error: "Failed to connect to video room",
@@ -247,21 +153,20 @@ export function useTwilioRoomManager(
         throw error;
       }
     },
-    [stableUpdateCallState, attachTrack]
+    [stableUpdateCallState],
   );
 
   const initializeVoiceDevice = useCallback(
     (
       token: string,
       currentCallId: string,
-      actualRecipientId: string
+      actualRecipientId: string,
     ): TwilioVoice.Device => {
       if (!actualRecipientId) {
         throw new Error("Recipient ID is missing in call state");
       }
 
       try {
-        //cleaning up existing device
         if (deviceRef.current.voiceDevice) {
           deviceRef.current.voiceDevice.destroy();
         }
@@ -277,14 +182,6 @@ export function useTwilioRoomManager(
 
         deviceRef.current.voiceDevice = device;
 
-        //adding connection state tracking
-        let connectionAttempts = 0;
-        const connectionInterval = setInterval(() => {
-          if (++connectionAttempts > 10) {
-            clearInterval(connectionInterval);
-          }
-        }, 3000);
-
         device.on("ready", () => {
           stableUpdateCallState({
             callId: currentCallId,
@@ -294,7 +191,6 @@ export function useTwilioRoomManager(
         });
 
         device.on("incoming", (conn) => {
-          //updating UI to show incoming call
           stableUpdateCallState({
             status: CallStatus.RINGING,
             activeCall: conn,
@@ -331,9 +227,7 @@ export function useTwilioRoomManager(
         });
 
         device.on("cancel", () => {
-          stableUpdateCallState({
-            status: CallStatus.REJECTED,
-          });
+          stableUpdateCallState({ status: CallStatus.REJECTED });
         });
 
         device.register();
@@ -347,14 +241,14 @@ export function useTwilioRoomManager(
         throw error;
       }
     },
-    [stableUpdateCallState]
+    [stableUpdateCallState],
   );
 
   const makeVoiceCall = useCallback(
     async (
       identity: string,
       currentCallId: string,
-      userId: string
+      userId: string,
     ): Promise<TwilioVoice.Connection> => {
       const device = deviceRef.current.voiceDevice;
       if (!device) {
@@ -363,7 +257,7 @@ export function useTwilioRoomManager(
 
       if (device.state !== "registered") {
         throw new Error(
-          "Device not registered. Current state: " + device.state
+          "Device not registered. Current state: " + device.state,
         );
       }
 
@@ -385,7 +279,6 @@ export function useTwilioRoomManager(
         })) as TwilioVoice.Connection;
 
         call.on("accept", () => {
-          // console.log("Call accepted by recipient");
           stableUpdateCallState({
             status: CallStatus.CONNECTED,
             callId: currentCallId,
@@ -395,13 +288,11 @@ export function useTwilioRoomManager(
         return call;
       } catch (error) {
         console.error("Voice call failed");
-        stableUpdateCallState({
-          status: CallStatus.FAILED,
-        });
+        stableUpdateCallState({ status: CallStatus.FAILED });
         throw error;
       }
     },
-    [stableUpdateCallState]
+    [stableUpdateCallState],
   );
 
   const disconnectCall = useCallback(() => {
@@ -415,6 +306,36 @@ export function useTwilioRoomManager(
       participants: [],
     });
   }, [stableUpdateCallState]);
+
+  /**
+   * Publishes a local track to the active video room.
+   * Used when the user enables video/audio mid-call.
+   */
+  const publishTrack = useCallback(async (track: LocalTrack): Promise<void> => {
+    const room = deviceRef.current.videoDevice;
+    if (!room) {
+      console.warn("Cannot publish track: no active video room");
+      return;
+    }
+    try {
+      await room.localParticipant.publishTrack(track);
+    } catch (error) {
+      console.error("Failed to publish track:", error);
+    }
+  }, []);
+
+  /**
+   * Unpublishes a local track from the active video room.
+   */
+  const unpublishTrack = useCallback((track: LocalTrack): void => {
+    const room = deviceRef.current.videoDevice;
+    if (!room) return;
+    try {
+      room.localParticipant.unpublishTrack(track);
+    } catch (error) {
+      console.error("Failed to unpublish track:", error);
+    }
+  }, []);
 
   useEffect(() => {
     const device = deviceRef.current.voiceDevice;
@@ -448,6 +369,8 @@ export function useTwilioRoomManager(
     initializeVoiceDevice,
     makeVoiceCall,
     disconnectCall,
+    publishTrack,
+    unpublishTrack,
     callManager: deviceRef.current,
   };
 }

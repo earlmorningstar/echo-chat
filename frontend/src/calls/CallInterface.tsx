@@ -55,6 +55,18 @@ const CallInterface: React.FC = () => {
     ? callState.currentCall.recipientId
     : callState.currentCall.initiator;
 
+  // DIAGNOSTIC: Log participant count on every render
+  // console.log(
+  //   "[CallInterface] Rendering. Active Participants:",
+  //   participants.length,
+  //   "Call type:",
+  //   callState.currentCall.type,
+  //   "Call status:",
+  //   callState.currentCall.status,
+  //   "Local tracks:",
+  //   mediaControls.localTracks.length,
+  // );
+
   const { data: remoteUser } = useQuery({
     queryKey: ["user", remoteUserId],
     queryFn: async () => {
@@ -86,7 +98,7 @@ const CallInterface: React.FC = () => {
 
     const handleAudioEnabled = (track: TwilioVideo.RemoteAudioTrack) => {
       const participant = participants.find((p) =>
-        Array.from(p.audioTracks.values()).some((pub) => pub.track === track)
+        Array.from(p.audioTracks.values()).some((pub) => pub.track === track),
       );
 
       if (participant) {
@@ -104,7 +116,7 @@ const CallInterface: React.FC = () => {
 
     const handleAudioDisabled = (track: TwilioVideo.RemoteAudioTrack) => {
       const participant = participants.find((p) =>
-        Array.from(p.audioTracks.values()).some((pub) => pub.track === track)
+        Array.from(p.audioTracks.values()).some((pub) => pub.track === track),
       );
 
       if (participant) {
@@ -123,7 +135,7 @@ const CallInterface: React.FC = () => {
     //monitor when video track changes
     const handleVideoEnabled = (track: TwilioVideo.RemoteVideoTrack) => {
       const participant = participants.find((p) =>
-        Array.from(p.videoTracks.values()).some((pub) => pub.track === track)
+        Array.from(p.videoTracks.values()).some((pub) => pub.track === track),
       );
 
       if (participant) {
@@ -141,7 +153,7 @@ const CallInterface: React.FC = () => {
 
     const handleVideoDisabled = (track: TwilioVideo.RemoteVideoTrack) => {
       const participant = participants.find((p) =>
-        Array.from(p.videoTracks.values()).some((pub) => pub.track === track)
+        Array.from(p.videoTracks.values()).some((pub) => pub.track === track),
       );
 
       if (participant) {
@@ -323,29 +335,46 @@ const CallInterface: React.FC = () => {
           {callState.currentCall.type === "video" && (
             <>
               <div id="remote-media-container" className="remote-video-wrapper">
-                {participants.map((participant) =>
-                  Array.from(participant.videoTracks.values()).map(
-                    (publication) =>
-                      publication.track && (
-                        <MediaTrack
-                          key={publication.trackSid}
-                          track={publication.track}
-                        />
-                      )
-                  )
-                )}
+                {participants.map((participant) => (
+                  <React.Fragment key={participant.sid}>
+                    {/* Remote video tracks */}
+                    {Array.from(participant.videoTracks.values()).map(
+                      (publication) =>
+                        publication.track && (
+                          <MediaTrack
+                            key={publication.trackSid}
+                            track={publication.track}
+                          />
+                        ),
+                    )}
+                    {/* Remote audio tracks — rendered but invisible, ensures
+                        the remote participant's audio plays through speakers */}
+                    {Array.from(participant.audioTracks.values()).map(
+                      (publication) =>
+                        publication.track && (
+                          <MediaTrack
+                            key={publication.trackSid}
+                            track={publication.track}
+                          />
+                        ),
+                    )}
+                  </React.Fragment>
+                ))}
               </div>
 
               <div id="local-media-container" className="local-video-wrapper">
                 {mediaControls.localTracks
                   .filter(
                     (track): track is TwilioVideo.LocalVideoTrack =>
-                      track.kind === "video" && track.name !== "screen-share"
+                      track.kind === "video" && track.name !== "screen-share",
                   )
                   .slice(0, 1)
                   .map((track) => (
                     <MediaTrack key={track.name} track={track} isLocal />
                   ))}
+                {/* Local audio is already published to the room — attaching it
+                    locally would cause feedback/echo. MediaTrack returns null
+                    for local audio, so this renders nothing. */}
               </div>
             </>
           )}
@@ -442,34 +471,162 @@ type MediaTrackProps = {
 
 const MediaTrack: React.FC<MediaTrackProps> = ({ track, isLocal }) => {
   const ref = useRef<HTMLDivElement>(null);
+  /** Tracks whether we've already attached this track to avoid double-attach
+   *  during re-renders, which causes the "media removed" AbortError. */
+  const attachedRef = useRef<string | null>(null);
 
   useEffect(() => {
+    // Don't attach local audio to DOM — causes feedback loop / track-stalled
+    // The sender already hears themselves through the mic; we only need
+    // to attach local VIDEO so they can see their own camera preview.
+    if (isLocal && track.kind === "audio") return;
+
+    // DIAGNOSTIC: Log track health
+    // const trackSid = (track as unknown as Record<string, unknown>).sid as
+    //   | string
+    //   | undefined;
+    // console.log(
+    //   `[MediaTrack] Attempting to attach ${track.kind} (${track.name}). SID: ${trackSid || "local"}. isEnabled: ${track.isEnabled}`,
+    // );
+
+    // Skip if already attached to this ref
+    const trackKey = `${track.kind}-${track.name}`;
+    if (attachedRef.current === trackKey && ref.current?.firstChild) return;
+    attachedRef.current = trackKey;
+
     if (!ref.current) return;
 
+    // Clear any previously attached elements
     while (ref.current.firstChild) {
       ref.current.removeChild(ref.current.firstChild);
     }
 
-    try {
-      const element = track.attach();
+    // If track is disabled or not started, don't attempt to attach/play
+    if (!track.isEnabled) return;
 
-      //configuration of element
-      if (isLocal && element.tagName.toLowerCase() === "audio") {
+    let cancelled = false;
+    let retryTimeout: ReturnType<typeof setTimeout> | null = null;
+
+    // Auto-retry on track disabled/stalled — re-attach after 2s
+    const handleTrackStalled = () => {
+      if (cancelled || !ref.current) return;
+      // console.log(
+      //   `[MediaTrack] Track ${track.kind} stalled/disabled — re-attaching in 2s...`,
+      // );
+      retryTimeout = setTimeout(() => {
+        if (cancelled || !track.isEnabled) return;
+        // Clear and re-attach
+        while (ref.current && ref.current.firstChild) {
+          ref.current.removeChild(ref.current.firstChild);
+        }
+        try {
+          const els = track.attach() as unknown as HTMLMediaElement[];
+          const elList = Array.isArray(els) ? els : [els];
+          const el = elList[0];
+          if (el && ref.current) {
+            if (isLocal) el.muted = true;
+            if (el.tagName.toLowerCase() === "video") {
+              el.setAttribute("autoplay", "true");
+              el.setAttribute("playsinline", "true");
+              el.style.width = "100%";
+              el.style.height = "100%";
+              el.style.objectFit = "cover";
+              requestAnimationFrame(() => {
+                if (!cancelled && el.isConnected) {
+                  el.play().catch(() => {});
+                }
+              });
+            }
+            el.classList.add("media-element");
+            ref.current.appendChild(el);
+          }
+        } catch {
+          // re-attach failed — give up
+        }
+      }, 2000);
+    };
+
+    // Listen for track stall events (video tracks can go black if hardware is overloaded)
+    if (
+      "on" in track &&
+      typeof (track as TwilioVideo.VideoTrack).on === "function"
+    ) {
+      (track as TwilioVideo.VideoTrack).on("disabled", handleTrackStalled);
+      (track as TwilioVideo.VideoTrack).on("started", () => {
+        // console.log(
+        //   `[MediaTrack] Track ${track.kind} started — first frame received`,
+        // );
+      });
+    }
+
+    try {
+      const elements = track.attach() as unknown as HTMLMediaElement[];
+      const elementList = Array.isArray(elements) ? elements : [elements];
+      const element = elementList[0];
+
+      if (!element) return;
+
+      // Local video must be muted to prevent feedback/echo
+      if (isLocal) {
         element.muted = true;
       }
 
-      element.classList.add("media-element");
-      //adding element to the DOM
-      ref.current?.appendChild(element);
+      // Video elements need explicit autoplay + playsinline or they stall
+      if (element.tagName.toLowerCase() === "video") {
+        element.setAttribute("autoplay", "true");
+        element.setAttribute("playsinline", "true");
+        element.style.width = "100%";
+        element.style.height = "100%";
+        element.style.objectFit = "cover";
 
-      return () => {
-        const detached = track.detach();
-        detached.forEach((el) => el.remove());
-      };
+        // Defer play() to next frame — prevents AbortError if React
+        // removes the element before play() resolves
+        requestAnimationFrame(() => {
+          if (cancelled) return;
+          // Verify element is still in the DOM
+          if (!element.isConnected) return;
+          element.play().catch((err: unknown) => {
+            // AbortError is expected during rapid unmounts — safe to ignore
+            const e = err as DOMException;
+            if (e.name !== "AbortError") {
+              // console.log("Video playback failed:", e.name, e.message);
+            }
+          });
+        });
+      }
+
+      element.classList.add("media-element");
+      ref.current.appendChild(element);
     } catch (error) {
-      console.error(`MediaTrack failed to attach ${track.kind} track`);
+      console.error(`MediaTrack failed to attach ${track.kind} track`, error);
     }
+
+    return () => {
+      cancelled = true;
+      attachedRef.current = null;
+      if (retryTimeout !== null) clearTimeout(retryTimeout);
+      // Remove stall listeners
+      if (
+        "off" in track &&
+        typeof (track as TwilioVideo.VideoTrack).off === "function"
+      ) {
+        (track as TwilioVideo.VideoTrack).off("disabled", handleTrackStalled);
+      }
+      try {
+        const detached = track.detach();
+        detached.forEach((el) => {
+          if (el.isConnected) el.remove();
+        });
+      } catch {
+        // Track may already be stopped/detached — safe to ignore
+      }
+    };
   }, [track, isLocal]);
+
+  // Don't render anything for local audio
+  if (isLocal && track.kind === "audio") {
+    return null;
+  }
 
   return (
     <div ref={ref} className={`media-track ${isLocal ? "local" : "remote"}`} />
