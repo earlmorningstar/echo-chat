@@ -15,6 +15,10 @@ import {
   CallEnd,
   ScreenShare,
   StopScreenShare,
+  FlipCameraIos,
+  VolumeUp,
+  VolumeOff,
+  SwapHoriz,
 } from "@mui/icons-material";
 import { Snackbar } from "@mui/material";
 
@@ -28,6 +32,8 @@ const CallInterface: React.FC = () => {
     toggleVideo,
     toggleScreenShare,
     mediaControls,
+    flipCamera,
+    setSpeakerEnabled,
   } = useCall();
   const { user } = useAuth();
   const [audioNotification, setAudioNotification] = useState<{
@@ -49,6 +55,10 @@ const CallInterface: React.FC = () => {
     paused: false,
     userId: null,
   });
+
+  // PIP swap state
+  const [isSwapped, setIsSwapped] = useState(false);
+  const handleSwapPIP = () => setIsSwapped((prev) => !prev);
 
   const isInitiator = callState.currentCall.initiator === user?._id;
   const remoteUserId = isInitiator
@@ -296,60 +306,149 @@ const CallInterface: React.FC = () => {
     }
   };
 
+  //handling video toggle
+  const handleVideoToggle = () => {
+    toggleVideo(!callState.localMedia.videoEnabled);
+  };
+
+  //handling screen share toggle
+  const handleScreenShareToggle = () => {
+    toggleScreenShare(!callState.isScreenSharing);
+  };
+
+  //handling camera flip
+  const handleFlipCamera = async () => {
+    try {
+      await flipCamera();
+    } catch (error) {
+      console.error("Camera flip failed:", error);
+    }
+  };
+
+  //handling speaker toggle
+  const handleSpeakerToggle = async () => {
+    try {
+      await setSpeakerEnabled(!callState.localMedia.speakerEnabled);
+    } catch (error) {
+      console.error("Speaker toggle failed:", error);
+    }
+  };
+
   return (
     <div className="call-interface">
-      <div className="call-header">
-        <div className="caller-info">
-          {remoteUser && (
-            <div className="remote-user-info">
-              <div className="avatar-container">
-                {remoteUser.avatarUrl ? (
-                  <img
-                    src={remoteUser.avatarUrl}
-                    alt={`${remoteUser.firstName} ${remoteUser.lastName}`}
-                    className="avatar"
-                  />
-                ) : (
-                  <div className="avatar-fallback">
-                    <span>
-                      {remoteUser.firstName?.[0]}
-                      {remoteUser.lastName?.[0]}
-                    </span>
-                  </div>
+      {/* Full-screen remote video (The Canvas) */}
+      <div className="video-canvas">
+        {callState.currentCall.type === "video" && (
+          <div id="remote-media-container" className="remote-video-canvas">
+            {participants.map((participant) => (
+              <React.Fragment key={participant.sid}>
+                {/* Remote video tracks */}
+                {Array.from(participant.videoTracks.values()).map(
+                  (publication) =>
+                    publication.track && (
+                      <MediaTrack
+                        key={publication.trackSid}
+                        track={publication.track}
+                      />
+                    ),
                 )}
-              </div>
-              <h3 className="caller-name">
+                {/* Remote audio tracks — rendered but invisible, ensures
+                    the remote participant's audio plays through speakers */}
+                {Array.from(participant.audioTracks.values()).map(
+                  (publication) =>
+                    publication.track && (
+                      <MediaTrack
+                        key={publication.trackSid}
+                        track={publication.track}
+                      />
+                    ),
+                )}
+              </React.Fragment>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Semi-transparent participant overlay (top-left) */}
+      <div className="participant-overlay">
+        {remoteUser && (
+          <div className="participant-badge">
+            <div className="participant-avatar">
+              {remoteUser.avatarUrl ? (
+                <img
+                  src={remoteUser.avatarUrl}
+                  alt={`${remoteUser.firstName} ${remoteUser.lastName}`}
+                  className="avatar-img"
+                />
+              ) : (
+                <div className="avatar-fallback">
+                  <span>
+                    {remoteUser.firstName?.[0]}
+                    {remoteUser.lastName?.[0]}
+                  </span>
+                </div>
+              )}
+            </div>
+            <div className="participant-info">
+              <h3 className="participant-name">
                 {remoteUser.firstName} {remoteUser.lastName}
               </h3>
+              <span className="call-status-badge">
+                {callState.currentCall.status === "connected"
+                  ? "Connected"
+                  : "Connecting..."}
+              </span>
             </div>
-          )}
-          <span id="call-status" className="call-type">
-            {callState.currentCall.status === "connected"
-              ? "Connected"
-              : "Connecting..."}
-          </span>
-        </div>
+          </div>
+        )}
       </div>
-      <div className="vid-container-and-controls-flex">
-        <div className="video-container">
-          {callState.currentCall.type === "video" && (
+
+      {/* Local video PIP (bottom-right or swapped to full-screen) */}
+      {callState.currentCall.type === "video" && (
+        <div
+          className={`local-video-pip ${isSwapped ? "pip-swapped" : ""}`}
+          onClick={handleSwapPIP}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              handleSwapPIP();
+            }
+          }}
+          aria-label={
+            isSwapped ? "Switch to remote view" : "Switch to your view"
+          }
+        >
+          {!isSwapped ? (
+            // Default: Local video in PIP
+            mediaControls.localTracks
+              .filter(
+                (track): track is TwilioVideo.LocalVideoTrack =>
+                  track.kind === "video" && track.name !== "screen-share",
+              )
+              .slice(0, 1)
+              .map((track) => (
+                <MediaTrack key={track.name} track={track} isLocal />
+              ))
+          ) : (
+            // Swapped: Local video becomes full-screen, remote becomes PIP
             <>
-              <div id="remote-media-container" className="remote-video-wrapper">
+              <div className="swapped-local-video-canvas">
+                {mediaControls.localTracks
+                  .filter(
+                    (track): track is TwilioVideo.LocalVideoTrack =>
+                      track.kind === "video" && track.name !== "screen-share",
+                  )
+                  .slice(0, 1)
+                  .map((track) => (
+                    <MediaTrack key={track.name} track={track} isLocal />
+                  ))}
+              </div>
+              <div className="swapped-remote-pip">
                 {participants.map((participant) => (
                   <React.Fragment key={participant.sid}>
-                    {/* Remote video tracks */}
                     {Array.from(participant.videoTracks.values()).map(
-                      (publication) =>
-                        publication.track && (
-                          <MediaTrack
-                            key={publication.trackSid}
-                            track={publication.track}
-                          />
-                        ),
-                    )}
-                    {/* Remote audio tracks — rendered but invisible, ensures
-                        the remote participant's audio plays through speakers */}
-                    {Array.from(participant.audioTracks.values()).map(
                       (publication) =>
                         publication.track && (
                           <MediaTrack
@@ -361,70 +460,111 @@ const CallInterface: React.FC = () => {
                   </React.Fragment>
                 ))}
               </div>
-
-              <div id="local-media-container" className="local-video-wrapper">
-                {mediaControls.localTracks
-                  .filter(
-                    (track): track is TwilioVideo.LocalVideoTrack =>
-                      track.kind === "video" && track.name !== "screen-share",
-                  )
-                  .slice(0, 1)
-                  .map((track) => (
-                    <MediaTrack key={track.name} track={track} isLocal />
-                  ))}
-                {/* Local audio is already published to the room — attaching it
-                    locally would cause feedback/echo. MediaTrack returns null
-                    for local audio, so this renders nothing. */}
-              </div>
-            </>
-          )}
-        </div>
-
-        <div className="call-controls">
-          <button
-            onClick={handleAudioToggle}
-            className={`control-button ${
-              callState.localMedia.audioEnabled ? "active" : "inactive"
-            }`}
-          >
-            {callState.localMedia.audioEnabled ? <Mic /> : <MicOff />}
-          </button>
-
-          {callState.currentCall.type === "video" && (
-            <>
-              <button
-                onClick={() => toggleVideo(!callState.localMedia.videoEnabled)}
-                className={`control-button ${
-                  callState.localMedia.videoEnabled ? "active" : "inactive"
-                }`}
-              >
-                {callState.localMedia.videoEnabled ? (
-                  <Videocam />
-                ) : (
-                  <VideocamOff />
-                )}
-              </button>
-
-              <button
-                onClick={() => toggleScreenShare(!callState.isScreenSharing)}
-                // disabled={!callState.localMedia.videoEnabled}
-                className={`control-button ${
-                  callState.isScreenSharing ? "active" : "inactive"
-                }`}
-              >
-                {callState.isScreenSharing ? (
-                  <StopScreenShare />
-                ) : (
-                  <ScreenShare />
-                )}
-              </button>
             </>
           )}
 
-          <button onClick={endCall} className="control-button end-call">
-            <CallEnd />
-          </button>
+          {/* Swap indicator icon */}
+          <div className="swap-indicator">
+            <SwapHoriz fontSize="small" />
+          </div>
         </div>
+      )}
+
+      {/* Floating Action Bar (bottom pill-shaped controls) */}
+      <div className="action-bar">
+        {/* Mute/Unmute */}
+        <button
+          onClick={handleAudioToggle}
+          className={`action-button ${
+            callState.localMedia.audioEnabled ? "active" : "inactive"
+          }`}
+          aria-label={
+            callState.localMedia.audioEnabled
+              ? "Mute microphone"
+              : "Unmute microphone"
+          }
+        >
+          {callState.localMedia.audioEnabled ? <Mic /> : <MicOff />}
+        </button>
+
+        {/* Camera Toggle (video calls only) */}
+        {callState.currentCall.type === "video" && (
+          <>
+            <button
+              onClick={handleVideoToggle}
+              className={`action-button ${
+                callState.localMedia.videoEnabled ? "active" : "inactive"
+              }`}
+              aria-label={
+                callState.localMedia.videoEnabled
+                  ? "Turn off camera"
+                  : "Turn on camera"
+              }
+            >
+              {callState.localMedia.videoEnabled ? (
+                <Videocam />
+              ) : (
+                <VideocamOff />
+              )}
+            </button>
+
+            {/* Flip Camera */}
+            <button
+              onClick={handleFlipCamera}
+              className="action-button active"
+              aria-label="Flip camera"
+            >
+              <FlipCameraIos />
+            </button>
+
+            {/* Speaker Toggle */}
+            <button
+              onClick={handleSpeakerToggle}
+              className={`action-button ${
+                callState.localMedia.speakerEnabled ? "active" : "inactive"
+              }`}
+              aria-label={
+                callState.localMedia.speakerEnabled
+                  ? "Switch to earpiece"
+                  : "Switch to speaker"
+              }
+            >
+              {callState.localMedia.speakerEnabled ? (
+                <VolumeUp />
+              ) : (
+                <VolumeOff />
+              )}
+            </button>
+
+            {/* Screen Share */}
+            <button
+              onClick={handleScreenShareToggle}
+              className={`action-button ${
+                callState.isScreenSharing ? "active" : "inactive"
+              }`}
+              aria-label={
+                callState.isScreenSharing
+                  ? "Stop screen sharing"
+                  : "Start screen sharing"
+              }
+            >
+              {callState.isScreenSharing ? (
+                <StopScreenShare />
+              ) : (
+                <ScreenShare />
+              )}
+            </button>
+          </>
+        )}
+
+        {/* End Call */}
+        <button
+          onClick={endCall}
+          className="action-button end-call"
+          aria-label="End call"
+        >
+          <CallEnd />
+        </button>
       </div>
 
       {/*snackbar for audio notification*/}

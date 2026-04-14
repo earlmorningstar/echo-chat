@@ -18,6 +18,8 @@ type MediaStreamManager = {
   toggleAudio: (enabled: boolean) => void;
   toggleVideo: (enabled: boolean) => void;
   toggleScreenShare: (enabled: boolean) => Promise<void>;
+  flipCamera: () => Promise<void>;
+  setSpeakerEnabled: (enabled: boolean) => Promise<void>;
   startAudioTracks: () => Promise<void>;
   stopAllTracks: () => void;
   updateMediaState: (
@@ -25,6 +27,8 @@ type MediaStreamManager = {
       audioEnabled?: boolean;
       videoEnabled?: boolean;
       screenShareEnabled?: boolean;
+      speakerEnabled?: boolean;
+      facingMode?: "user" | "environment";
     }>,
   ) => void;
 };
@@ -35,6 +39,8 @@ export function useMediaStreamManager(
       audioEnabled: boolean;
       videoEnabled: boolean;
       screenShareEnabled?: boolean;
+      speakerEnabled?: boolean;
+      facingMode?: "user" | "environment";
     }>,
   ) => void,
   callType?: CallType,
@@ -281,6 +287,82 @@ export function useMediaStreamManager(
     [localTracks, updateMediaState],
   );
 
+  const flipCamera = useCallback(async (): Promise<void> => {
+    try {
+      const videoTracks = localTracks.filter(
+        (track): track is LocalVideoTrack =>
+          track.kind === "video" && track.name !== "screen-share",
+      );
+
+      if (videoTracks.length === 0) {
+        console.warn("No video track to flip camera");
+        return;
+      }
+
+      // Stop existing video track
+      videoTracks[0].stop();
+      setLocalTracks((prev) => prev.filter((t) => t !== videoTracks[0]));
+
+      // Determine current facing mode and flip it
+      const currentSettings = videoTracks[0].mediaStreamTrack.getSettings();
+      const currentFacing = currentSettings.facingMode || "user";
+      const newFacing = currentFacing === "user" ? "environment" : "user";
+
+      // Create new video track with opposite facing mode
+      const newVideoTrack = await createLocalVideoTrack({
+        facingMode: newFacing,
+        width: { ideal: 1280, max: 1920 },
+        height: { ideal: 720, max: 1080 },
+        frameRate: { ideal: 24 },
+      });
+
+      newVideoTrack.enable();
+      setLocalTracks((prev) => [...prev, newVideoTrack]);
+      updateMediaState({ facingMode: newFacing });
+    } catch (error) {
+      console.error("Failed to flip camera:", error);
+    }
+  }, [localTracks, updateMediaState]);
+
+  const setSpeakerEnabled = useCallback(
+    async (enabled: boolean): Promise<void> => {
+      try {
+        // Use setSinkId on video elements where supported
+        const videoElements = document.querySelectorAll("video");
+        let success = false;
+
+        for (const video of videoElements) {
+          if ("setSinkId" in video) {
+            try {
+              if (enabled) {
+                // Use speaker output (default)
+                await (video as any).setSinkId("default");
+              } else {
+                // Use earpiece (empty string for default/earpiece on mobile)
+                await (video as any).setSinkId("");
+              }
+              success = true;
+            } catch (err) {
+              // setSinkId may not be supported on all browsers/devices
+              console.warn("setSinkId not supported:", err);
+            }
+          }
+        }
+
+        updateMediaState({ speakerEnabled: enabled });
+
+        if (!success) {
+          console.log(
+            "Speaker toggle: setSinkId not supported, state updated for UI only",
+          );
+        }
+      } catch (error) {
+        console.error("Failed to set speaker:", error);
+      }
+    },
+    [updateMediaState],
+  );
+
   useEffect(() => {
     return () => {
       // localTracks.forEach((track) => track.stop());
@@ -296,6 +378,8 @@ export function useMediaStreamManager(
     toggleAudio,
     toggleVideo,
     toggleScreenShare,
+    flipCamera,
+    setSpeakerEnabled,
     updateMediaState,
   };
 }

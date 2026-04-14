@@ -26,6 +26,8 @@ export interface CallState {
     audioEnabled: boolean;
     videoEnabled: boolean;
     screenShareEnabled: boolean;
+    speakerEnabled?: boolean;
+    facingMode?: "user" | "environment";
   };
   callQuality: "good" | "average" | "poor";
   isScreenSharing: boolean;
@@ -96,6 +98,8 @@ export const initialState: CallState = {
     audioEnabled: true,
     videoEnabled: true,
     screenShareEnabled: false,
+    speakerEnabled: true,
+    facingMode: "user" as const,
   },
   callQuality: "good",
   isScreenSharing: false,
@@ -181,7 +185,7 @@ export function callReducer(state: CallState, action: CallAction): CallState {
         currentCall: {
           ...state.currentCall,
           participants: state.currentCall.participants.filter(
-            (id) => id !== action.payload
+            (id) => id !== action.payload,
           ),
         },
       };

@@ -50,6 +50,8 @@ type CallContextType = {
   toggleAudio: (enabled: boolean) => void;
   toggleVideo: (enabled: boolean) => void;
   toggleScreenShare: (enabled: boolean) => Promise<void>;
+  flipCamera: () => Promise<void>;
+  setSpeakerEnabled: (enabled: boolean) => Promise<void>;
   callState: CallState;
   participants: RemoteParticipant[];
   room: Room | null;
@@ -719,6 +721,8 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
       toggleAudio: handleAudioToggle,
       toggleVideo: handleVideoToggle,
       toggleScreenShare: handleScreenToggle,
+      flipCamera: mediaControls.flipCamera,
+      setSpeakerEnabled: mediaControls.setSpeakerEnabled,
       callState: state,
       participants: participantsRef.current,
       room: callManagerRef.current.videoDevice || null,
