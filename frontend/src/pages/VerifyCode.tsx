@@ -54,7 +54,7 @@ const VerifyCode: React.FC = () => {
 
   const handleCloseError = (
     _event?: React.SyntheticEvent | Event,
-    reason?: string
+    reason?: string,
   ) => {
     if (reason === "clickaway") return;
     setShowError(false);
@@ -62,7 +62,7 @@ const VerifyCode: React.FC = () => {
 
   const handleCloseSuccess = (
     _event?: React.SyntheticEvent | Event,
-    reason?: string
+    reason?: string,
   ) => {
     if (reason === "clickaway") {
       return;
@@ -71,68 +71,66 @@ const VerifyCode: React.FC = () => {
   };
 
   return (
-    <div className="forgot-password-container">
-      <h2>Verify Your Email</h2>
-      <p>Please enter the verification code sent to your email</p>
+    <div className="auth-main-container">
+      <div className="forgot-password-container">
+        <h2>Verify Your Email</h2>
+        <p>Please enter the verification code sent to your email</p>
 
-      <form onSubmit={handleSubmit}>
-        <Snackbar
-          open={showError}
-          autoHideDuration={3000}
-          onClose={handleCloseError}
-          anchorOrigin={{ vertical: "top", horizontal: "center" }}
+        <form onSubmit={handleSubmit}>
+          <Snackbar
+            open={showError}
+            autoHideDuration={3000}
+            onClose={handleCloseError}
+            anchorOrigin={{ vertical: "top", horizontal: "center" }}
+          >
+            <Alert severity="error" onClose={handleCloseError}>
+              {error}
+            </Alert>
+          </Snackbar>
+
+          <Snackbar
+            open={showSuccess}
+            autoHideDuration={3000}
+            onClose={handleCloseSuccess}
+            anchorOrigin={{ vertical: "top", horizontal: "center" }}
+          >
+            <Alert severity="success" onClose={handleCloseSuccess}>
+              {successMessage}
+            </Alert>
+          </Snackbar>
+
+          <span>
+            <TextField
+              type="text"
+              label="Verification Code"
+              variant="standard"
+              value={verificationCode}
+              onChange={(e) => setVerificationCode(e.target.value)}
+              sx={{ m: 0, width: "100%" }}
+              required
+            />
+          </span>
+          <div>
+            <button className="auth-form-button" type="submit">
+              Verify Email
+            </button>
+          </div>
+        </form>
+        <p>
+          Back to
+          <NavLink to="/login" className="no-deco-signupLink">
+            Sign in
+          </NavLink>
+          Page
+        </p>
+
+        <Backdrop
+          sx={{ color: "var(--accent-active)", zIndex: 9999 }}
+          open={loading}
         >
-          <Alert severity="error" onClose={handleCloseError}>
-            {error}
-          </Alert>
-        </Snackbar>
-
-        <Snackbar
-          open={showSuccess}
-          autoHideDuration={3000}
-          onClose={handleCloseSuccess}
-          anchorOrigin={{ vertical: "top", horizontal: "center" }}
-        >
-          <Alert severity="success" onClose={handleCloseSuccess}>
-            {successMessage}
-          </Alert>
-        </Snackbar>
-
-        <span>
-          <TextField
-            type="text"
-            label="Verification Code"
-            variant="standard"
-            value={verificationCode}
-            onChange={(e) => setVerificationCode(e.target.value)}
-            sx={{
-              m: 1,
-              width: "35ch",
-              ".MuiInputLabel-asterisk": { color: "#F9F4EC" },
-            }}
-            required
-          />
-        </span>
-        <div>
-          <button className="auth-form-button" type="submit">
-            Verify Email
-          </button>
-        </div>
-      </form>
-      <p>
-        Back to
-        <NavLink to="/login" className="no-deco-signupLink">
-          Sign in
-        </NavLink>
-        Page
-      </p>
-
-      <Backdrop
-        sx={{ color: "#208d7f", zIndex: (theme) => theme.zIndex.drawer + 1 }}
-        open={loading}
-      >
-        <CircularProgress color="inherit" />
-      </Backdrop>
+          <CircularProgress color="inherit" />
+        </Backdrop>
+      </div>
     </div>
   );
 };

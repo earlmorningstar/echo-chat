@@ -31,7 +31,7 @@ const LoginPage: React.FC = () => {
   const handleClickShowPassword = () => setShowPassword((show) => !show);
 
   const handleMouseDownPassword = (
-    event: React.MouseEvent<HTMLButtonElement>
+    event: React.MouseEvent<HTMLButtonElement>,
   ) => {
     event.preventDefault();
   };
@@ -67,7 +67,7 @@ const LoginPage: React.FC = () => {
 
   const handleCloseError = (
     _event?: React.SyntheticEvent | Event,
-    reason?: string
+    reason?: string,
   ) => {
     if (reason === "clickaway") return;
     setShowError(false);
@@ -75,7 +75,7 @@ const LoginPage: React.FC = () => {
 
   const handleCloseSuccess = (
     _event?: React.SyntheticEvent | Event,
-    reason?: string
+    reason?: string,
   ) => {
     if (reason === "clickaway") return;
     setShowSuccess(false);
@@ -120,24 +120,13 @@ const LoginPage: React.FC = () => {
               variant="standard"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              sx={{
-                m: 1,
-                width: "35ch",
-                ".MuiInputLabel-asterisk": { color: "#F9F4EC" },
-              }}
+              sx={{ m: 0, width: "100%" }}
               required
             />
           </span>
 
           <span>
-            <FormControl
-              sx={{
-                m: 1,
-                width: "35ch",
-                ".MuiInputLabel-asterisk": { color: "#F9F4EC" },
-              }}
-              variant="standard"
-            >
+            <FormControl sx={{ m: 0, width: "100%" }} variant="standard">
               <InputLabel htmlFor="standard-adornment-password">
                 Password
               </InputLabel>
@@ -187,7 +176,10 @@ const LoginPage: React.FC = () => {
         </p>
       </div>
       <Backdrop
-        sx={{ color: "#208d7f", zIndex: (theme) => theme.zIndex.drawer + 1 }}
+        sx={{
+          color: "var(--accent-active)",
+          zIndex: (theme) => theme.zIndex.drawer + 1,
+        }}
         open={loading}
       >
         <CircularProgress color="inherit" />

@@ -56,7 +56,8 @@ const ForgotPassword: React.FC = () => {
   };
 
   return (
-    <div className="forgot-password-container">
+    <div className="auth-main-container">
+<div className="forgot-password-container">
       <h2>Recover Your Password</h2>
       <form onSubmit={handleForgotPassword}>
         <Snackbar
@@ -88,11 +89,7 @@ const ForgotPassword: React.FC = () => {
             variant="standard"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            sx={{
-              m: 1,
-              width: "35ch",
-              ".MuiInputLabel-asterisk": { color: "#F9F4EC" },
-            }}
+           sx={{ m: 0, width: "100%" }}
             required
           />
         </span>
@@ -107,15 +104,14 @@ const ForgotPassword: React.FC = () => {
         <NavLink to="/login" className="no-deco-signupLink">
           Sign in
         </NavLink>
-        Page
+        {" "}Page
       </p>
-      <Backdrop
-        sx={{ color: "#208d7f", zIndex: (theme) => theme.zIndex.drawer + 1 }}
-        open={loading}
-      >
+      <Backdrop sx={{ color: "var(--accent-active)", zIndex: 9999 }} open={loading}>
         <CircularProgress color="inherit" />
       </Backdrop>
     </div>
+    </div>
+    
   );
 };
 

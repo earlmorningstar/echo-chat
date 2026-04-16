@@ -102,7 +102,7 @@ const SignupPage: React.FC = () => {
 
   const handleCloseError = (
     _event?: React.SyntheticEvent | Event,
-    reason?: string
+    reason?: string,
   ) => {
     if (reason === "clickaway") {
       return;
@@ -113,7 +113,7 @@ const SignupPage: React.FC = () => {
 
   const handleCloseSuccess = (
     _event?: React.SyntheticEvent | Event,
-    reason?: string
+    reason?: string,
   ) => {
     if (reason === "clickaway") {
       return;
@@ -223,66 +223,47 @@ const SignupPage: React.FC = () => {
             type="text"
             label={
               <div className="auth-label-flex">
-                First Name <span style={{ color: "red" }}>*</span>
+                First Name <span className="required-asterisk">*</span>
               </div>
             }
             variant="standard"
             value={firstName}
             onChange={(e) => setFirstName(e.target.value)}
-            sx={{
-              m: 1,
-              width: "35ch",
-              ".MuiInputLabel-asterisk": { color: "#c2bfbf" },
-            }}
+            sx={{ m: 0, width: "100%" }}
           />
 
           <TextField
             type="text"
             label={
               <div className="auth-label-flex">
-                Last Name <span style={{ color: "red" }}>*</span>
+                Last Name <span className="required-asterisk">*</span>
               </div>
             }
             variant="standard"
             value={lastName}
             onChange={(e) => setLastName(e.target.value)}
-            sx={{
-              m: 1,
-              width: "35ch",
-              ".MuiInputLabel-asterisk": { color: "#c2bfbf" },
-            }}
+            sx={{ m: 0, width: "100%" }}
           />
 
           <TextField
             type="email"
             label={
               <div className="auth-label-flex">
-                Your Email <span style={{ color: "red" }}>*</span>
+                Your Email <span className="required-asterisk">*</span>
               </div>
             }
             variant="standard"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            sx={{
-              m: 1,
-              width: "35ch",
-              ".MuiInputLabel-asterisk": { color: "#c2bfbf" },
-            }}
+            sx={{ m: 0, width: "100%" }}
           />
 
-          <FormControl
-            sx={{
-              m: 1,
-              width: "35ch",
-              ".MuiInputLabel-asterisk": { color: "#c2bfbf" },
-            }}
-            variant="standard"
-          >
+          <FormControl sx={{ m: 0, width: "100%" }} variant="standard">
             <InputLabel
               id="pass-label-flex"
               htmlFor="standard-adornment-password"
             >
-              Password <span style={{ color: "red" }}>*</span>
+              Password <span className="required-asterisk">*</span>
             </InputLabel>
             <Input
               id="standard-adornment-password"
@@ -307,19 +288,12 @@ const SignupPage: React.FC = () => {
             />
           </FormControl>
 
-          <FormControl
-            sx={{
-              m: 1,
-              width: "35ch",
-              ".MuiInputLabel-asterisk": { color: "#c2bfbf" },
-            }}
-            variant="standard"
-          >
+          <FormControl sx={{ m: 0, width: "100%" }} variant="standard">
             <InputLabel
               id="pass-label-flex"
               htmlFor="standard-adornment-confirm-password"
             >
-              Confirm Password <span style={{ color: "red" }}>*</span>
+              Confirm Password <span className="required-asterisk">*</span>
             </InputLabel>
             <Input
               id="standard-adornment-confirm-password"
@@ -356,7 +330,10 @@ const SignupPage: React.FC = () => {
         </p>
       </div>
       <Backdrop
-        sx={{ color: "#208d7f", zIndex: (theme) => theme.zIndex.drawer + 1 }}
+        sx={{
+          color: "var(--accent-active)",
+          zIndex: (theme) => theme.zIndex.drawer + 1,
+        }}
         open={loading}
       >
         <CircularProgress color="inherit" />

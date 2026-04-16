@@ -1,462 +1,329 @@
-@import url("https://fonts.googleapis.com/css2?family=DynaPuff:wght@400..700&display=swap");
-@import url("https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap");
-@import url("https://fonts.googleapis.com/css2?family=Playwrite+GB+S:ital,wght@0,100..400;1,100..400&display=swap");
-@import url("https://fonts.googleapis.com/css2?family=Afacad+Flux:wght@100..1000&display=swap");
+:root {
+  /* Arctic Glass Palette */
+  --bg-primary:        #FFFFFF;
+  --bg-secondary:      #F9FAFB;
+  --bg-tertiary:       #F3F4F6;
+  --surface-glass:     rgba(255, 255, 255, 0.65);
+  --surface-border:    rgba(255, 255, 255, 0.9);
+  --text-primary:      #111827;
+  --text-secondary:    #374151;
+  --text-muted:        #9CA3AF;
+  --accent-active:     #007AFF;
+  --accent-hover:      #0062CC;
+  --accent-glow:       rgba(0, 122, 255, 0.2);
+  
+  /* Elevation & Effects */
+  --shadow-soft:       0 4px 24px rgba(0, 0, 0, 0.06);
+  --shadow-float:      0 8px 40px rgba(0, 0, 0, 0.10);
+  --shadow-elevated:   0 20px 60px rgba(0, 0, 0, 0.13);
+  --blur-glass:        blur(24px);
+  --blur-heavy:        blur(40px);
+  
+  /* Geometry */
+  --radius-card:       20px;
+  --radius-input:      12px;
+  --radius-button:     12px;
+  --radius-pill:       9999px;
+  
+  /* Motion */
+  --transition-base:   all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-spring: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
 
+/* Global Reset & Typography Setup */
 * {
+  box-sizing: border-box;
   margin: 0;
   padding: 0;
-  box-sizing: border-box;
 }
 
-/* //SplashScreen Section-- */
+body {
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
 
+/* Layout Wrappers - Safe Area & 100dvh */
+.auth-main-container,
 .splash-header {
-  height: 100vh;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  background-color: #f9f4ec;
+  min-height: 100dvh;
+  padding: env(safe-area-inset-top) 24px env(safe-area-inset-bottom) 24px;
+  overflow: hidden;
 }
 
-.splash-header h1 {
-  font-size: 30px;
-  font-family: "DynaPuff", system-ui;
-  color: #208d7f;
-}
-
-/* //OnboardingScreen Section-- */
-
-.onboarding-container {
-  font-family: "Poppins", sans-serif;
-  background-color: #f9f4ec;
-  min-height: 100vh;
-  padding: 3rem 6rem;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-}
-
-.onboarding-container h2 {
-  font-family: "Playwrite GB S", cursive;
-  font-weight: 600;
-  font-size: 1.6rem;
-  color: #208d7f;
-  margin-bottom: 5rem;
-}
-
-.onboarding-container h1 {
-  font-size: 40px;
-  color: #208d7f;
-}
-
-.onboarding-container h4 {
-  font-size: 18px;
-  font-weight: 400;
-  margin-bottom: 3rem;
-  color: #208d7f;
-}
-
-.onboarding-container p {
-  font-size: 20px;
-  font-weight: 400;
-  color: #208d7f;
-  margin-bottom: 1rem;
-}
-
-.onboarding-buttons-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.9rem;
-}
-
-.onboarding-buttons button {
-  background-color: #208d7f;
-  color: #f3eadd;
-  cursor: pointer;
-  padding: 10px 18px;
-  width: 8rem;
-  border: none;
-  border-radius: 10px;
-  font-size: 13px;
-  font-weight: 500;
-}
-
-/* Login and Sign up Section--- */
-
-.auth-main-container {
-  font-family: "Afacad Flux", sans-serif;
-  padding: 3rem 1rem 5rem 1rem;
-  display: flex;
-  flex-direction: column;
-  gap: 2rem;
-  background-color: #f9f4ec;
-  min-height: 100vh;
-}
-
-.login-redirection-arrow {
-  width: fit-content;
-}
+/* The Arctic Glass Card */
 .auth-container {
-  display: flex;
-  flex-direction: column;
-  text-align: center;
-  padding-top: 3rem;
-}
-
-.auth-container h2 {
-  font-weight: 500;
-  font-size: 35px;
-  margin-bottom: 1.5rem;
-}
-
-.auth-container p {
-  font-weight: 400;
-  font-size: 25px;
-  margin-bottom: 1.5rem;
-  color: #383434;
-}
-
-.auth-container form {
+  background: var(--surface-glass);
+  backdrop-filter: var(--blur-glass);
+  -webkit-backdrop-filter: var(--blur-glass);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  /* Simulated light catch on top/left edges */
+  border-top-color: var(--surface-border);
+  border-left-color: var(--surface-border);
+  box-shadow: var(--shadow-float);
+  border-radius: var(--radius-card);
+  width: 100%;
+  max-width: 520px;
+  padding: 48px 32px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
+  text-align: center;
+  word-break: break-word;
+  animation: cardMount 0.6s var(--transition-spring) forwards;
 }
 
-.auth-container form span {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+/* Typography Hierarchy */
+h1, h2 {
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+  margin-bottom: 12px;
+  width: 100%;
 }
 
-.auth-form-button {
-  font-family: "Poppins", sans-serif;
-  cursor: pointer;
-  padding: 10px 8px;
-  background-color: #208d7f;
-  color: #f3eadd;
-  border: none;
-  border-radius: 10px;
-  margin: 1rem 0 1.5rem 0;
-  width: 35ch;
-  font-size: 13px;
-  font-weight: 500;
-}
-
-.no-deco-signupLink {
-  text-decoration: none;
-  color: #208d7f;
+p, h4 {
+  font-weight: 400;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin-bottom: 24px;
+  width: 100%;
 }
 
 .auth-label-flex {
   display: flex;
-  gap: 3px;
+  gap: 4px;
+  align-items: center;
+  font-weight: 500;
 }
 
-.error-message {
-  text-align: center;
-  color: red;
-  font-size: 13px;
-  margin-top: 0rem;
+.required-asterisk {
+  color: var(--text-muted);
 }
 
-#no-deco-id {
-  font-size: 18px;
-}
-
-#pass-label-flex {
+/* Forms & Inputs Alignment */
+form {
   display: flex;
-  gap: 3px;
+  flex-direction: column;
+  gap: 24px;
+  width: 100%;
+  align-items: center;
+  margin-bottom: 24px;
 }
 
-.alert-mui p {
-  font-size: 18px;
+/* Ensure MUI containers span full width of the card */
+form > span, 
+.glass-input-wrapper {
+  width: 100%;
+  display: flex;
 }
 
-/* .ErrorPage Section -- */
+/* Button Micro-interactions & Tactile Feedback */
+.auth-form-button,
+.onboarding-buttons button {
+  appearance: none;
+  width: 100%;
+  background-color: var(--accent-active);
+  color: #FFFFFF;
+  border: none;
+  border-radius: var(--radius-button);
+  padding: 16px 24px;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: var(--transition-spring);
+  margin-top: 8px;
+  outline: none;
+}
+
+.auth-form-button:hover,
+.onboarding-buttons button:hover {
+  transform: scale(1.02);
+  background-color: var(--accent-hover);
+  box-shadow: 0 8px 24px var(--accent-glow);
+}
+
+.auth-form-button:active,
+.onboarding-buttons button:active {
+  transform: scale(0.98);
+  box-shadow: 0 2px 8px var(--accent-glow);
+}
+
+/* Onboarding Specifics */
+.onboarding-buttons-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  margin-top: 16px;
+}
+
+.onboarding-buttons {
+  width: 100%;
+  text-decoration: none;
+}
+
+/* Secondary Actions / Links */
+.no-deco-signupLink {
+  color: var(--accent-active);
+  text-decoration: none;
+  font-weight: 500;
+  transition: var(--transition-base);
+}
+
+.no-deco-signupLink:hover {
+  color: var(--accent-hover);
+}
+
+/* MUI Overrides for Clinical Minimalism
+  Forces Material UI components to respect the Arctic Glass variables 
+*/
+.MuiInput-underline:before {
+  border-bottom-color: var(--text-muted) !important;
+  transition: var(--transition-base) !important;
+}
+
+.MuiInput-underline:hover:not(.Mui-disabled):before {
+  border-bottom-color: var(--text-secondary) !important;
+}
+
+.MuiInput-underline:after {
+  border-bottom-color: var(--accent-active) !important;
+  transition: var(--transition-spring) !important;
+}
+
+.MuiInputLabel-root {
+  color: var(--text-secondary) !important;
+  font-family: inherit !important;
+  font-weight: 500 !important;
+}
+
+.MuiInputLabel-root.Mui-focused {
+  color: var(--accent-active) !important;
+}
+
+.MuiInputBase-input {
+  color: var(--text-primary) !important;
+  font-family: inherit !important;
+  font-weight: 500 !important;
+  padding-bottom: 8px !important;
+}
+
+.MuiIconButton-root {
+  color: var(--text-muted) !important;
+  transition: var(--transition-base) !important;
+}
+
+.MuiIconButton-root:hover {
+  color: var(--accent-active) !important;
+}
+
+/* Shared Layout for Password & Verification Flows */
+.forgot-password-container,
 .error-page-container {
-  font-family: "Afacad Flux", sans-serif;
-  padding: 3rem 2rem;
-  background-color: #d6c3a8;
-  height: 100vh;
+  background: var(--surface-glass);
+  backdrop-filter: var(--blur-glass);
+  -webkit-backdrop-filter: var(--blur-glass);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-top-color: var(--surface-border);
+  border-left-color: var(--surface-border);
+  box-shadow: var(--shadow-float);
+  border-radius: var(--radius-card);
+  width: 100%;
+  max-width: 520px;
+  padding: 48px 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  animation: cardMount 0.6s var(--transition-spring) forwards;
+  position: relative; /* For back-button positioning */
+}
+
+/* Error Page Specifics */
+.error-page-container h2 {
+  color: #EF4444; /* Alert Red for high-priority clinical visibility */
+  margin-top: 16px;
 }
 
 .error-page-container span {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  text-align: center;
-  margin-top: 3rem;
-  gap: 1rem;
+  gap: 8px;
 }
 
-.error-page-container span p {
-  font-size: 20px;
-  font-weight: 400;
-}
-
-/* Forgot PAssword Section--- */
-
-.forgot-password-container {
-  font-family: "Afacad Flux", sans-serif;
-  padding: 3rem;
-  background-color: #f9f4ec;
-  height: 100vh;
-  text-align: center;
+/* Redirection Arrow (The Back Button) */
+.login-redirection-arrow {
+  position: absolute;
+  top: 24px;
+  left: 24px;
+  width: 44px;
+  height: 44px;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 1rem;
+  border-radius: var(--radius-pill);
+  background: var(--bg-secondary);
+  transition: var(--transition-spring);
+  border: 1px solid var(--surface-border);
 }
 
-.forgot-password-container h2 {
-  font-weight: 500;
-  font-size: 35px;
-  margin-bottom: 1.5rem;
+.login-redirection-arrow:hover {
+  transform: translateX(-4px) scale(1.05);
+  background: var(--bg-primary);
+  box-shadow: var(--shadow-soft);
 }
 
-.forgot-password-container form {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
+.login-redirection-arrow:active {
+  transform: scale(0.95);
 }
 
+/* Full-width Form Control wrappers */
+.forgot-password-container form > div {
+  width: 100%;
+  margin-top: 8px;
+}
+
+/* Typography for secondary navigation */
 .forgot-password-container p {
-  display: flex;
-  gap: 5px;
-}
-
-#forgotPassBtnId {
-  margin-bottom: 2rem;
-}
-
-/* EchoChat Loader Style Section--- */
-.echochat-loader-container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: #f9f4ec;
-}
-
-.echochat-text {
-  font-family: "DynaPuff", system-ui;
-  font-size: 2.2rem;
+  font-size: 14px;
   font-weight: 500;
-  color: #208d7f;
-  letter-spacing: 2px;
+  color: var(--text-muted);
+  margin-top: 24px;
 }
 
-.echochat-loader-box {
-  position: relative;
-  padding: 25px 45px;
-  background-color: #f9f4ec;
-  box-sizing: border-box;
-  position: relative;
+/* MUI Field Overrides - Ensuring 100% card width */
+.MuiFormControl-root, 
+.MuiTextField-root {
+  width: 100% !important;
+  margin: 0 0 16px 0 !important;
 }
 
-.echochat-loader-box::before,
-.echochat-loader-box::after {
-  content: "";
-  position: absolute;
-  background-color: #208d7f;
+/* Centering the entire screen */
+/* cards float in the dead center of the viewport */
+body:has(.forgot-password-container),
+body:has(.error-page-container) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100dvh;
+  background-color: var(--bg-tertiary);
 }
 
-.echochat-loader-box::before {
-  height: 4px;
-  width: 0;
-  top: 0;
-  left: 0;
-  animation: borderTopGrow 0.8s linear forwards,
-    borderTopShrink 0.8s linear 3.2s forwards;
-  animation-iteration-count: infinite;
-  animation-delay: 0s, 3.2s;
-}
-
-.echochat-loader-box::after {
-  width: 4px;
-  height: 0;
-  top: 0;
-  right: 0;
-  animation: borderRightGrow 0.8s linear forwards,
-    borderRightShrink 0.8s linear 2.4s forwards;
-  animation-iteration-count: infinite;
-  animation-delay: 0.8s, 2.4s;
-}
-
-.echochat-loader-box .border-bottom {
-  position: absolute;
-  height: 4px;
-  width: 0;
-  bottom: 0;
-  right: 0;
-  background-color: #208d7f;
-  animation: borderBottomGrow 0.8s linear forwards,
-    borderBottomShrink 0.8s linear 1.6s forwards;
-  animation-iteration-count: infinite;
-  animation-delay: 1.6s, 1.6s;
-}
-
-.echochat-loader-box .border-left {
-  position: absolute;
-  width: 4px;
-  height: 0;
-  bottom: 0;
-  left: 0;
-  background-color: #208d7f;
-  animation: borderLeftGrow 0.8s linear forwards,
-    borderLeftShrink 0.8s linear 0.8s forwards;
-  animation-iteration-count: infinite;
-  animation-delay: 2.4s, 0.8s;
-}
-
-@keyframes borderTopGrow {
+/* Keyframes */
+@keyframes cardMount {
   0% {
-    width: 0;
-    left: 0;
+    opacity: 0;
+    transform: translateY(20px) scale(0.98);
   }
   100% {
-    width: 100%;
-    left: 0;
-  }
-}
-
-@keyframes borderTopShrink {
-  0% {
-    width: 100%;
-    left: 0;
-  }
-  100% {
-    width: 0;
-    left: 100%;
-  }
-}
-
-@keyframes borderRightGrow {
-  0% {
-    height: 0;
-    top: 0;
-  }
-  100% {
-    height: 100%;
-    top: 0;
-  }
-}
-
-@keyframes borderRightShrink {
-  0% {
-    height: 100%;
-    top: 0;
-  }
-  100% {
-    height: 0;
-    top: 100%;
-  }
-}
-
-@keyframes borderBottomGrow {
-  0% {
-    width: 0;
-    right: 0;
-  }
-  100% {
-    width: 100%;
-    right: 0;
-  }
-}
-
-@keyframes borderBottomShrink {
-  0% {
-    width: 100%;
-    right: 0;
-  }
-  100% {
-    width: 0;
-    right: 100%;
-  }
-}
-
-@keyframes borderLeftGrow {
-  0% {
-    height: 0;
-    bottom: 0;
-  }
-  100% {
-    height: 100%;
-    bottom: 0;
-  }
-}
-
-@keyframes borderLeftShrink {
-  0% {
-    height: 100%;
-    bottom: 0;
-  }
-  100% {
-    height: 0;
-    bottom: 100%;
-  }
-}
-
-/* Media Queries--- */
-
-@media (max-width: 768px) {
-  .echochat-text {
-    font-size: 1.5rem;
-  }
-
-  .echochat-loader-box {
-    padding: 20px 35px;
-  }
-}
-
-@media screen and (max-width: 700px) {
-  .onboarding-container {
-    padding: 3rem 4rem;
-  }
-}
-
-@media screen and (max-width: 550px) {
-  .onboarding-container {
-    padding: 3rem 1rem;
-    height: fit-content;
-  }
-
-  .onboarding-container h1 {
-    font-size: 50px;
-    text-align: left;
-    margin-bottom: 1rem;
-  }
-
-  .onboarding-container h4 {
-    text-align: left;
-    line-height: 2rem;
-  }
-
-  .onboarding-container p {
-    font-size: 18px;
-    font-weight: 400;
-    color: #a19f9f;
-    margin-bottom: 1rem;
-  }
-}
-
-@media screen and (max-width: 450px) {
-  .auth-container p {
-    font-size: 20px;
-  }
-
-  .forgot-password-container h2 {
-    font-weight: 500;
-    font-size: 30px;
-    margin-bottom: 1.5rem;
+    opacity: 1;
+    transform: translateY(0) scale(1);
   }
 }

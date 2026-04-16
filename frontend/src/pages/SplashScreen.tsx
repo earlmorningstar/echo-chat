@@ -16,6 +16,7 @@ const SplashScreen: React.FC = () => {
     return (
         <div className='splash-header'>
             <h1>EchoChat</h1>
+            <h4>Your conversations, simplified.</h4>
         </div>
     );
 };
