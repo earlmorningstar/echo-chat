@@ -13,6 +13,7 @@ import {
   MdCallMissed,
 } from "react-icons/md";
 import EchoChatLoader from "../pages/EchoChatLoader";
+import UserAvatar from "../components/UserAvatar";
 
 interface CallHistoryItem {
   _id: string;
@@ -50,30 +51,31 @@ const CallList: React.FC = () => {
 
   const processCallHistory = (calls: any[]): CallHistoryItem[] => {
     if (!user?._id || !calls.length) return [];
-  
+
     // sorting all calls by timestamp 'newest first'
     const sortedCalls = [...calls].sort(
-      (a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime()
+      (a, b) =>
+        new Date(b.startTime).getTime() - new Date(a.startTime).getTime(),
     );
-    
+
     //grouping consecutive calls by the same user and direction
     const processedCalls: CallHistoryItem[] = [];
     let currentGroup: any[] = [];
-    let currentKey = '';
-    
+    let currentKey = "";
+
     sortedCalls.forEach((call) => {
       const isOutgoing = call.caller.toString() === user?._id;
       const otherUserId = isOutgoing ? call.recipient : call.caller;
       const direction = isOutgoing ? "outgoing" : "incoming";
       const newKey = `${otherUserId}-${direction}-${call.type}`;
-      
+
       //in a situation whereby this is a different user/direction/type or first call
       if (newKey !== currentKey) {
         //process previous group if it exists
         if (currentGroup.length > 0) {
           processedCalls.push(createCallHistoryItem(currentGroup));
         }
-        
+
         //starting new group
         currentGroup = [call];
         currentKey = newKey;
@@ -82,27 +84,27 @@ const CallList: React.FC = () => {
         currentGroup.push(call);
       }
     });
-    
+
     //processing the last group
     if (currentGroup.length > 0) {
       processedCalls.push(createCallHistoryItem(currentGroup));
     }
-    
+
     return processedCalls;
   };
-  
+
   //helper - to create a call history item from a group of calls
   const createCallHistoryItem = (callGroup: any[]): CallHistoryItem => {
     const latestCall = callGroup[0]; //first call in group should be the latest one
     const isOutgoing = latestCall.caller.toString() === user?._id;
     const otherUserId = isOutgoing ? latestCall.recipient : latestCall.caller;
     const count = callGroup.length;
-    
+
     //finding participant
     const participant = latestCall.participantDetails.find(
-      (p: any) => p._id === otherUserId.toString()
+      (p: any) => p._id === otherUserId.toString(),
     );
-    
+
     return {
       ...latestCall,
       isOutgoing,
@@ -119,7 +121,7 @@ const CallList: React.FC = () => {
 
   const calculateDuration = (
     startTime: string | Date,
-    endTime?: string | Date
+    endTime?: string | Date,
   ): number => {
     if (!endTime) return 0;
 
@@ -146,7 +148,7 @@ const CallList: React.FC = () => {
     const callDay = new Date(
       callDate.getFullYear(),
       callDate.getMonth(),
-      callDate.getDate()
+      callDate.getDate(),
     );
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const diffTime = today.getTime() - callDay.getTime();
@@ -205,18 +207,12 @@ const CallList: React.FC = () => {
             >
               <div className="call-item-info-holder">
                 <div className="call-item-avatar">
-                  {call.user.avatarUrl ? (
-                    <img
-                      src={call.user.avatarUrl}
-                      alt={`${call.user.firstName}'s profile`}
-                      className="profile-image"
-                    />
-                  ) : (
-                    <div className="default-avatar">
-                      {call.user.firstName[0]}
-                      {call.user.lastName[0]}
-                    </div>
-                  )}
+                  <UserAvatar
+                    avatarUrl={call.user.avatarUrl}
+                    firstName={call.user.firstName}
+                    lastName={call.user.lastName}
+                    className="profile-image"
+                  />
                 </div>
 
                 <div className="call-info">
@@ -234,7 +230,7 @@ const CallList: React.FC = () => {
                           (name) =>
                             `${name.charAt(0).toUpperCase()}${name
                               .slice(1)
-                              .toLowerCase()}`
+                              .toLowerCase()}`,
                         )
                         .join(" ")}
                       {call.count && call.count > 1 && (
@@ -261,8 +257,8 @@ const CallList: React.FC = () => {
                         {call.isOutgoing
                           ? "Outgoing"
                           : call.status === CallStatus.MISSED
-                          ? "Missed"
-                          : "Incoming"}
+                            ? "Missed"
+                            : "Incoming"}
                       </span>
 
                       {call.type === CallType.VIDEO ? (

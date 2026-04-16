@@ -855,6 +855,37 @@
   }
 }
 
+.image-skeleton {
+  width: 200px;
+  height: 200px;
+  border-radius: 8px;
+  background: linear-gradient(
+    90deg,
+    var(--skeleton-base, #e0e0e0) 25%,
+    var(--skeleton-shine, #f0f0f0) 50%,
+    var(--skeleton-base, #e0e0e0) 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.4s infinite;
+}
+
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .image-skeleton {
+    --skeleton-base: #2a2a2a;
+    --skeleton-shine: #3a3a3a;
+  }
+}
+
 .loading-container {
   display: flex;
   justify-content: center;

@@ -8,9 +8,12 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import api from "../utils/api";
 import { formatLastSeen } from "../utils/chatUtils";
 import { Message, AuthUser, CallType } from "../types";
-import { formatFileSize, uploadFile } from "../utils/fileUpload";
-import ImageViewer from "./ImageViewer";
-import { useCachedImage } from "../utils/imageCache";
+import {
+  // formatFileSize,
+  uploadFile,
+} from "../utils/fileUpload";
+// import ImageViewer from "./ImageViewer";
+// import { useCachedImage } from "../utils/imageCache";
 import { IconButton } from "@mui/material";
 import {
   Send,
@@ -19,9 +22,14 @@ import {
   Videocam,
   Phone,
 } from "@mui/icons-material";
-import { IoChevronBackOutline, IoCloudDownloadOutline } from "react-icons/io5";
+import {
+  IoChevronBackOutline,
+  // IoCloudDownloadOutline
+} from "react-icons/io5";
 import { CiUnread, CiRead } from "react-icons/ci";
 import EchoChatLoader from "../pages/EchoChatLoader";
+import MessageContent from "../components/MessageContent";
+import UserAvatar from "../components/UserAvatar";
 
 interface ChatMessage extends Message {
   sender: AuthUser;
@@ -38,60 +46,60 @@ interface ChatParams extends Record<string, string> {
   friendId: string;
 }
 
-const MessageContent: React.FC<{ message: ChatMessage }> = ({ message }) => {
-  const { token } = useAuth();
-  const [showImageViewer, setShowImageViewer] = useState(false);
-  const { cachedUrl } = useCachedImage(message.content, {
-    token: token || undefined,
-  });
+// const MessageContent: React.FC<{ message: ChatMessage }> = ({ message }) => {
+//   const { token } = useAuth();
+//   const [showImageViewer, setShowImageViewer] = useState(false);
+//   const { cachedUrl } = useCachedImage(message.content, {
+//     token: token || undefined,
+//   });
 
-  switch (message.type) {
-    case "image":
-      return (
-        <>
-          <div className="image-container">
-            <img
-              src={cachedUrl}
-              alt={message.metadata?.fileName || "Shared image"}
-              className="message-image"
-              loading="lazy"
-              onClick={() => setShowImageViewer(true)}
-              onError={(e) => {
-                console.error("Image load error");
-                e.currentTarget.src = "";
-              }}
-            />
-          </div>
-          {showImageViewer && (
-            <ImageViewer
-              imageUrl={cachedUrl || ""}
-              fileName={message.metadata?.fileName}
-              onClose={() => setShowImageViewer(false)}
-            />
-          )}
-        </>
-      );
+//   switch (message.type) {
+//     case "image":
+//       return (
+//         <>
+//           <div className="image-container">
+//             <img
+//               src={cachedUrl}
+//               alt={message.metadata?.fileName || "Shared image"}
+//               className="message-image"
+//               loading="lazy"
+//               onClick={() => setShowImageViewer(true)}
+//               onError={(e) => {
+//                 console.error("Image load error");
+//                 e.currentTarget.src = "";
+//               }}
+//             />
+//           </div>
+//           {showImageViewer && (
+//             <ImageViewer
+//               imageUrl={cachedUrl || ""}
+//               fileName={message.metadata?.fileName}
+//               onClose={() => setShowImageViewer(false)}
+//             />
+//           )}
+//         </>
+//       );
 
-    case "file":
-      const fileUrl = `${message.content}?token=${token}`;
-      return (
-        <a
-          href={fileUrl}
-          download={message.metadata?.fileName}
-          className="file-attachment"
-        >
-          <AttachFile />
-          <span className="file-name">{message.metadata?.fileName}</span>
-          <span className="file-size">
-            {formatFileSize(message.metadata?.fileSize)}{" "}
-            <IoCloudDownloadOutline size={16} />
-          </span>
-        </a>
-      );
-    default:
-      return <>{message.content}</>;
-  }
-};
+//     case "file":
+//       const fileUrl = `${message.content}?token=${token}`;
+//       return (
+//         <a
+//           href={fileUrl}
+//           download={message.metadata?.fileName}
+//           className="file-attachment"
+//         >
+//           <AttachFile />
+//           <span className="file-name">{message.metadata?.fileName}</span>
+//           <span className="file-size">
+//             {formatFileSize(message.metadata?.fileSize)}{" "}
+//             <IoCloudDownloadOutline size={16} />
+//           </span>
+//         </a>
+//       );
+//     default:
+//       return <>{message.content}</>;
+//   }
+// };
 
 const ChatWindow: React.FC = () => {
   const { friendId } = useParams<ChatParams>();
@@ -403,14 +411,12 @@ const ChatWindow: React.FC = () => {
             </NavLink>
             <div className="friend-info" onClick={handleFriendProfile}>
               <div className="friend-avatar">
-                {friend.avatarUrl ? (
-                  <img src={friend.avatarUrl} alt={friend.firstName} />
-                ) : (
-                  <div className="default-avatar">
-                    {friend.firstName[0]}
-                    {friend.lastName[0]}
-                  </div>
-                )}
+                <UserAvatar
+                  avatarUrl={friend.avatarUrl}
+                  firstName={friend.firstName}
+                  lastName={friend.lastName}
+                  className="profile-image"
+                />
                 <span
                   className={`status-indicator ${friend.status || "offline"}`}
                 />

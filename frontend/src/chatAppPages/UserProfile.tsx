@@ -15,6 +15,7 @@ import {
 import Popover from "@mui/material/Popover";
 import PopupState, { bindTrigger, bindPopover } from "material-ui-popup-state";
 import { MdOutlineBlock } from "react-icons/md";
+import UserAvatar from "../components/UserAvatar";
 
 const UserProfile: React.FC = () => {
   const { user, updateUser, logout } = useAuth();
@@ -70,7 +71,7 @@ const UserProfile: React.FC = () => {
         setIsUploading(false);
       }
     },
-    [updateUser]
+    [updateUser],
   );
 
   const handleRemoveImage = async (PopupState: any) => {
@@ -89,14 +90,14 @@ const UserProfile: React.FC = () => {
   };
 
   //initial avatar
-  const getInitialsAvatar = () => {
-    if (!user) return "";
-    return `${user.firstName[0]}${user.lastName[0]}`.toUpperCase();
-  };
+  // const getInitialsAvatar = () => {
+  //   if (!user) return "";
+  //   return `${user.firstName[0]}${user.lastName[0]}`.toUpperCase();
+  // };
 
-  const getAvatarUrl = () => {
-    return user?.avatarUrl;
-  };
+  // const getAvatarUrl = () => {
+  //   return user?.avatarUrl;
+  // };
 
   const handleDeleteAccount = async () => {
     try {
@@ -120,36 +121,13 @@ const UserProfile: React.FC = () => {
     <section className="main-container">
       <div className="user-profile-main-container" key={profileKey}>
         <div className="user-profile-image-container">
-          {getAvatarUrl() ? (
-            <img
-              src={getAvatarUrl()}
-              alt={getInitialsAvatar() || getAvatarUrl() || "Profile"}
-              onError={(e) => {
-                console.error("Image load error:", getAvatarUrl());
-                e.currentTarget.src = "";
-                if (user) {
-                  updateUser({ avatarUrl: undefined });
-                }
-              }}
-            />
-          ) : (
-            <div
-              style={{
-                width: "170px",
-                height: "170px",
-                borderRadius: "50%",
-                backgroundColor: "#208d7f",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "#ffffff",
-                fontSize: "3rem",
-                fontWeight: "500",
-              }}
-            >
-              {getInitialsAvatar()}
-            </div>
-          )}
+          <UserAvatar
+            avatarUrl={user?.avatarUrl}
+            firstName={user?.firstName || ""}
+            lastName={user?.lastName || ""}
+            className="profile-image"
+            // style={{ width: "170px", height: "170px", fontSize: "3rem" }}
+          />
           <div className="no-friends-message button">
             <PopupState variant="popover" popupId="image-management-popover">
               {(popupState) => (
@@ -228,7 +206,7 @@ const UserProfile: React.FC = () => {
             <h3>
               {user?._id
                 ? formatDate(
-                    new Date(parseInt(user._id.substring(0, 8), 16) * 1000)
+                    new Date(parseInt(user._id.substring(0, 8), 16) * 1000),
                   )
                 : "Not Available"}
             </h3>

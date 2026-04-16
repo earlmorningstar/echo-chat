@@ -6,6 +6,7 @@ import api from "../utils/api";
 import { AuthUser } from "../types";
 import * as TwilioVideo from "twilio-video";
 import { LocalTrack } from "../types/twilio";
+import UserAvatar from "../components/UserAvatar";
 // import { TwilioVoice } from "../types/calls";
 import {
   Mic,
@@ -373,19 +374,12 @@ const CallInterface: React.FC = () => {
       {callState.currentCall.type === "voice" && remoteUser && (
         <div className="voice-call-live-avatar">
           <div className="avatar-wrapper">
-            {remoteUser.avatarUrl ? (
-              <img
-                src={remoteUser.avatarUrl}
-                alt={`${remoteUser.firstName} ${remoteUser.lastName}`}
-              />
-            ) : (
-              <div className="avatar-fallback">
-                <span>
-                  {remoteUser.firstName?.[0]}
-                  {remoteUser.lastName?.[0]}
-                </span>
-              </div>
-            )}
+            <UserAvatar
+              avatarUrl={remoteUser.avatarUrl}
+              firstName={remoteUser.firstName}
+              lastName={remoteUser.lastName}
+              className="avatar-img"
+            />
           </div>
           <div className="voice-call-status">
             {callState.currentCall.status === "connected"
@@ -400,20 +394,12 @@ const CallInterface: React.FC = () => {
         {remoteUser && (
           <div className="participant-badge">
             <div className="participant-avatar">
-              {remoteUser.avatarUrl ? (
-                <img
-                  src={remoteUser.avatarUrl}
-                  alt={`${remoteUser.firstName} ${remoteUser.lastName}`}
-                  className="avatar-img"
-                />
-              ) : (
-                <div className="avatar-fallback">
-                  <span>
-                    {remoteUser.firstName?.[0]}
-                    {remoteUser.lastName?.[0]}
-                  </span>
-                </div>
-              )}
+              <UserAvatar
+                avatarUrl={remoteUser.avatarUrl}
+                firstName={remoteUser.firstName}
+                lastName={remoteUser.lastName}
+                className="avatar-img"
+              />
             </div>
             <div className="participant-info">
               <h3 className="participant-name">

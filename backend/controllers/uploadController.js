@@ -4,10 +4,7 @@ import jwt from "jsonwebtoken";
 import { sendError, sendSuccess } from "../utils/response.js";
 
 const getMessageType = (mimetype) => {
-  //check to see if it's an image
-  if (mimetype.startsWith("image/")) {
-    return "image";
-  }
+  if (mimetype.startsWith("image/")) return "image";
   return "file";
 };
 
@@ -18,23 +15,24 @@ const handleFileUpload = async (req, res) => {
     }
 
     const fileData = await uploadToGridFS(req.file, req.db);
+    const fileUrl = `/api/uploads/files/${fileData.fileId}`;
 
-    const baseUrl = `${req.protocol}://${req.get("host")}`;
-
-    //create file url
-    const fileUrl = `${baseUrl}/api/uploads/files/${fileData.fileId}`;
-
-    //determine type based on mime
     const messageType = getMessageType(req.file.mimetype);
 
-    sendSuccess(res, 200, "File uploaded successfully", {
-      fileUrl,
-      fileId: fileData.fileId,
-      fileName: req.file.originalname,
-      fileSize: req.file.size,
-      mimeType: req.file.mimetype,
-      type: messageType,
-    }, false);
+    sendSuccess(
+      res,
+      200,
+      "File uploaded successfully",
+      {
+        fileUrl,
+        fileId: fileData.fileId,
+        fileName: req.file.originalname,
+        fileSize: req.file.size,
+        mimeType: req.file.mimetype,
+        type: messageType,
+      },
+      false,
+    );
   } catch (error) {
     sendError(res, 500, "Error uploading file", { error: error.message });
   }
@@ -43,27 +41,22 @@ const handleFileUpload = async (req, res) => {
 const serveFile = async (req, res) => {
   try {
     const fileId = req.params.fileId;
-    const token = req.query.token;
+    let token = req.query.token;
 
     if (!token) {
-      // Fallback logic for serving file without token
       return serveFallbackFile(req, res, fileId);
     }
 
     try {
-      // Attempt to verify token
       jwt.verify(token, process.env.JWT_SECRET);
     } catch (verificationError) {
-      // IF token is expired, attempt to renew
       try {
-        const renewedToken = await renewToken(token);
-        token = renewedToken;
+        token = await renewToken(token);
       } catch (renewError) {
         return serveFallbackFile(req, res, fileId);
       }
     }
 
-    // Serve file with verified/renewed token
     const bucket = new GridFSBucket(req.db);
     const file = await req.db
       .collection("fs.files")
@@ -74,11 +67,9 @@ const serveFile = async (req, res) => {
     }
 
     res.set({
-      "Content-Type": file.metadata.minetype || file.contentType,
+      "Content-Type": file.metadata?.mimetype || file.contentType,
       "Content-Length": file.length,
-      "Content-Disposition": `inline; filename="${
-        file.metadata.originalname || file.fileName
-      }"`,
+      "Content-Disposition": `inline; filename="${file.metadata?.originalname || file.fileName}"`,
       "Cache-Control": "public, max-age=86400",
       ETag: `"${file._id}"`,
     });
@@ -89,27 +80,28 @@ const serveFile = async (req, res) => {
   }
 };
 
-// Helper function to serve file without strict token validation
 const serveFallbackFile = async (req, res, fileId) => {
-  const bucket = new GridFSBucket(req.db);
-  const file = await req.db
-    .collection("fs.files")
-    .findOne({ _id: new ObjectId(fileId) });
+  try {
+    const bucket = new GridFSBucket(req.db);
+    const file = await req.db
+      .collection("fs.files")
+      .findOne({ _id: new ObjectId(fileId) });
 
-  if (!file) {
-    return sendError(res, 404, "File not found");
+    if (!file) {
+      return sendError(res, 404, "File not found");
+    }
+
+    res.set({
+      "Content-Type": file.metadata?.mimetype || file.contentType,
+      "Content-Length": file.length,
+      "Content-Disposition": `inline; filename="${file.metadata?.originalname || file.fileName}"`,
+      "Cache-Control": "no-cache",
+    });
+
+    bucket.openDownloadStream(new ObjectId(fileId)).pipe(res);
+  } catch (error) {
+    sendError(res, 500, "Error retrieving fallback file");
   }
-
-  res.set({
-    "Content-Type": file.metadata.minetype || file.contentType,
-    "Content-Length": file.length,
-    "Content-Disposition": `inline; filename="${
-      file.metadata.originalname || file.fileName
-    }"`,
-    "Cache-Control": "no-cache",
-  });
-
-  return bucket.openDownloadStream(new ObjectId(fileId)).pipe(res);
 };
 
 export { handleFileUpload, serveFile };

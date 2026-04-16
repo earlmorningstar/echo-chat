@@ -5,6 +5,7 @@ import { useChat } from "../contexts/ChatContext";
 import EchoChatLoader from "../pages/EchoChatLoader";
 import { CiUnread, CiRead } from "react-icons/ci";
 import { Friend, Message } from "../types";
+import UserAvatar from "../components/UserAvatar";
 import "./ChatAppStyles.css";
 
 const ChatList: React.FC = () => {
@@ -29,15 +30,9 @@ const ChatList: React.FC = () => {
         minute: "2-digit",
       });
     }
-
-    if (diffDays === 1) {
-      return "Yesterday";
-    }
-
-    if (diffDays < 7) {
+    if (diffDays === 1) return "Yesterday";
+    if (diffDays < 7)
       return messageDate.toLocaleDateString([], { weekday: "long" });
-    }
-
     return messageDate.toLocaleDateString([], {
       day: "2-digit",
       month: "2-digit",
@@ -47,24 +42,16 @@ const ChatList: React.FC = () => {
 
   const getMessagePreview = (message: Message) => {
     if (!message || !message.content) return "";
-
-    if (message.type === "image") {
-      return "📷 Sent a photo";
-    }
-
+    if (message.type === "image") return "📷 Sent a photo";
     if (message.type === "file") {
       return message.metadata?.fileName
         ? `📎 ${message.metadata.fileName}`
         : "📎 Sent a file";
     }
     if (message.content.includes("/api/uploads")) {
-      if (message.metadata?.mimeType?.startsWith("image/")) {
+      if (message.metadata?.mimeType?.startsWith("image/"))
         return "📷 Sent a photo";
-      }
-
-      if (message.metadata?.fileName) {
-        return `📎 ${message.metadata.fileName}`;
-      }
+      if (message.metadata?.fileName) return `📎 ${message.metadata.fileName}`;
       return "📎 Sent a file";
     }
     return truncateLastMessage(message.content);
@@ -76,22 +63,15 @@ const ChatList: React.FC = () => {
     charLimit: number = 100,
   ) => {
     const words = message.split(" ");
-    let truncatedMessage = message;
-
-    if (words.length > wordLimit) {
-      truncatedMessage = words.slice(0, wordLimit).join(" ") + "....";
-    }
-
-    if (truncatedMessage.length > charLimit) {
-      return truncatedMessage.slice(0, charLimit) + "...";
-    }
-
-    return truncatedMessage;
+    let truncated = message;
+    if (words.length > wordLimit)
+      truncated = words.slice(0, wordLimit).join(" ") + "....";
+    if (truncated.length > charLimit)
+      return truncated.slice(0, charLimit) + "...";
+    return truncated;
   };
 
-  if (isLoading && !friends.length) {
-    return <EchoChatLoader />;
-  }
+  if (isLoading && !friends.length) return <EchoChatLoader />;
 
   return (
     <div className="main-container">
@@ -111,18 +91,12 @@ const ChatList: React.FC = () => {
               onClick={() => handleChatClick(friend._id)}
             >
               <div className="chat-item-avatar">
-                {friend.avatarUrl ? (
-                  <img
-                    src={friend.avatarUrl}
-                    alt={`${friend.firstName}'s profile`}
-                    className="profile-image"
-                  />
-                ) : (
-                  <div className="default-avatar">
-                    {friend.firstName[0]}
-                    {friend.lastName[0]}
-                  </div>
-                )}
+                <UserAvatar
+                  avatarUrl={friend.avatarUrl}
+                  firstName={friend.firstName}
+                  lastName={friend.lastName}
+                  className="profile-image"
+                />
                 <span
                   className={`status-indicator ${friend.status || "offline"}`}
                 />
@@ -135,9 +109,7 @@ const ChatList: React.FC = () => {
                       .split(" ")
                       .map(
                         (name) =>
-                          `${name.charAt(0).toUpperCase()}${name
-                            .slice(1)
-                            .toLowerCase()}`,
+                          `${name.charAt(0).toUpperCase()}${name.slice(1).toLowerCase()}`,
                       )
                       .join(" ")}
                   </span>

@@ -1,13 +1,22 @@
 import { CacheOptions } from "./types";
 import { imageCache } from "./cacheStore";
-import { CACHE_DURATION } from "./config";
+import { CACHE_DURATION, API_BASE_URL } from "./config";
+
+const resolveUrl = (url: string): string => {
+  if (!url) return url;
+  if (url.startsWith("http://") || url.startsWith("https://")) return url;
+  return `${API_BASE_URL}${url}`;
+};
 
 export const getCachedImage = async (
   url: string,
   options: CacheOptions = {}
 ): Promise<string> => {
   const { token, forceRefresh } = options;
-  const cacheKey = token ? `${url}?token=${token}` : url;
+
+  const resolvedUrl = resolveUrl(url);
+  const cacheKey = token ? `${resolvedUrl}?token=${token}` : resolvedUrl;
+  const fetchUrl = token ? `${resolvedUrl}?token=${token}` : resolvedUrl;
 
   const cachedData = imageCache.get(cacheKey);
   if (
@@ -18,27 +27,19 @@ export const getCachedImage = async (
     return URL.createObjectURL(cachedData.blob);
   }
 
-  try {
-     const response = await fetch(cacheKey, {
-      headers: token
-        ? {
-            Authorization: `Bearer ${token}`,
-          }
-        : {},
-    });
+  const response = await fetch(fetchUrl, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
 
-   if (!response.ok) throw new Error("Failed to fetch image");
+  if (!response.ok) throw new Error(`Failed to fetch image: ${response.status}`);
 
-    const blob = await response.blob();
+  const blob = await response.blob();
 
-    imageCache.set(cacheKey, {
-      blob,
-      timestamp: Date.now(),
-      token,
-    });
+  imageCache.set(cacheKey, {
+    blob,
+    timestamp: Date.now(),
+    token,
+  });
 
-    return URL.createObjectURL(blob);
-  } catch (error) {
-    throw error;
-  }
+  return URL.createObjectURL(blob);
 };

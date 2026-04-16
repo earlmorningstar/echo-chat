@@ -13,6 +13,7 @@ import { IoMdCall, IoMdVideocam } from "react-icons/io";
 import { RiMessage2Fill } from "react-icons/ri";
 import { MdOutlineBlock } from "react-icons/md";
 import { CircularProgress, Snackbar } from "@mui/material";
+import UserAvatar from "../components/UserAvatar";
 
 const FriendsProfile: React.FC = () => {
   const navigate = useNavigate();
@@ -182,14 +183,12 @@ const FriendsProfile: React.FC = () => {
 
       <div className="friends-details-section">
         <span className="friends-profile-image-container">
-          {friend?.avatarUrl ? (
-            <img src={friend.avatarUrl} alt="Profile" />
-          ) : (
-            <div className="default-avatar">
-              {friend?.firstName?.[0]}
-              {friend?.lastName?.[0]}
-            </div>
-          )}
+          <UserAvatar
+            avatarUrl={friend?.avatarUrl}
+            firstName={friend?.firstName || ""}
+            lastName={friend?.lastName || ""}
+            className="profile-image"
+          />
         </span>
         <h2>
           {friend
@@ -199,7 +198,7 @@ const FriendsProfile: React.FC = () => {
                   (name) =>
                     `${name.charAt(0).toUpperCase()}${name
                       .slice(1)
-                      .toLowerCase()}`
+                      .toLowerCase()}`,
                 )
                 .join(" ")
             : "Loading..."}

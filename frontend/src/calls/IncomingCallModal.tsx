@@ -8,6 +8,7 @@ import * as FramerMotion from "framer-motion";
 import { AuthUser } from "../types";
 import api from "../utils/api";
 import { TwilioVoice } from "../types/calls";
+import UserAvatar from "../components/UserAvatar";
 
 const AnimatePresence = FramerMotion.AnimatePresence as React.ComponentType<{
   children: React.ReactNode;
@@ -134,20 +135,12 @@ const IncomingCallModal: React.FC = () => {
           >
             <div className="caller-info">
               <div className="avatar-container">
-                {caller?.avatarUrl ? (
-                  <img
-                    src={caller.avatarUrl}
-                    alt={caller.username}
-                    className="avatar"
-                  />
-                ) : (
-                  <div className="avatar-fallback">
-                    <span>
-                      {caller?.firstName?.[0]}
-                      {caller?.lastName?.[0]}
-                    </span>
-                  </div>
-                )}
+                <UserAvatar
+                  avatarUrl={caller?.avatarUrl}
+                  firstName={caller?.firstName || ""}
+                  lastName={caller?.lastName || ""}
+                  className="avatar"
+                />
               </div>
               <h3 className="caller-name">
                 {caller?.firstName
