@@ -1,5 +1,7 @@
 import React, { useState } from "react";
 import { IoClose, IoCloudDownloadOutline } from "react-icons/io5";
+import { useCachedImage } from "../utils/imageCache";
+import { useAuth } from "../contexts/AuthContext";
 
 interface ImageViewerProps {
   imageUrl: string;
@@ -12,6 +14,10 @@ const ImageViewer: React.FC<ImageViewerProps> = ({
   fileName,
   onClose,
 }) => {
+  const { token } = useAuth();
+  const { cachedUrl } = useCachedImage(imageUrl, {
+    token: token || undefined,
+  });
   const [isLoading, setIsLoading] = useState(true);
   const handleDownload = async (): Promise<void> => {
     try {
@@ -49,7 +55,7 @@ const ImageViewer: React.FC<ImageViewerProps> = ({
           </div>
         )}
         <img
-          src={imageUrl}
+          src={cachedUrl}
           alt={fileName || "Full size image"}
           className="image-viewer-image"
           onLoad={() => setIsLoading(false)}

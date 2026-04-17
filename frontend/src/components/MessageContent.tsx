@@ -30,6 +30,7 @@ const MessageContent: React.FC<{ message: ChatMessage }> = ({ message }) => {
 
   switch (message.type) {
     case "image":
+      const fullSizeUrl = message.metadata?.fileUrl || cachedUrl;
       return (
         <>
           <div className="image-container">
@@ -50,9 +51,9 @@ const MessageContent: React.FC<{ message: ChatMessage }> = ({ message }) => {
               />
             )}
           </div>
-          {showImageViewer && cachedUrl && (
+          {showImageViewer && fullSizeUrl && (
             <ImageViewer
-              imageUrl={cachedUrl}
+              imageUrl={fullSizeUrl}
               fileName={message.metadata?.fileName}
               onClose={() => setShowImageViewer(false)}
             />
@@ -63,7 +64,11 @@ const MessageContent: React.FC<{ message: ChatMessage }> = ({ message }) => {
     case "file": {
       const fileUrl = `${message.content}?token=${token}`;
       return (
-        <a href={fileUrl} download={message.metadata?.fileName} className="file-attachment">
+        <a
+          href={fileUrl}
+          download={message.metadata?.fileName}
+          className="file-attachment"
+        >
           <AttachFile />
           <span className="file-name">{message.metadata?.fileName}</span>
           <span className="file-size">
