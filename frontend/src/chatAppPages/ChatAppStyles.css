@@ -303,7 +303,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-    padding-bottom: 3.8px;
+   padding-bottom: 3.8px;
   animation: slide-in-left 0.25s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
@@ -1495,8 +1495,10 @@
 /* ── Friends Profile Container */
 
 .friends-profile-main-container {
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
-  padding: calc(1.5rem + env(safe-area-inset-top)) 0 calc(3rem + env(safe-area-inset-bottom));
+  font-family:
+    -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif;
+  padding: calc(1.5rem + env(safe-area-inset-top)) 0
+    calc(3rem + env(safe-area-inset-bottom));
   background-color: var(--bg-secondary);
   min-height: 100dvh;
 }
@@ -1651,13 +1653,14 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif;
   font-size: 0.9rem;
   font-weight: 600;
   border-radius: var(--radius-button);
   border: none;
   background: rgba(255, 59, 48, 0.08);
-  color: #FF3B30;
+  color: #ff3b30;
   transition: var(--transition-spring);
   letter-spacing: -0.1px;
 }
@@ -1706,7 +1709,8 @@
 /* ── User Profile Container ──────────────────────────── */
 
 .user-profile-main-container {
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif;
   padding: calc(1.5rem + env(safe-area-inset-top)) 0 0;
 }
 
@@ -1733,7 +1737,8 @@
 
 #add-newImg-button {
   padding: 8px 20px;
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif;
   font-size: 0.82rem;
   font-weight: 600;
   border: 1.5px solid rgba(0, 122, 255, 0.35);
@@ -1808,7 +1813,8 @@
 /* ── Delete Account Button  */
 
 .user-acct-del-btn {
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif;
   font-size: 0.9rem;
   padding: 8px 12px;
 }
@@ -1976,7 +1982,8 @@
 /* ── Modal Card */
 
 .modal-content {
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif;
   background: rgba(255, 255, 255, 0.82);
   -webkit-backdrop-filter: blur(40px);
   backdrop-filter: blur(40px);
@@ -2026,8 +2033,14 @@
 }
 
 @keyframes call-pulse {
-  0%   { transform: scale(0.95); opacity: 1; }
-  100% { transform: scale(1.15); opacity: 0; }
+  0% {
+    transform: scale(0.95);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1.15);
+    opacity: 0;
+  }
 }
 
 .avatar,
@@ -2041,7 +2054,11 @@
 }
 
 .avatar-fallback {
-  background: linear-gradient(135deg, var(--accent-active) 0%, var(--accent-hover) 100%);
+  background: linear-gradient(
+    135deg,
+    var(--accent-active) 0%,
+    var(--accent-hover) 100%
+  );
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2088,7 +2105,8 @@
 }
 
 .call-button span {
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif;
   font-size: 0.75rem;
   font-weight: 500;
 }
@@ -2100,11 +2118,11 @@
 }
 
 .call-button.reject-button {
-  color: #FF3B30;
+  color: #ff3b30;
 }
 
 .call-button.accept-button {
-  color: #34C759;
+  color: #34c759;
 }
 
 /* Frosted icon container — built via a wrapper approach in CSS */
@@ -2128,12 +2146,12 @@
 
 .call-button.reject-button > *:first-child {
   background: rgba(255, 59, 48, 0.1);
-  color: #FF3B30;
+  color: #ff3b30;
 }
 
 .call-button.accept-button > *:first-child {
   background: rgba(52, 199, 89, 0.1);
-  color: #34C759;
+  color: #34c759;
 }
 
 .call-button.reject-button:hover > *:first-child {
@@ -2162,7 +2180,8 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif;
 }
 
 /* ── Full-screen Video Canvas ────────────────────────── */
@@ -2234,14 +2253,15 @@
   width: 100%;
   height: 100%;
   border-radius: 50%;
-  background: linear-gradient(135deg, #007AFF 0%, #0062CC 100%);
+  background: linear-gradient(135deg, #007aff 0%, #0062cc 100%);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 1.2rem;
   font-weight: 600;
   color: #ffffff;
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif;
 }
 
 .participant-info {
@@ -2457,7 +2477,7 @@
 
 /* End Call — solid red, intentionally heavier weight */
 .action-button.end-call {
-  background: #FF3B30;
+  background: #ff3b30;
   border: none;
   margin-left: 6px;
   box-shadow: 0 4px 16px rgba(255, 59, 48, 0.4);
@@ -2507,19 +2527,21 @@
   width: 100%;
   height: 100%;
   border-radius: 50%;
-  background: linear-gradient(135deg, #007AFF 0%, #0062CC 100%);
+  background: linear-gradient(135deg, #007aff 0%, #0062cc 100%);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 2.5rem;
   font-weight: 600;
   color: #ffffff;
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif;
 }
 
 /* Breathing pulse — Electric Blue */
 @keyframes breathe {
-  0%, 100% {
+  0%,
+  100% {
     transform: scale(1);
     box-shadow:
       0 8px 40px rgba(0, 0, 0, 0.5),
@@ -2548,8 +2570,13 @@
 }
 
 @keyframes pulse-opacity {
-  0%, 100% { opacity: 0.65; }
-  50%       { opacity: 1; }
+  0%,
+  100% {
+    opacity: 0.65;
+  }
+  50% {
+    opacity: 1;
+  }
 }
 
 /* Media Queries--- */

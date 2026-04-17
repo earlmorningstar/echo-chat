@@ -1,7 +1,6 @@
 import React, { useState } from "react";
+import ReactDOM from "react-dom";
 import { IoClose, IoCloudDownloadOutline } from "react-icons/io5";
-import { useCachedImage } from "../utils/imageCache";
-import { useAuth } from "../contexts/AuthContext";
 
 interface ImageViewerProps {
   imageUrl: string;
@@ -14,11 +13,8 @@ const ImageViewer: React.FC<ImageViewerProps> = ({
   fileName,
   onClose,
 }) => {
-  const { token } = useAuth();
-  const { cachedUrl } = useCachedImage(imageUrl, {
-    token: token || undefined,
-  });
   const [isLoading, setIsLoading] = useState(true);
+
   const handleDownload = async (): Promise<void> => {
     try {
       const response = await fetch(imageUrl);
@@ -36,9 +32,12 @@ const ImageViewer: React.FC<ImageViewerProps> = ({
     }
   };
 
-  return (
-    <div className="image-viewer-overlay">
-      <div className="image-viewer-container">
+  return ReactDOM.createPortal(
+    <div className="image-viewer-overlay" onClick={onClose}>
+      <div
+        className="image-viewer-container"
+        onClick={(e) => e.stopPropagation()}
+      >
         <button onClick={onClose} className="image-viewer-button close-button">
           <IoClose size={24} />
         </button>
@@ -51,17 +50,19 @@ const ImageViewer: React.FC<ImageViewerProps> = ({
 
         {isLoading && (
           <div className="loading-backdrop">
-            <div className="loading-spinner"></div>
+            <div className="loading-spinner" />
           </div>
         )}
+
         <img
-          src={cachedUrl}
+          src={imageUrl}
           alt={fileName || "Full size image"}
           className="image-viewer-image"
           onLoad={() => setIsLoading(false)}
         />
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 
