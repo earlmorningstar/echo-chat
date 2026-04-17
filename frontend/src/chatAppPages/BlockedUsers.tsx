@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { IoChevronBackOutline } from "react-icons/io5";
 import { CircularProgress, Snackbar } from "@mui/material";
 import EchoChatLoader from "../pages/EchoChatLoader";
+import UserAvatar from "../components/UserAvatar";
 
 interface BlockedUser {
   _id: string;
@@ -73,7 +74,11 @@ const BlockedUsers: React.FC = () => {
   return (
     <div className="blocked-users-container">
       <div className="blocked-users-header">
-        <span style={{ cursor: "pointer" }} onClick={goBack}>
+        <span
+          className="login-redirection-arrow"
+          style={{ cursor: "pointer" }}
+          onClick={goBack}
+        >
           <IoChevronBackOutline size={25} color="#333" />
         </span>
         <h2>Blocked Users</h2>
@@ -86,18 +91,12 @@ const BlockedUsers: React.FC = () => {
           {blockedUsers.map((user) => (
             <div key={user._id} className="blocked-user-item">
               <div className="blocked-user-avatar-holder">
-                {user.avatarUrl ? (
-                  <img
-                    className="profile-image"
-                    src={user.avatarUrl}
-                    alt={`${user.firstName} ${user.lastName}`}
-                  />
-                ) : (
-                  <div className="default-avatar">
-                    {user.firstName[0]}
-                    {user.lastName[0]}
-                  </div>
-                )}
+                <UserAvatar
+                  avatarUrl={user.avatarUrl}
+                  firstName={user.firstName}
+                  lastName={user.lastName}
+                  className="profile-image"
+                />
               </div>
               <div className="blocked-info-action-flex">
                 <div className="user-info">

@@ -1,33 +1,70 @@
-*{
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
+.holder {
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+  min-height: 100dvh;
+  padding-bottom: calc(64px + env(safe-area-inset-bottom));
 }
 
 .navbar {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    width: 100%;
-    display: flex;
-    justify-content: space-around;
-    background-color: #F3EADD;
-    padding: 10px 0;
-    border-top: 1px solid #5c5b5b;
-    box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.2); 
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+  background: rgba(255, 255, 255, 0.75);
+  -webkit-backdrop-filter: blur(24px);
+  backdrop-filter: blur(24px);
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.06);
+  z-index: 100;
+}
+
+.navbar a {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-button);
+  color: var(--text-muted);
+  text-decoration: none;
+  transition: var(--transition-base);
+  position: relative;
+}
+
+.navbar a:hover {
+  color: var(--text-secondary);
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.navbar a.active {
+  color: var(--accent-active);
+  background: rgba(0, 122, 255, 0.08);
+}
+
+.navbar a.active::after {
+  content: "";
+  position: absolute;
+  bottom: -2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background-color: var(--accent-active);
+  animation: dot-pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes dot-pop {
+  from {
+    transform: translateX(-50%) scale(0);
+    opacity: 0;
   }
-  
-  .navbar a {
-    color: #00000099;
-    text-decoration: none;
+  to {
+    transform: translateX(-50%) scale(1);
+    opacity: 1;
   }
-  
-  .navbar a.active {
-    color: #208d7f; 
-  }
-  
-  .holder {
-   background-color: #F3EADD;
-    color: #ffffff;
-    min-height: 100vh;
-   }
+}

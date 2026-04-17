@@ -89,16 +89,6 @@ const UserProfile: React.FC = () => {
     }
   };
 
-  //initial avatar
-  // const getInitialsAvatar = () => {
-  //   if (!user) return "";
-  //   return `${user.firstName[0]}${user.lastName[0]}`.toUpperCase();
-  // };
-
-  // const getAvatarUrl = () => {
-  //   return user?.avatarUrl;
-  // };
-
   const handleDeleteAccount = async () => {
     try {
       await api.delete("/api/user/profile/delete-account");

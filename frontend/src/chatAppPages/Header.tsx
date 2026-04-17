@@ -32,15 +32,6 @@ const Header: React.FC = () => {
     }
   };
 
-  // const getInitialsAvatar = () => {
-  //   if (!user) return "";
-  //   return `${user.firstName[0]}${user.lastName[0]}`.toUpperCase();
-  // };
-
-  // const getAvatarUrl = () => {
-  //   return user?.avatarUrl;
-  // };
-
   return (
     <header className="header">
       <div>

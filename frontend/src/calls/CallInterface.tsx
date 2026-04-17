@@ -633,14 +633,6 @@ const MediaTrack: React.FC<MediaTrackProps> = ({ track, isLocal }) => {
     // to attach local VIDEO so they can see their own camera preview.
     if (isLocal && track.kind === "audio") return;
 
-    // DIAGNOSTIC: Log track health
-    // const trackSid = (track as unknown as Record<string, unknown>).sid as
-    //   | string
-    //   | undefined;
-    // console.log(
-    //   `[MediaTrack] Attempting to attach ${track.kind} (${track.name}). SID: ${trackSid || "local"}. isEnabled: ${track.isEnabled}`,
-    // );
-
     // Skip if already attached to this ref
     const trackKey = `${track.kind}-${track.name}`;
     if (attachedRef.current === trackKey && ref.current?.firstChild) return;

@@ -1,32 +1,32 @@
 :root {
   /* Arctic Glass Palette */
-  --bg-primary:        #FFFFFF;
-  --bg-secondary:      #F9FAFB;
-  --bg-tertiary:       #F3F4F6;
-  --surface-glass:     rgba(255, 255, 255, 0.65);
-  --surface-border:    rgba(255, 255, 255, 0.9);
-  --text-primary:      #111827;
-  --text-secondary:    #374151;
-  --text-muted:        #9CA3AF;
-  --accent-active:     #007AFF;
-  --accent-hover:      #0062CC;
-  --accent-glow:       rgba(0, 122, 255, 0.2);
-  
+  --bg-primary: #ffffff;
+  --bg-secondary: #f9fafb;
+  --bg-tertiary: #f3f4f6;
+  --surface-glass: rgba(255, 255, 255, 0.65);
+  --surface-border: rgba(255, 255, 255, 0.9);
+  --text-primary: #111827;
+  --text-secondary: #374151;
+  --text-muted: #9ca3af;
+  --accent-active: #007aff;
+  --accent-hover: #0062cc;
+  --accent-glow: rgba(0, 122, 255, 0.2);
+
   /* Elevation & Effects */
-  --shadow-soft:       0 4px 24px rgba(0, 0, 0, 0.06);
-  --shadow-float:      0 8px 40px rgba(0, 0, 0, 0.10);
-  --shadow-elevated:   0 20px 60px rgba(0, 0, 0, 0.13);
-  --blur-glass:        blur(24px);
-  --blur-heavy:        blur(40px);
-  
+  --shadow-soft: 0 4px 24px rgba(0, 0, 0, 0.06);
+  --shadow-float: 0 8px 40px rgba(0, 0, 0, 0.1);
+  --shadow-elevated: 0 20px 60px rgba(0, 0, 0, 0.13);
+  --blur-glass: blur(24px);
+  --blur-heavy: blur(40px);
+
   /* Geometry */
-  --radius-card:       20px;
-  --radius-input:      12px;
-  --radius-button:     12px;
-  --radius-pill:       9999px;
-  
+  --radius-card: 20px;
+  --radius-input: 12px;
+  --radius-button: 12px;
+  --radius-pill: 9999px;
+
   /* Motion */
-  --transition-base:   all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-base: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   --transition-spring: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
@@ -40,7 +40,8 @@
 body {
   background-color: var(--bg-tertiary);
   color: var(--text-primary);
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -80,7 +81,8 @@ body {
 }
 
 /* Typography Hierarchy */
-h1, h2 {
+h1,
+h2 {
   font-weight: 700;
   color: var(--text-primary);
   letter-spacing: -0.02em;
@@ -88,7 +90,8 @@ h1, h2 {
   width: 100%;
 }
 
-p, h4 {
+p,
+h4 {
   font-weight: 400;
   color: var(--text-secondary);
   line-height: 1.5;
@@ -118,7 +121,7 @@ form {
 }
 
 /* Ensure MUI containers span full width of the card */
-form > span, 
+form > span,
 .glass-input-wrapper {
   width: 100%;
   display: flex;
@@ -130,7 +133,7 @@ form > span,
   appearance: none;
   width: 100%;
   background-color: var(--accent-active);
-  color: #FFFFFF;
+  color: #ffffff;
   border: none;
   border-radius: var(--radius-button);
   padding: 16px 24px;
@@ -248,7 +251,7 @@ form > span,
 
 /* Error Page Specifics */
 .error-page-container h2 {
-  color: #EF4444; /* Alert Red for high-priority clinical visibility */
+  color: #ef4444; /* Alert Red for high-priority clinical visibility */
   margin-top: 16px;
 }
 
@@ -260,7 +263,6 @@ form > span,
 
 /* Redirection Arrow (The Back Button) */
 .login-redirection-arrow {
-  position: absolute;
   top: 24px;
   left: 24px;
   width: 44px;
@@ -299,7 +301,7 @@ form > span,
 }
 
 /* MUI Field Overrides - Ensuring 100% card width */
-.MuiFormControl-root, 
+.MuiFormControl-root,
 .MuiTextField-root {
   width: 100% !important;
   margin: 0 0 16px 0 !important;
@@ -325,5 +327,347 @@ body:has(.error-page-container) {
   100% {
     opacity: 1;
     transform: translateY(0) scale(1);
+  }
+}
+
+/* ── Loader Container */
+
+.echochat-loader-container {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--bg-secondary);
+  z-index: 9999;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right)
+    env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+/* ── Skeleton Chat List (background layer) */
+
+.echochat-skeleton {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 80px 12px 12px;
+  overflow: hidden;
+  opacity: 0.55;
+}
+
+.skeleton-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 16px;
+}
+
+.skeleton-avatar {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--bg-tertiary);
+  background: linear-gradient(
+    90deg,
+    var(--bg-tertiary) 25%,
+    rgba(255, 255, 255, 0.7) 50%,
+    var(--bg-tertiary) 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.6s ease-in-out infinite;
+}
+
+.skeleton-item:nth-child(2) .skeleton-avatar {
+  animation-delay: 0.15s;
+}
+.skeleton-item:nth-child(3) .skeleton-avatar {
+  animation-delay: 0.3s;
+}
+.skeleton-item:nth-child(4) .skeleton-avatar {
+  animation-delay: 0.45s;
+}
+
+.skeleton-lines {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.skeleton-line {
+  height: 10px;
+  border-radius: var(--radius-pill);
+  background: var(--bg-tertiary);
+  background: linear-gradient(
+    90deg,
+    var(--bg-tertiary) 25%,
+    rgba(255, 255, 255, 0.7) 50%,
+    var(--bg-tertiary) 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.6s ease-in-out infinite;
+}
+
+.skeleton-line.name {
+  width: 55%;
+  animation-delay: 0.1s;
+}
+.skeleton-line.preview {
+  width: 80%;
+  animation-delay: 0.25s;
+  height: 8px;
+}
+
+.skeleton-item:nth-child(2) .skeleton-line.name {
+  width: 45%;
+}
+.skeleton-item:nth-child(2) .skeleton-line.preview {
+  width: 70%;
+}
+.skeleton-item:nth-child(3) .skeleton-line.name {
+  width: 60%;
+}
+.skeleton-item:nth-child(3) .skeleton-line.preview {
+  width: 50%;
+}
+.skeleton-item:nth-child(4) .skeleton-line.name {
+  width: 40%;
+}
+.skeleton-item:nth-child(4) .skeleton-line.preview {
+  width: 75%;
+}
+
+.skeleton-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.skeleton-line.time {
+  width: 32px;
+  height: 8px;
+  animation-delay: 0.35s;
+}
+
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* ── Frosted Glass Card (foreground layer) ───────────── */
+
+.echochat-loader-card {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 36px 40px 32px;
+  background: rgba(255, 255, 255, 0.75);
+  -webkit-backdrop-filter: blur(40px);
+  backdrop-filter: blur(40px);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-elevated);
+  min-width: 260px;
+  animation: card-surface 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes card-surface {
+  from {
+    opacity: 0;
+    transform: scale(0.92) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* ── Logo */
+
+.echochat-logo-wrapper {
+  position: relative;
+  width: 72px;
+  height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.echochat-pulse-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid rgba(0, 122, 255, 0.3);
+  animation: logo-pulse 1.8s ease-out infinite;
+}
+
+.echochat-pulse-ring.ring-2 {
+  animation-delay: 0.6s;
+  border-color: rgba(0, 122, 255, 0.15);
+}
+
+@keyframes logo-pulse {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1.65);
+    opacity: 0;
+  }
+}
+
+.echochat-logo-circle {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #007aff 0%, #0062cc 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 20px rgba(0, 122, 255, 0.35);
+  animation: logo-breathe 1.8s ease-in-out infinite;
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes logo-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 4px 20px rgba(0, 122, 255, 0.35);
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 6px 28px rgba(0, 122, 255, 0.5);
+  }
+}
+
+.echochat-logo-initial {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: -0.5px;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif;
+}
+
+.echochat-logo-text {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.3px;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif;
+}
+
+/* ── Progress Bar — Progress Illusion ───────────────── */
+
+.echochat-progress-track {
+  width: 100%;
+  height: 3px;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+}
+
+.echochat-progress-fill {
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(90deg, #007aff, #60afff);
+  animation: progress-advance 2.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  transform-origin: left;
+}
+
+@keyframes progress-advance {
+  0% {
+    width: 0%;
+    opacity: 1;
+  }
+  65% {
+    width: 85%;
+    opacity: 1;
+  }
+  85% {
+    width: 92%;
+    opacity: 1;
+  }
+  95% {
+    width: 92%;
+    opacity: 0;
+  }
+  100% {
+    width: 0%;
+    opacity: 0;
+  }
+}
+
+/* ── Cycling Status Messages ─────────────────────────── */
+
+.echochat-status-wrapper {
+  position: relative;
+  height: 18px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.status-msg {
+  position: absolute;
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--text-muted);
+  font-style: italic;
+  white-space: nowrap;
+  opacity: 0;
+  transform: translateY(4px);
+  font-family:
+    -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif;
+}
+
+/* 
+  Each message gets a 7.2s loop.
+  Visible window per message: 2.4s (one progress bar cycle).
+  msg-1 leads, msg-2 and msg-3 follow with 2.4s offsets.
+*/
+
+.msg-1 {
+  animation: status-cycle 7.2s ease-in-out infinite;
+}
+.msg-2 {
+  animation: status-cycle 7.2s ease-in-out infinite 2.4s;
+}
+.msg-3 {
+  animation: status-cycle 7.2s ease-in-out infinite 4.8s;
+}
+
+@keyframes status-cycle {
+  0% {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  8%,
+  70% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  85%,
+  100% {
+    opacity: 0;
+    transform: translateY(-4px);
   }
 }
