@@ -734,7 +734,7 @@
   font-family:
     -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif;
   margin-top: 0;
-  padding: 0;
+  padding: 10px;
 }
 
 /* ── MUI Tabs Override ───────────────────────────────── */
